@@ -1,0 +1,155 @@
+-- DropBite MVP schema (run in Supabase SQL editor, or `supabase db push`)
+-- Matches the data model in CLAUDE.md. All timestamps UTC.
+
+create type meal_slot as enum ('breakfast', 'lunch', 'dinner', 'snack');
+
+-- ---------------------------------------------------------------- users
+create table public.users (
+  id uuid primary key references auth.users (id) on delete cascade,
+  handle text unique not null check (handle ~ '^[a-z0-9_]{2,30}$'),
+  display_name text not null,
+  avatar_url text,
+  avatar_emoji text,
+  bio text,
+  timezone text not null default 'UTC',
+  created_at timestamptz not null default now()
+);
+
+-- -------------------------------------------------------------- follows
+create table public.follows (
+  follower_id uuid not null references public.users (id) on delete cascade,
+  followee_id uuid not null references public.users (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (follower_id, followee_id),
+  check (follower_id <> followee_id)
+);
+
+-- ---------------------------------------------------------------- posts
+create table public.posts (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.users (id) on delete cascade,
+  meal_slot meal_slot not null,
+  photo_url text not null,
+  blurb text not null default '',          -- verbatim user words, source of truth
+  restaurant_place_id text,
+  restaurant_name text,
+  lat double precision,
+  lng double precision,
+  created_at timestamptz not null default now()
+);
+create index posts_user_created_idx on public.posts (user_id, created_at desc);
+create index posts_created_idx on public.posts (created_at desc);
+
+-- -------------------------------------------------------------- recipes
+-- Structured ingredients {item, quantity, unit} are the long-term data asset.
+create table public.recipes (
+  id uuid primary key default gen_random_uuid(),
+  post_id uuid unique not null references public.posts (id) on delete cascade,
+  title text not null,
+  ingredients jsonb not null default '[]'::jsonb,  -- [{item, quantity, unit}]
+  steps jsonb not null default '[]'::jsonb,        -- [string]
+  cook_time_minutes integer,
+  ai_generated boolean not null default false,
+  user_edited boolean not null default false,      -- tracks AI accuracy over time
+  created_at timestamptz not null default now()
+);
+
+-- ------------------------------------------------------------ reactions
+create table public.reactions (
+  post_id uuid not null references public.posts (id) on delete cascade,
+  user_id uuid not null references public.users (id) on delete cascade,
+  type text not null default 'like',
+  created_at timestamptz not null default now(),
+  primary key (post_id, user_id)
+);
+
+-- -------------------------------------------------------------- streaks
+create table public.streaks (
+  user_id uuid primary key references public.users (id) on delete cascade,
+  current_streak integer not null default 0,
+  longest_streak integer not null default 0,
+  last_post_date date
+);
+
+-- ==================================================================== RLS
+alter table public.users enable row level security;
+alter table public.follows enable row level security;
+alter table public.posts enable row level security;
+alter table public.recipes enable row level security;
+alter table public.reactions enable row level security;
+alter table public.streaks enable row level security;
+
+-- users: everyone signed-in can read profiles; you manage your own row
+create policy "users readable" on public.users
+  for select to authenticated using (true);
+create policy "insert own profile" on public.users
+  for insert to authenticated with check (id = auth.uid());
+create policy "update own profile" on public.users
+  for update to authenticated using (id = auth.uid());
+create policy "delete own profile" on public.users
+  for delete to authenticated using (id = auth.uid());
+
+-- follows
+create policy "follows readable" on public.follows
+  for select to authenticated using (true);
+create policy "follow as self" on public.follows
+  for insert to authenticated with check (follower_id = auth.uid());
+create policy "unfollow as self" on public.follows
+  for delete to authenticated using (follower_id = auth.uid());
+
+-- posts: MVP = all signed-in users can read (feed filters client/server-side)
+create policy "posts readable" on public.posts
+  for select to authenticated using (true);
+create policy "create own posts" on public.posts
+  for insert to authenticated with check (user_id = auth.uid());
+create policy "update own posts" on public.posts
+  for update to authenticated using (user_id = auth.uid());
+create policy "delete own posts" on public.posts
+  for delete to authenticated using (user_id = auth.uid());
+
+-- recipes follow their post's owner
+create policy "recipes readable" on public.recipes
+  for select to authenticated using (true);
+create policy "create recipes on own posts" on public.recipes
+  for insert to authenticated with check (
+    exists (select 1 from public.posts p where p.id = post_id and p.user_id = auth.uid())
+  );
+create policy "update recipes on own posts" on public.recipes
+  for update to authenticated using (
+    exists (select 1 from public.posts p where p.id = post_id and p.user_id = auth.uid())
+  );
+create policy "delete recipes on own posts" on public.recipes
+  for delete to authenticated using (
+    exists (select 1 from public.posts p where p.id = post_id and p.user_id = auth.uid())
+  );
+
+-- reactions
+create policy "reactions readable" on public.reactions
+  for select to authenticated using (true);
+create policy "react as self" on public.reactions
+  for insert to authenticated with check (user_id = auth.uid());
+create policy "unreact as self" on public.reactions
+  for delete to authenticated using (user_id = auth.uid());
+
+-- streaks
+create policy "streaks readable" on public.streaks
+  for select to authenticated using (true);
+create policy "upsert own streak" on public.streaks
+  for insert to authenticated with check (user_id = auth.uid());
+create policy "update own streak" on public.streaks
+  for update to authenticated using (user_id = auth.uid());
+
+-- ================================================================ storage
+-- Photo bucket: public read, users write into their own folder.
+insert into storage.buckets (id, name, public) values ('photos', 'photos', true);
+
+create policy "photos public read" on storage.objects
+  for select using (bucket_id = 'photos');
+create policy "upload own photos" on storage.objects
+  for insert to authenticated with check (
+    bucket_id = 'photos' and (storage.foldername(name))[1] = auth.uid()::text
+  );
+create policy "delete own photos" on storage.objects
+  for delete to authenticated using (
+    bucket_id = 'photos' and (storage.foldername(name))[1] = auth.uid()::text
+  );

@@ -1,0 +1,50 @@
+{
+  "expo": {
+    "name": "DropBite",
+    "slug": "dropbite",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "dropbite",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FFF4DE"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.dropbite.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "DropBite uses your camera so you can snap a photo of your meal.",
+        "NSPhotoLibraryUsageDescription": "DropBite lets you pick a meal photo from your library."
+      }
+    },
+    "android": {
+      "package": "com.dropbite.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#E8862E",
+        "foregroundImage": "./assets/adaptive-icon.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "notification": {
+      "color": "#E8862E"
+    },
+    "plugins": [
+      "expo-font",
+      "expo-notifications",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "DropBite lets you pick a meal photo from your library.",
+          "cameraPermission": "DropBite uses your camera so you can snap a photo of your meal."
+        }
+      ]
+    ]
+  }
+}
