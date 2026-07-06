@@ -3,7 +3,7 @@ import { NotificationPrefs } from '../types';
 
 /**
  * Mealtime push notifications via local scheduled notifications
- * (no server needed — they fire in the user's own timezone by definition).
+ * (no server needed; they fire in the user's own timezone by definition).
  * Web: gracefully no-ops.
  */
 
@@ -11,20 +11,20 @@ const SLOT_TIMES: Record<keyof NotificationPrefs, { hour: number; minute: number
   breakfast: {
     hour: 8,
     minute: 0,
-    title: 'Breakfast drop 🍳',
-    body: "What's on your plate this morning? Drop it before it's gone.",
+    title: 'Breakfast on DropBite',
+    body: "What's on your plate this morning? Share it with your friends.",
   },
   lunch: {
     hour: 12,
     minute: 0,
-    title: 'Lunch drop 🥪',
-    body: 'Midday check-in — show your friends what lunch looks like.',
+    title: 'Lunch on DropBite',
+    body: 'Midday check-in. Show your friends what lunch looks like.',
   },
   dinner: {
     hour: 18,
     minute: 0,
-    title: 'Dinner drop 🍲',
-    body: "Dinner time. Cooked or ordered, let's see it.",
+    title: 'Dinner on DropBite',
+    body: 'Dinner time. Cooked or ordered, share it while it is hot.',
   },
 };
 

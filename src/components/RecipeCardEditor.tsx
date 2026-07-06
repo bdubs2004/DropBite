@@ -7,7 +7,7 @@ import { BittenCard } from './ui';
 
 /**
  * The editable AI recipe card. HARD REQUIREMENT (CLAUDE.md): every field is
- * editable inline before posting — AI output is never shipped uncorrected.
+ * editable inline before posting; AI output is never shipped uncorrected.
  */
 export function RecipeCardEditor({
   value,
@@ -33,7 +33,7 @@ export function RecipeCardEditor({
   return (
     <BittenCard>
       <View style={styles.topRow}>
-        <Text style={styles.aiTag}>✨ AI recipe card — tap anything to fix it</Text>
+        <Text style={styles.aiTag}>AI-formatted recipe. Tap any field to edit.</Text>
         <Pressable onPress={onRemove} hitSlop={8}>
           <Text style={styles.remove}>Remove</Text>
         </Pressable>
@@ -48,7 +48,7 @@ export function RecipeCardEditor({
       />
 
       <View style={styles.timeRow}>
-        <Text style={styles.timeLabel}>⏱ Cook time</Text>
+        <Text style={styles.timeLabel}>Cook time</Text>
         <TextInput
           value={value.cook_time_minutes != null ? String(value.cook_time_minutes) : ''}
           onChangeText={(t) => {
@@ -57,7 +57,7 @@ export function RecipeCardEditor({
           }}
           keyboardType="number-pad"
           style={styles.timeInput}
-          placeholder="—"
+          placeholder="0"
           placeholderTextColor={colors.cocoaFaint}
         />
         <Text style={styles.timeLabel}>min</Text>
@@ -96,7 +96,7 @@ export function RecipeCardEditor({
             }
             hitSlop={8}
           >
-            <Text style={styles.rowRemove}>✕</Text>
+            <Text style={styles.rowRemove}>×</Text>
           </Pressable>
         </View>
       ))}
@@ -129,7 +129,7 @@ export function RecipeCardEditor({
             }
             hitSlop={8}
           >
-            <Text style={styles.rowRemove}>✕</Text>
+            <Text style={styles.rowRemove}>×</Text>
           </Pressable>
         </View>
       ))}

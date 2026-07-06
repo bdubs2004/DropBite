@@ -4,21 +4,28 @@ import { colors } from '../theme';
 import { Post } from '../types';
 
 /**
- * Photo-first, always. Real posts show the actual photo; demo seed posts
- * use a warm gradient tile with a big food emoji so the feed looks alive
- * with zero network/API dependencies.
+ * Photo-first, always. Real posts show the actual photo; demo seed posts use
+ * a muted placeholder tile (posts you create use your real camera photos).
  */
-const EMOJI_BG: Record<string, [string, string]> = {
-  '🥞': ['#FDD79B', '#F2A65A'],
-  '🍖': ['#E8A18B', '#B85C43'],
-  '🍔': ['#F4C27A', '#D98E3B'],
-  '🥗': ['#C9E4A5', '#8DBF62'],
-  '🥘': ['#F2B979', '#CE7940'],
-  '🍪': ['#E7C9A1', '#B78B5C'],
-  '🍜': ['#F5D9A0', '#DBA858'],
-  '🌽': ['#F7E08E', '#E3B93E'],
-  '🌮': ['#F3C583', '#D68F45'],
-  '🧇': ['#F1CE93', '#CE9E52'],
+const TILE_TONES: Record<string, [string, string]> = {
+  '🥞': ['#C99B62', '#A87A44'],
+  '🍖': ['#9E5B48', '#7E4235'],
+  '🍔': ['#B0793C', '#8F5E2B'],
+  '🥗': ['#7E9159', '#617442'],
+  '🥘': ['#B06E3D', '#8E552C'],
+  '🍪': ['#A98A62', '#87694A'],
+  '🍜': ['#BC9455', '#99763F'],
+  '🌽': ['#B9A04B', '#968036'],
+  '🌮': ['#AD7A45', '#8B5F32'],
+  '🧇': ['#B18E55', '#8F6F3E'],
+  '🍳': ['#C0975B', '#9C7742'],
+  '🥪': ['#A98E5B', '#877043'],
+  '🍲': ['#9C6247', '#7C4A34'],
+  '🍿': ['#B49C58', '#927D41'],
+  '🍝': ['#AC6E4A', '#8A5336'],
+  '🥩': ['#9D5847', '#7C4034'],
+  '🍣': ['#A08159', '#7F6441'],
+  '🥧': ['#B0854E', '#8D6839'],
 };
 
 export function PostPhoto({ post, ratio = 1.15 }: { post: Post; ratio?: number }) {
@@ -32,13 +39,14 @@ export function PostPhoto({ post, ratio = 1.15 }: { post: Post; ratio?: number }
     );
   }
   const emoji = post.photo_emoji || '🍽️';
-  const [top, bottom] = EMOJI_BG[emoji] ?? ['#F5D9A0', '#DBA858'];
+  const [base, deep] = TILE_TONES[emoji] ?? ['#A98A62', '#87694A'];
   return (
-    <View style={[styles.photo, styles.tile, { aspectRatio: 1 / ratio, backgroundColor: top }]}>
-      {/* fake vertical gradient with an overlay band */}
-      <View style={[styles.gradBottom, { backgroundColor: bottom }]} />
-      <View style={[styles.blob, { backgroundColor: bottom, opacity: 0.35 }]} />
-      <Text style={styles.emoji}>{emoji}</Text>
+    <View style={[styles.photo, styles.tile, { aspectRatio: 1 / ratio, backgroundColor: base }]}>
+      <View style={[styles.shade, { backgroundColor: deep }]} />
+      <View style={styles.plate}>
+        <Text style={styles.emoji}>{emoji}</Text>
+      </View>
+      <Text style={styles.placeholderNote}>Sample photo</Text>
     </View>
   );
 }
@@ -53,29 +61,34 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
   },
-  gradBottom: {
+  shade: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: '55%',
-    opacity: 0.55,
-    borderTopLeftRadius: 200,
-    borderTopRightRadius: 200,
-    transform: [{ scaleX: 1.6 }],
+    left: -80,
+    right: -80,
+    bottom: -140,
+    height: '65%',
+    opacity: 0.5,
+    borderTopLeftRadius: 400,
+    borderTopRightRadius: 400,
   },
-  blob: {
-    position: 'absolute',
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    top: -60,
-    right: -60,
+  plate: {
+    width: 128,
+    height: 128,
+    borderRadius: 64,
+    backgroundColor: 'rgba(255, 244, 222, 0.92)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   emoji: {
-    fontSize: 96,
-    textShadowColor: 'rgba(74,46,18,0.18)',
-    textShadowOffset: { width: 0, height: 6 },
-    textShadowRadius: 12,
+    fontSize: 58,
+  },
+  placeholderNote: {
+    position: 'absolute',
+    bottom: 12,
+    right: 14,
+    fontFamily: 'Nunito_600SemiBold',
+    fontSize: 11,
+    color: 'rgba(255, 244, 222, 0.75)',
+    letterSpacing: 0.4,
   },
 });

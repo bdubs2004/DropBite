@@ -12,12 +12,12 @@ Built with **React Native + Expo (TypeScript)**, **Supabase**, the **Anthropic A
 and **Google Places**. See `PROJECT_SCOPE.md` for product vision and `CLAUDE.md` for
 build conventions.
 
-## ✨ It runs out of the box — no API keys needed
+## It runs out of the box, no API keys needed
 
 The app ships with a **demo mode**: when no Supabase env vars are set, everything runs
 locally on-device (AsyncStorage) with a seeded feed of fake users and posts, a local
-heuristic recipe formatter, and a built-in restaurant list. The full product loop —
-sign up → follow → post → AI recipe card → streak — is testable immediately.
+heuristic recipe formatter, and a built-in restaurant list. The full product loop
+(sign up, follow, post, AI recipe card, streak) is testable immediately.
 
 When you're ready to go live, plug in the real services: **[SETUP_GUIDE.md](SETUP_GUIDE.md)**
 has the step-by-step for running it on your phone and wiring up Supabase, Anthropic,
@@ -47,7 +47,7 @@ npm run web             # or run in a browser
 - Follow system + chronological friends feed with pull-to-refresh
 - Post flow: photo (required) → meal slot (smart default by time of day) → blurb →
   optional AI recipe card → optional restaurant tag
-- AI recipe cleanup: blurb → structured `{title, ingredients[{item,quantity,unit}], steps[], cook_time}` —
+- AI recipe cleanup: blurb to structured `{title, ingredients[{item,quantity,unit}], steps[], cook_time}`,
   **every field editable before posting**, never blocks the post
 - Restaurant tagging (Google Places Text Search in production, demo list offline)
 - Likes (❤️ only for MVP)

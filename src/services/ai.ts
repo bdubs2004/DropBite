@@ -17,7 +17,7 @@ export interface FormattedRecipe {
  * the Anthropic API key server-side (never ship the key in the app).
  * Demo mode: a local heuristic parser so the flow is fully testable offline.
  *
- * Always parse defensively — on any failure return null and let the UI fall
+ * Always parse defensively: on any failure return null and let the UI fall
  * back to blurb-only. Formatting must never block a post.
  */
 export async function formatRecipe(blurb: string): Promise<FormattedRecipe | null> {
@@ -59,7 +59,7 @@ function sanitize(data: any): FormattedRecipe | null {
 }
 
 // ---------------------------------------------------------------------------
-// Demo-mode heuristic formatter. Deliberately simple — the point is to make
+// Demo-mode heuristic formatter. Deliberately simple; the point is to make
 // the editable-recipe-card flow testable before the Anthropic key is wired in.
 // ---------------------------------------------------------------------------
 
@@ -150,7 +150,7 @@ export function heuristicFormat(blurb: string): FormattedRecipe {
     is_recipe: true,
     title,
     ingredients,
-    steps: steps.length ? steps : ['Cook it the way you described 🙂 — edit me!'],
+    steps: steps.length ? steps : ['Cook it the way you described. Edit this card to add detail.'],
     cook_time_minutes: cookTime,
   };
 }

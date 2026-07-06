@@ -19,9 +19,10 @@ export const colors = {
 };
 
 export const fonts = {
-  // Baloo 2 for display / wordmark, Nunito for body
-  display: 'Baloo2_800ExtraBold',
-  displaySemi: 'Baloo2_600SemiBold',
+  // Baloo 2 is reserved for the brand wordmark only; Nunito everywhere else
+  // keeps the interface clean and grown-up.
+  wordmark: 'Baloo2_800ExtraBold',
+  display: 'Nunito_800ExtraBold',
   bold: 'Nunito_700Bold',
   semi: 'Nunito_600SemiBold',
   regular: 'Nunito_400Regular',
@@ -72,10 +73,10 @@ export const shadowSoft = Platform.select({
 
 export const MEAL_SLOT_META: Record<
   string,
-  { label: string; emoji: string; color: string; bg: string }
+  { label: string; color: string; bg: string }
 > = {
-  breakfast: { label: 'Breakfast', emoji: '🍳', color: '#B06A14', bg: '#FDE8C8' },
-  lunch: { label: 'Lunch', emoji: '🥪', color: '#7A7A18', bg: '#F0F0C9' },
-  dinner: { label: 'Dinner', emoji: '🍲', color: '#8C3A2E', bg: '#F8DCD2' },
-  snack: { label: 'Snack', emoji: '🍿', color: '#6A4A8C', bg: '#E9DFF5' },
+  breakfast: { label: 'Breakfast', color: '#9A5E12', bg: '#F7E7CB' },
+  lunch: { label: 'Lunch', color: '#6B6B1E', bg: '#EDEDCF' },
+  dinner: { label: 'Dinner', color: '#7E3B30', bg: '#F2DDD5' },
+  snack: { label: 'Snack', color: '#5E4A7D', bg: '#E6E0EF' },
 };

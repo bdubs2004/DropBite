@@ -6,8 +6,10 @@ import {
   Nunito_400Regular,
   Nunito_600SemiBold,
   Nunito_700Bold,
+  Nunito_800ExtraBold,
   useFonts,
 } from '@expo-google-fonts/nunito';
+import { Ionicons } from '@expo/vector-icons';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -31,11 +33,11 @@ const Tab = createBottomTabNavigator();
 function TabBar({ state, navigation }: any) {
   const insets = useSafeAreaInsets();
   const tabs = [
-    { name: 'Feed', icon: '🏠', label: 'Feed' },
-    { name: 'Friends', icon: '🧑‍🤝‍🧑', label: 'Friends' },
-    { name: '__post', icon: '+', label: '' },
-    { name: 'Profile', icon: '🙂', label: 'Profile' },
-  ];
+    { name: 'Feed', icon: 'home-outline', iconActive: 'home', label: 'Feed' },
+    { name: 'Friends', icon: 'people-outline', iconActive: 'people', label: 'Friends' },
+    { name: '__post', icon: 'add', iconActive: 'add', label: '' },
+    { name: 'Profile', icon: 'person-outline', iconActive: 'person', label: 'Profile' },
+  ] as const;
   return (
     <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
       {tabs.map((t) => {
@@ -43,10 +45,11 @@ function TabBar({ state, navigation }: any) {
           return (
             <Pressable
               key={t.name}
+              testID="tab-post"
               style={styles.postBtn}
               onPress={() => navigation.getParent()?.navigate('Compose')}
             >
-              <Text style={styles.postBtnText}>+</Text>
+              <Ionicons name="add" size={30} color={colors.white} />
             </Pressable>
           );
         }
@@ -58,7 +61,11 @@ function TabBar({ state, navigation }: any) {
             style={styles.tabItem}
             onPress={() => navigation.navigate(t.name)}
           >
-            <Text style={[styles.tabIcon, active && styles.tabIconActive]}>{t.icon}</Text>
+            <Ionicons
+              name={active ? t.iconActive : t.icon}
+              size={23}
+              color={active ? colors.amberDark : colors.cocoaFaint}
+            />
             <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>{t.label}</Text>
           </Pressable>
         );
@@ -112,6 +119,7 @@ export default function App() {
     Nunito_400Regular,
     Nunito_600SemiBold,
     Nunito_700Bold,
+    Nunito_800ExtraBold,
   });
   if (!fontsLoaded) {
     return <View style={styles.splash} />;
@@ -136,7 +144,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   splashWord: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.wordmark,
     fontSize: 34,
     color: colors.cocoa,
     marginTop: 12,
@@ -156,13 +164,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 18,
     paddingVertical: 2,
-  },
-  tabIcon: {
-    fontSize: 22,
-    opacity: 0.45,
-  },
-  tabIconActive: {
-    opacity: 1,
   },
   tabLabel: {
     fontFamily: fonts.bold,
@@ -184,11 +185,5 @@ const styles = StyleSheet.create({
     borderWidth: 4,
     borderColor: colors.cream,
     ...(shadow as object),
-  },
-  postBtnText: {
-    color: colors.white,
-    fontSize: 30,
-    lineHeight: 34,
-    fontFamily: fonts.display,
   },
 });

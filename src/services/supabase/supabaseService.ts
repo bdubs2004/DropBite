@@ -55,7 +55,7 @@ export class SupabaseService implements DataService {
       id: data.user.id,
       handle: input.handle.trim().toLowerCase().replace(/[^a-z0-9_]/g, ''),
       display_name: input.display_name.trim(),
-      avatar_emoji: input.avatar_emoji ?? '😋',
+      avatar_emoji: input.avatar_emoji ?? null,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC',
     };
     const { data: created, error: pErr } = await this.sb

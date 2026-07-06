@@ -92,7 +92,7 @@ export function FriendsScreen({ navigation }: any) {
         }}
         ListEmptyComponent={
           <Muted style={{ textAlign: 'center', marginTop: spacing.xl }}>
-            No one found — invite your friends!
+            No one found. Invite your friends to join.
           </Muted>
         }
       />

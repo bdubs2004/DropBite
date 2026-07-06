@@ -6,6 +6,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LogoLockup } from '../components/Logo';
 import { PostCard } from '../components/PostCard';
@@ -35,7 +36,8 @@ export function FeedScreen({ navigation }: any) {
       <View style={styles.header}>
         <LogoLockup height={30} />
         <View style={styles.streakPill}>
-          <Text style={styles.streakText}>🔥 {streak?.current_streak ?? 0}</Text>
+          <Ionicons name="flame" size={15} color={colors.amber} />
+          <Text style={styles.streakText}>{streak?.current_streak ?? 0}</Text>
         </View>
       </View>
 
@@ -57,10 +59,10 @@ export function FeedScreen({ navigation }: any) {
         ListEmptyComponent={
           feedLoading ? null : (
             <View style={styles.empty}>
-              <Text style={styles.emptyEmoji}>🍽️</Text>
+              <Ionicons name="restaurant-outline" size={44} color={colors.cocoaFaint} />
               <Text style={styles.emptyTitle}>Nothing on the table yet</Text>
               <Muted style={{ textAlign: 'center' }}>
-                Follow some friends in the Friends tab, or drop your first meal with the + button.
+                Follow people in the Friends tab, or share your first meal with the + button.
               </Muted>
             </View>
           )
@@ -83,6 +85,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
   streakPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     backgroundColor: colors.white,
     borderRadius: radius.pill,
     paddingHorizontal: 12,
@@ -92,7 +97,7 @@ const styles = StyleSheet.create({
   },
   streakText: {
     fontFamily: fonts.display,
-    fontSize: 15,
+    fontSize: 14,
     color: colors.cocoa,
   },
   empty: {
@@ -100,14 +105,10 @@ const styles = StyleSheet.create({
     padding: spacing.xxl,
     marginTop: 60,
   },
-  emptyEmoji: {
-    fontSize: 52,
-    marginBottom: spacing.md,
-  },
   emptyTitle: {
     fontFamily: fonts.display,
-    fontSize: 20,
+    fontSize: 19,
     color: colors.cocoa,
-    marginBottom: spacing.sm,
+    marginVertical: spacing.md,
   },
 });

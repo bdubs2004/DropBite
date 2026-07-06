@@ -93,7 +93,7 @@ export const SEED_POSTS: SeedPost[] = [
       ],
       steps: [
         'Whisk dry ingredients together.',
-        'Beat eggs into buttermilk, fold into dry mix — lumps are fine.',
+        'Beat eggs into buttermilk, fold into dry mix. Lumps are fine.',
         'Griddle on medium with too much butter. Flip when bubbly.',
       ],
       cook_time_minutes: 20,
@@ -236,7 +236,7 @@ export const SEED_POSTS: SeedPost[] = [
     meal_slot: 'breakfast',
     photo_url: null,
     photo_emoji: '🍜',
-    blurb: 'Pho for breakfast because rules are fake. Broth simmered overnight — the house smells incredible.',
+    blurb: 'Pho for breakfast because rules are fake. Broth simmered overnight and the house smells incredible.',
     restaurant_place_id: null,
     restaurant_name: null,
     lat: null,

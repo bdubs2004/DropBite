@@ -11,10 +11,10 @@ export function RecipeCardView({ recipe }: { recipe: Recipe }) {
       <Text style={styles.title}>{recipe.title}</Text>
       <View style={styles.metaRow}>
         {recipe.cook_time_minutes ? (
-          <Text style={styles.metaChip}>⏱ {formatTime(recipe.cook_time_minutes)}</Text>
+          <Text style={styles.metaChip}>{formatTime(recipe.cook_time_minutes)}</Text>
         ) : null}
         {recipe.ai_generated ? (
-          <Text style={styles.metaChip}>✨ AI-formatted{recipe.user_edited ? ' · edited' : ''}</Text>
+          <Text style={styles.metaChip}>AI-formatted{recipe.user_edited ? ' · edited' : ''}</Text>
         ) : null}
       </View>
 

@@ -98,7 +98,7 @@ export class MockService implements DataService {
     const handle = input.handle.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
     if (!handle) throw new Error('Pick a handle (letters, numbers, underscores).');
     if (db.credentials.some((c) => c.email === email)) {
-      throw new Error('That email already has an account — sign in instead.');
+      throw new Error('That email already has an account. Sign in instead.');
     }
     if (db.users.some((u) => u.handle === handle)) {
       throw new Error('That handle is taken, try another.');
@@ -108,7 +108,7 @@ export class MockService implements DataService {
       handle,
       display_name: input.display_name.trim() || handle,
       avatar_url: null,
-      avatar_emoji: input.avatar_emoji ?? '😋',
+      avatar_emoji: input.avatar_emoji ?? null,
       bio: null,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC',
       created_at: new Date().toISOString(),

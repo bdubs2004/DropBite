@@ -15,8 +15,6 @@ import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
 import { colors, fonts, radius, spacing } from '../theme';
 
-const AVATAR_CHOICES = ['😋', '👩‍🍳', '👨🏾‍🍳', '🧑🏻‍🍳', '🍕', '🥑', '🌶️', '🧁'];
-
 export function AuthScreen() {
   const { setUser } = useApp();
   const svc = getDataService();
@@ -25,7 +23,6 @@ export function AuthScreen() {
   const [password, setPassword] = useState('');
   const [handle, setHandle] = useState('');
   const [displayName, setDisplayName] = useState('');
-  const [avatar, setAvatar] = useState('😋');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,7 +37,6 @@ export function AuthScreen() {
               password,
               handle,
               display_name: displayName,
-              avatar_emoji: avatar,
             })
           : await svc.signIn(email, password);
       setUser(user);
@@ -63,9 +59,11 @@ export function AuthScreen() {
     >
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.hero}>
-          <LogoMark size={84} />
+          <LogoMark size={76} />
           <Text style={styles.wordmark}>dropbite</Text>
-          <Text style={styles.tagline}>drop what you're eating. see what friends are cooking.</Text>
+          <Text style={styles.tagline}>
+            Share what you actually cook and eat, meal by meal.
+          </Text>
         </View>
 
         <View style={styles.card}>
@@ -105,18 +103,6 @@ export function AuthScreen() {
                 autoCapitalize="none"
                 autoCorrect={false}
               />
-              <Text style={styles.avatarLabel}>Pick an avatar</Text>
-              <View style={styles.avatarRow}>
-                {AVATAR_CHOICES.map((a) => (
-                  <Pressable
-                    key={a}
-                    onPress={() => setAvatar(a)}
-                    style={[styles.avatarChoice, avatar === a && styles.avatarChosen]}
-                  >
-                    <Text style={{ fontSize: 24 }}>{a}</Text>
-                  </Pressable>
-                ))}
-              </View>
             </>
           ) : null}
 
@@ -131,7 +117,7 @@ export function AuthScreen() {
           />
           <Input
             label="Password"
-            placeholder="at least 6 characters"
+            placeholder="At least 6 characters"
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -140,7 +126,7 @@ export function AuthScreen() {
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <Button
-            title={mode === 'signup' ? "Let's eat 🍽️" : 'Welcome back'}
+            title={mode === 'signup' ? 'Create account' : 'Sign in'}
             onPress={submit}
             disabled={!valid}
             loading={busy}
@@ -149,8 +135,8 @@ export function AuthScreen() {
 
           {DEMO_MODE ? (
             <Muted style={{ textAlign: 'center', marginTop: spacing.md }}>
-              Demo mode — everything is stored on this device. Plug in Supabase to go live
-              (see SETUP_GUIDE.md).
+              Demo mode: everything is stored on this device. See SETUP_GUIDE.md to
+              connect the live backend.
             </Muted>
           ) : null}
         </View>
@@ -173,18 +159,18 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   wordmark: {
-    fontFamily: fonts.display,
-    fontSize: 40,
+    fontFamily: fonts.wordmark,
+    fontSize: 38,
     color: colors.cocoa,
     marginTop: spacing.sm,
     letterSpacing: -0.5,
   },
   tagline: {
     fontFamily: fonts.semi,
-    fontSize: 14,
+    fontSize: 14.5,
     color: colors.cocoaSoft,
     textAlign: 'center',
-    marginTop: 2,
+    marginTop: 4,
   },
   card: {
     backgroundColor: colors.white,
@@ -214,34 +200,6 @@ const styles = StyleSheet.create({
   },
   tabTextActive: {
     color: colors.white,
-  },
-  avatarLabel: {
-    fontFamily: fonts.bold,
-    color: colors.cocoaSoft,
-    fontSize: 13,
-    marginBottom: 6,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-  },
-  avatarRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: spacing.md,
-  },
-  avatarChoice: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.cream,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  avatarChosen: {
-    borderColor: colors.amber,
-    backgroundColor: colors.creamDark,
   },
   error: {
     fontFamily: fonts.bold,

@@ -6,6 +6,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '../components/Avatar';
 import { PostCard } from '../components/PostCard';
@@ -96,11 +97,17 @@ export function ProfileScreen({ navigation, route }: any) {
 
         <View style={styles.streakRow}>
           <View style={styles.streakBadge}>
-            <Text style={styles.streakBig}>🔥 {streak?.current_streak ?? 0}</Text>
+            <View style={styles.streakValue}>
+              <Ionicons name="flame" size={16} color={colors.amber} />
+              <Text style={styles.streakBig}>{streak?.current_streak ?? 0}</Text>
+            </View>
             <Muted>day streak</Muted>
           </View>
           <View style={styles.streakBadge}>
-            <Text style={styles.streakBig}>🏆 {streak?.longest_streak ?? 0}</Text>
+            <View style={styles.streakValue}>
+              <Ionicons name="trophy" size={15} color={colors.amber} />
+              <Text style={styles.streakBig}>{streak?.longest_streak ?? 0}</Text>
+            </View>
             <Muted>best streak</Muted>
           </View>
         </View>
@@ -122,7 +129,7 @@ export function ProfileScreen({ navigation, route }: any) {
         )}
       </View>
       {posts.length ? (
-        <Text style={styles.sectionTitle}>{isMe ? 'My drops' : 'Drops'}</Text>
+        <Text style={styles.sectionTitle}>Posts</Text>
       ) : null}
     </View>
   );
@@ -138,7 +145,7 @@ export function ProfileScreen({ navigation, route }: any) {
         ListEmptyComponent={
           loading ? null : (
             <Muted style={{ textAlign: 'center', marginTop: spacing.xl }}>
-              No drops yet.
+              No posts yet.
             </Muted>
           )
         }
@@ -220,6 +227,11 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     alignItems: 'center',
     paddingVertical: spacing.md,
+  },
+  streakValue: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   streakBig: {
     fontFamily: fonts.display,

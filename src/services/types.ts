@@ -8,7 +8,7 @@ import {
 
 /**
  * Everything the UI needs from a backend. Two implementations:
- *  - MockService (demo mode, AsyncStorage, seeded data — zero keys needed)
+ *  - MockService (demo mode, AsyncStorage, seeded data, zero keys needed)
  *  - SupabaseService (production, activated by EXPO_PUBLIC_SUPABASE_* env vars)
  */
 export interface DataService {

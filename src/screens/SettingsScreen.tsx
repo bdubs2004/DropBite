@@ -91,14 +91,14 @@ export function SettingsScreen({ navigation }: any) {
     >
       <View style={styles.headerRow}>
         <Pressable onPress={() => navigation.goBack()} hitSlop={10}>
-          <Text style={styles.back}>← Back</Text>
+          <Text style={styles.back}>Back</Text>
         </Pressable>
       </View>
       <ScreenTitle>Settings</ScreenTitle>
       {DEMO_MODE ? (
         <Muted style={{ marginTop: 4 }}>
-          Demo mode — data lives on this device only. See SETUP_GUIDE.md to plug in the real
-          backend.
+          Demo mode: data lives on this device only. See SETUP_GUIDE.md to connect the
+          live backend.
         </Muted>
       ) : null}
 
@@ -112,24 +112,24 @@ export function SettingsScreen({ navigation }: any) {
       <Text style={styles.section}>Mealtime notifications</Text>
       <Card>
         <PrefRow
-          label="🍳 Breakfast (~8:00)"
+          label="Breakfast, around 8:00 AM"
           value={prefs.breakfast}
           onChange={() => togglePref('breakfast')}
         />
         <PrefRow
-          label="🥪 Lunch (~12:00)"
+          label="Lunch, around 12:00 PM"
           value={prefs.lunch}
           onChange={() => togglePref('lunch')}
         />
         <PrefRow
-          label="🍲 Dinner (~18:00)"
+          label="Dinner, around 6:00 PM"
           value={prefs.dinner}
           onChange={() => togglePref('dinner')}
           last
         />
         <Muted style={{ marginTop: spacing.md }}>
-          Times follow your phone's timezone. Snacks never ping — they're anytime.
-          {Platform.OS === 'web' ? ' (Notifications are mobile-only.)' : ''}
+          Times follow your phone's timezone. Snacks never send reminders.
+          {Platform.OS === 'web' ? ' Notifications are mobile-only.' : ''}
         </Muted>
       </Card>
 
@@ -163,7 +163,7 @@ export function SettingsScreen({ navigation }: any) {
             </View>
           </View>
         ) : (
-          <Button title="Delete account…" variant="danger" onPress={askDelete} />
+          <Button title="Delete account" variant="danger" onPress={askDelete} />
         )}
       </Card>
 

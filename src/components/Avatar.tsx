@@ -1,7 +1,13 @@
 import React from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
-import { colors } from '../theme';
+import { colors, fonts } from '../theme';
 import { User } from '../types';
+
+function initials(name?: string | null): string {
+  if (!name) return '·';
+  const parts = name.trim().split(/\s+/).slice(0, 2);
+  return parts.map((p) => p.charAt(0).toUpperCase()).join('');
+}
 
 export function Avatar({ user, size = 44 }: { user?: User | null; size?: number }) {
   const style = {
@@ -14,8 +20,15 @@ export function Avatar({ user, size = 44 }: { user?: User | null; size?: number 
   }
   return (
     <View style={[styles.fallback, style]}>
-      <Text style={{ fontSize: size * 0.52, lineHeight: size * 0.7 }}>
-        {user?.avatar_emoji || '🍽️'}
+      <Text
+        style={{
+          fontFamily: fonts.display,
+          fontSize: size * 0.38,
+          color: colors.white,
+          letterSpacing: 0.5,
+        }}
+      >
+        {initials(user?.display_name)}
       </Text>
     </View>
   );
@@ -26,10 +39,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.creamDark,
   },
   fallback: {
-    backgroundColor: colors.creamDark,
+    backgroundColor: colors.amber,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: colors.amberSoft,
   },
 });

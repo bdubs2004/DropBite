@@ -59,7 +59,7 @@ Deno.serve(async (req: Request) => {
     const data = await resp.json();
     const text: string = data?.content?.[0]?.text ?? '';
 
-    // Parse defensively — never let a bad AI response block the post.
+    // Parse defensively. Never let a bad AI response block the post.
     let parsed: unknown = null;
     try {
       parsed = JSON.parse(text);

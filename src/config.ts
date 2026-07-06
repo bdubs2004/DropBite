@@ -1,6 +1,6 @@
 /**
  * Central config. All external services read their keys from EXPO_PUBLIC_*
- * env vars (set them in a .env file — see .env.example / SETUP_GUIDE.md).
+ * env vars (set them in a .env file; see .env.example / SETUP_GUIDE.md).
  *
  * When Supabase env vars are missing the app runs in DEMO MODE:
  * a fully local, seeded experience backed by AsyncStorage so you can
@@ -17,7 +17,7 @@ export const DEMO_MODE = !SUPABASE_URL || !SUPABASE_ANON_KEY;
  * AI recipe formatting model + prompt live here so cost/quality tuning is
  * one edit (CLAUDE.md: "Keep prompts and model choice in one config module").
  * The real call happens server-side in the Supabase Edge Function
- * (supabase/functions/format-recipe) — never put an Anthropic key in the app.
+ * (supabase/functions/format-recipe). Never put an Anthropic key in the app.
  */
 export const AI_CONFIG = {
   model: 'claude-haiku-4-5-20251001',

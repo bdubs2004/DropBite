@@ -1,6 +1,7 @@
+import { Ionicons } from '@expo/vector-icons';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import {
   Image,
   KeyboardAvoidingView,
@@ -24,8 +25,8 @@ import { MealSlot, PlaceResult } from '../types';
 
 const SLOTS: MealSlot[] = ['breakfast', 'lunch', 'dinner', 'snack'];
 
-/** Demo-friendly stand-in "photos" for testing on web where camera is awkward. */
-const EMOJI_PHOTOS = ['🍳', '🥪', '🍲', '🍿', '🍝', '🥩', '🍣', '🥧'];
+/** Placeholder "photos" for testing on web/simulator where the camera is awkward. */
+const PLACEHOLDER_PHOTOS = ['🍳', '🥪', '🍲', '🍿', '🍝', '🥩', '🍣', '🥧'];
 
 export function ComposeScreen({ navigation }: any) {
   const { refreshFeed } = useApp();
@@ -73,7 +74,7 @@ export function ComposeScreen({ navigation }: any) {
       setPhotoUri(manipulated.uri);
       setPhotoEmoji(null);
     } catch {
-      // camera unavailable (e.g. web) — no-op, user can pick from library/emoji
+      // camera unavailable (e.g. web); user can pick from library or a placeholder
     }
   };
 
@@ -133,8 +134,6 @@ export function ComposeScreen({ navigation }: any) {
     }
   };
 
-  const slotMeta = MEAL_SLOT_META[slot];
-
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: colors.cream }}
@@ -148,53 +147,53 @@ export function ComposeScreen({ navigation }: any) {
           <Pressable onPress={() => navigation.goBack()} hitSlop={10}>
             <Text style={styles.cancel}>Cancel</Text>
           </Pressable>
-          <Text style={styles.title}>Drop a bite</Text>
+          <Text style={styles.title}>New post</Text>
           <View style={{ width: 50 }} />
         </View>
 
-        {/* 1 — photo (required) */}
-        <Text style={styles.stepLabel}>📸 Photo — no photo, no post</Text>
+        {/* 1: photo (required) */}
+        <Text style={styles.stepLabel}>Photo</Text>
         {photoUri ? (
           <View>
             <Image source={{ uri: photoUri }} style={styles.photoPreview} />
             <Pressable onPress={() => setPhotoUri(null)} style={styles.photoClear}>
-              <Text style={styles.photoClearText}>✕</Text>
+              <Ionicons name="close" size={18} color={colors.white} />
             </Pressable>
           </View>
         ) : photoEmoji ? (
           <View style={[styles.photoPreview, styles.emojiPreview]}>
-            <Text style={{ fontSize: 84 }}>{photoEmoji}</Text>
+            <Text style={{ fontSize: 76 }}>{photoEmoji}</Text>
             <Pressable onPress={() => setPhotoEmoji(null)} style={styles.photoClear}>
-              <Text style={styles.photoClearText}>✕</Text>
+              <Ionicons name="close" size={18} color={colors.white} />
             </Pressable>
           </View>
         ) : (
           <View>
             <View style={styles.photoButtons}>
               <Pressable style={styles.photoBtn} onPress={() => pickPhoto(true)}>
-                <Text style={styles.photoBtnEmoji}>📷</Text>
+                <Ionicons name="camera-outline" size={26} color={colors.cocoaSoft} />
                 <Text style={styles.photoBtnText}>Camera</Text>
               </Pressable>
               <Pressable style={styles.photoBtn} onPress={() => pickPhoto(false)}>
-                <Text style={styles.photoBtnEmoji}>🖼️</Text>
+                <Ionicons name="image-outline" size={26} color={colors.cocoaSoft} />
                 <Text style={styles.photoBtnText}>Library</Text>
               </Pressable>
             </View>
             <Muted style={{ marginTop: spacing.sm }}>
-              …or use a quick stand-in for testing:
+              A photo is required. Testing without a camera? Use a placeholder:
             </Muted>
             <View style={styles.emojiRow}>
-              {EMOJI_PHOTOS.map((e) => (
+              {PLACEHOLDER_PHOTOS.map((e) => (
                 <Pressable key={e} style={styles.emojiChip} onPress={() => setPhotoEmoji(e)}>
-                  <Text style={{ fontSize: 26 }}>{e}</Text>
+                  <Text style={{ fontSize: 24 }}>{e}</Text>
                 </Pressable>
               ))}
             </View>
           </View>
         )}
 
-        {/* 2 — meal slot */}
-        <Text style={styles.stepLabel}>🍽️ Meal</Text>
+        {/* 2: meal slot */}
+        <Text style={styles.stepLabel}>Meal</Text>
         <View style={styles.slotRow}>
           {SLOTS.map((s) => {
             const m = MEAL_SLOT_META[s];
@@ -210,17 +209,20 @@ export function ComposeScreen({ navigation }: any) {
                 ]}
               >
                 <Text style={[styles.slotChipText, { color: active ? m.color : colors.cocoaFaint }]}>
-                  {m.emoji} {m.label}
+                  {m.label}
                 </Text>
               </Pressable>
             );
           })}
         </View>
 
-        {/* 3 — blurb */}
-        <Text style={styles.stepLabel}>✍️ What is it? (your words, always shown)</Text>
+        {/* 3: blurb */}
+        <Text style={styles.stepLabel}>Description</Text>
+        <Muted style={{ marginBottom: spacing.sm }}>
+          Your own words, shown on the post exactly as written.
+        </Muted>
         <Input
-          placeholder={'"chicken thing with garlic and whatever…"'}
+          placeholder="Seared chicken thighs with garlic and a splash of cream..."
           value={blurb}
           onChangeText={(t) => {
             setBlurb(t);
@@ -229,11 +231,11 @@ export function ComposeScreen({ navigation }: any) {
           multiline
         />
 
-        {/* 4 — AI recipe card (optional, only on demand) */}
+        {/* 4: AI recipe card (optional, only on demand) */}
         {!recipe ? (
           <View>
             <Button
-              title={formatting ? 'Formatting…' : '✨ Format as recipe card'}
+              title={formatting ? 'Formatting' : 'Format as recipe card'}
               variant="secondary"
               onPress={runFormat}
               disabled={blurb.trim().length < 12}
@@ -241,13 +243,14 @@ export function ComposeScreen({ navigation }: any) {
             />
             {formatFailed === 'not-recipe' ? (
               <Muted style={{ marginTop: spacing.sm }}>
-                That doesn't look like a cooking description — no card needed. Your blurb is
-                the post. 👍
+                That reads like a meal out rather than a cooking description, so no recipe
+                card is needed. Your description is the post.
               </Muted>
             ) : null}
             {formatFailed === 'error' ? (
               <Muted style={{ marginTop: spacing.sm }}>
-                Couldn't format right now — your post works fine without it, or try again.
+                Formatting is unavailable right now. Your post works fine without it, or
+                try again in a moment.
               </Muted>
             ) : null}
           </View>
@@ -262,26 +265,27 @@ export function ComposeScreen({ navigation }: any) {
           />
         )}
 
-        {/* 5 — restaurant tag (optional) */}
-        <Text style={styles.stepLabel}>📍 Ate out? Tag the spot (optional)</Text>
+        {/* 5: restaurant tag (optional) */}
+        <Text style={styles.stepLabel}>Restaurant (optional)</Text>
         {place ? (
           <View style={styles.placeSelected}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.placeName}>📍 {place.name}</Text>
+            <Ionicons name="location-sharp" size={16} color={colors.amberDark} />
+            <View style={{ flex: 1, marginLeft: 6 }}>
+              <Text style={styles.placeName}>{place.name}</Text>
               <Muted>{place.address}</Muted>
             </View>
             <Pressable onPress={() => setPlace(null)} hitSlop={8}>
-              <Text style={styles.placeClearText}>✕</Text>
+              <Ionicons name="close" size={18} color={colors.cocoaSoft} />
             </Pressable>
           </View>
         ) : (
           <View>
             <Input
-              placeholder="Search restaurants…"
+              placeholder="Search restaurants"
               value={placeQuery}
               onChangeText={runPlaceSearch}
             />
-            {searching ? <Muted>Searching…</Muted> : null}
+            {searching ? <Muted>Searching</Muted> : null}
             {placeResults.map((p) => (
               <Pressable
                 key={p.place_id}
@@ -300,7 +304,7 @@ export function ComposeScreen({ navigation }: any) {
         )}
 
         <Button
-          title={posting ? 'Dropping…' : 'Drop it 🍽️'}
+          title={posting ? 'Posting' : 'Post'}
           onPress={post}
           disabled={!canPost}
           loading={posting}
@@ -308,7 +312,7 @@ export function ComposeScreen({ navigation }: any) {
         />
         {!hasPhoto ? (
           <Muted style={{ textAlign: 'center', marginTop: spacing.sm }}>
-            Add a photo to post — DropBite is photo-first.
+            Add a photo to post. DropBite is photo-first.
           </Muted>
         ) : null}
       </ScrollView>
@@ -338,15 +342,15 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: fonts.display,
-    fontSize: 22,
+    fontSize: 20,
     color: colors.cocoa,
   },
   stepLabel: {
     fontFamily: fonts.bold,
-    fontSize: 13,
+    fontSize: 12.5,
     color: colors.cocoaSoft,
     textTransform: 'uppercase',
-    letterSpacing: 0.7,
+    letterSpacing: 0.9,
     marginTop: spacing.xl,
     marginBottom: spacing.sm,
   },
@@ -358,15 +362,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.white,
     borderRadius: radius.lg,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: colors.creamDark,
     borderStyle: 'dashed',
     alignItems: 'center',
     paddingVertical: spacing.xl,
-  },
-  photoBtnEmoji: {
-    fontSize: 30,
-    marginBottom: 4,
+    gap: 6,
   },
   photoBtnText: {
     fontFamily: fonts.bold,
@@ -380,9 +381,9 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   emojiChip: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     backgroundColor: colors.white,
     alignItems: 'center',
     justifyContent: 'center',
@@ -398,7 +399,7 @@ const styles = StyleSheet.create({
   emojiPreview: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.amberSoft,
+    backgroundColor: '#B08D5E',
   },
   photoClear: {
     position: 'absolute',
@@ -411,11 +412,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  photoClearText: {
-    color: colors.white,
-    fontFamily: fonts.bold,
-    fontSize: 15,
-  },
   slotRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -423,7 +419,7 @@ const styles = StyleSheet.create({
   },
   slotChip: {
     borderRadius: radius.pill,
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     paddingVertical: 9,
     borderWidth: 1.5,
     borderColor: colors.creamDark,
@@ -453,11 +449,5 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
     fontSize: 15,
     color: colors.cocoa,
-  },
-  placeClearText: {
-    color: colors.cocoaSoft,
-    fontFamily: fonts.bold,
-    fontSize: 16,
-    paddingHorizontal: 6,
   },
 });

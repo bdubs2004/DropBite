@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { relativeTime } from '../lib/time';
@@ -33,9 +34,7 @@ export function PostCard({
           </View>
         </Pressable>
         <View style={[styles.slotPill, { backgroundColor: slot.bg }]}>
-          <Text style={[styles.slotText, { color: slot.color }]}>
-            {slot.emoji} {slot.label}
-          </Text>
+          <Text style={[styles.slotText, { color: slot.color }]}>{slot.label}</Text>
         </View>
       </View>
 
@@ -46,28 +45,35 @@ export function PostCard({
       <View style={styles.body}>
         <View style={styles.actionsRow}>
           <Pressable onPress={() => onToggleLike(post)} style={styles.likeBtn} hitSlop={8}>
-            <Text style={[styles.likeIcon, post.reacted_by_me && styles.liked]}>
-              {post.reacted_by_me ? '❤️' : '🤍'}
-            </Text>
+            <Ionicons
+              name={post.reacted_by_me ? 'heart' : 'heart-outline'}
+              size={22}
+              color={post.reacted_by_me ? colors.danger : colors.cocoaSoft}
+            />
             <Text style={styles.likeCount}>{post.reaction_count ?? 0}</Text>
           </Pressable>
           {post.restaurant_name ? (
             <View style={styles.placeTag}>
+              <Ionicons name="location-sharp" size={13} color={colors.amberDark} />
               <Text style={styles.placeText} numberOfLines={1}>
-                📍 {post.restaurant_name}
+                {post.restaurant_name}
               </Text>
             </View>
           ) : null}
         </View>
 
-        {/* The user's own words, front and center — never replaced by AI */}
+        {/* The user's own words, front and center. Never replaced by AI. */}
         <Text style={styles.blurb}>{post.blurb}</Text>
 
         {post.recipe ? (
           <Pressable onPress={() => setShowRecipe((v) => !v)} style={styles.recipeToggle}>
-            <Text style={styles.recipeToggleText}>
-              {showRecipe ? 'Hide recipe card ▲' : `📖 ${post.recipe.title} ▼`}
-            </Text>
+            <Ionicons name="book-outline" size={14} color={colors.amberDark} />
+            <Text style={styles.recipeToggleText}>{post.recipe.title}</Text>
+            <Ionicons
+              name={showRecipe ? 'chevron-up' : 'chevron-down'}
+              size={14}
+              color={colors.amberDark}
+            />
           </Pressable>
         ) : null}
         {showRecipe && post.recipe ? (
@@ -113,13 +119,14 @@ const styles = StyleSheet.create({
   },
   slotPill: {
     borderRadius: radius.pill,
-    paddingHorizontal: 10,
+    paddingHorizontal: 11,
     paddingVertical: 5,
     marginLeft: spacing.sm,
   },
   slotText: {
     fontFamily: fonts.bold,
     fontSize: 12,
+    letterSpacing: 0.3,
   },
   body: {
     padding: spacing.lg,
@@ -135,12 +142,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: spacing.md,
   },
-  likeIcon: {
-    fontSize: 20,
-  },
-  liked: {
-    transform: [{ scale: 1.05 }],
-  },
   likeCount: {
     fontFamily: fonts.bold,
     color: colors.cocoaSoft,
@@ -149,12 +150,16 @@ const styles = StyleSheet.create({
   },
   placeTag: {
     flex: 1,
-    alignItems: 'flex-end',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 3,
   },
   placeText: {
     fontFamily: fonts.semi,
     fontSize: 12.5,
     color: colors.amberDark,
+    flexShrink: 1,
   },
   blurb: {
     fontFamily: fonts.semi,
@@ -165,6 +170,9 @@ const styles = StyleSheet.create({
   recipeToggle: {
     marginTop: spacing.md,
     alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     backgroundColor: colors.cream,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.md,

@@ -81,7 +81,7 @@ export function Card({ children, style }: { children: React.ReactNode; style?: V
   return <View style={[styles.card, style]}>{children}</View>;
 }
 
-/** Recipe cards get a "bitten" top-right corner — the brand motif. */
+/** Recipe cards get a "bitten" top-right corner, the brand motif. */
 export function BittenCard({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
   return (
     <View style={[styles.card, styles.bittenCard, style]}>
