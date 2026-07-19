@@ -45,7 +45,7 @@ export function FriendsScreen({ navigation }: any) {
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <ScreenTitle>Friends</ScreenTitle>
+        <ScreenTitle>Discover</ScreenTitle>
         <Muted>Follow people to fill your feed.</Muted>
       </View>
       <View style={{ paddingHorizontal: spacing.lg }}>

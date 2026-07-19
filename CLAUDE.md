@@ -1,4 +1,4 @@
-# CLAUDE.md — Build Guide for DropBite
+# CLAUDE.md: Build Guide for nibl
 
 This file instructs Claude Code on how to build this project. Read PROJECT_SCOPE.md first for full product context. This file is the how; that file is the why.
 

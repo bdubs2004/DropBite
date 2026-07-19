@@ -1,4 +1,4 @@
-# Project Scope — DropBite (Working Title: TBD)
+# Project Scope: nibl (formerly DropBite)
 
 ## 1. Vision
 
@@ -94,11 +94,11 @@ Only after Phase 1 retention is proven.
 
 ## 7. Brand Identity (Decided)
 
-- **Name:** DropBite — "drop" = the BeReal-style posting mechanic; "bite" = food. A known fishing-lure brand shares the name in an unrelated trademark class; low confusion risk, but run USPTO clearance with an attorney before filing. Verify App Store name, domain, and social handles.
-- **Logo:** "The Bitten Drop" — a droplet with a bite taken out and crumbs floating away. Master files: `dropbite-logo.svg` (lockup), `dropbite-icon.svg` (mark only), `dropbite-appicon.svg` (1024×1024 store icon).
+- **Name:** nibl, spelled with one b ("nibbl" is already taken). Short for "nibble": small bites, shared casually. Run USPTO clearance with an attorney before filing. Verify App Store name, domain, and social handles for the one-b spelling.
+- **Logo:** "The Fork Bubble": a fork inside a speech bubble (food + conversation) with a bite taken out of the corner and crumbs floating away, on a warm amber gradient. Master files: `assets/nibl-mark.png` (mark), `assets/icon.png` (1024x1024 store icon), `assets/adaptive-icon.png` (Android), `assets/splash-icon.png`.
 - **Palette:** Amber `#E8862E`, Cream `#FFF4DE`, Cocoa ink `#4A2E12`.
-- **Wordmark type:** Baloo 2 ExtraBold, lowercase ("dropbite"). Convert text to outlines before print/production use.
-- **Motif:** bite-and-crumbs carries through the product — bitten corners on recipe cards, crumb-trail loaders, etc.
+- **Wordmark type:** Baloo 2 ExtraBold, lowercase ("nibl"). Convert text to outlines before print/production use.
+- **Motif:** bite-and-crumbs carries through the product: bitten corners on recipe cards, crumb details by the logo, etc.
 
 ## 8. Open Questions / Decisions Deferred
 

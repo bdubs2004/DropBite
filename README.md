@@ -43,6 +43,12 @@ npm run web             # or run in a browser
 | --- | --- | --- |
 | ![Recipe](docs/screenshots/08-recipe-card.png) | ![Profile](docs/screenshots/12-profile.png) | ![Settings](docs/screenshots/13-settings.png) |
 
+| Discover | Search | Restaurant tagging |
+| --- | --- | --- |
+| ![Discover](docs/screenshots/11-discover.png) | ![Search](docs/screenshots/14-search.png) | ![Places](docs/screenshots/09-places.png) |
+
+The full walkthrough set (sign-up through posting) lives in `docs/screenshots/`.
+
 ## What's in the MVP (Phase 1)
 
 - Email auth + profiles (display name, handle, emoji avatar, bio)
