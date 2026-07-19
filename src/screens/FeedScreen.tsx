@@ -62,7 +62,7 @@ export function FeedScreen({ navigation }: any) {
               <Ionicons name="restaurant-outline" size={44} color={colors.cocoaFaint} />
               <Text style={styles.emptyTitle}>Nothing on the table yet</Text>
               <Muted style={{ textAlign: 'center' }}>
-                Follow people in the Friends tab, or share your first meal with the + button.
+                Follow people in the Discover tab, or share your first meal with the + button.
               </Muted>
             </View>
           )

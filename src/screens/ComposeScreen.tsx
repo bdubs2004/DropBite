@@ -25,9 +25,6 @@ import { MealSlot, PlaceResult } from '../types';
 
 const SLOTS: MealSlot[] = ['breakfast', 'lunch', 'dinner', 'snack'];
 
-/** Placeholder "photos" for testing on web/simulator where the camera is awkward. */
-const PLACEHOLDER_PHOTOS = ['🍳', '🥪', '🍲', '🍿', '🍝', '🥩', '🍣', '🥧'];
-
 export function ComposeScreen({ navigation }: any) {
   const { refreshFeed } = useApp();
   const insets = useSafeAreaInsets();
@@ -42,6 +39,7 @@ export function ComposeScreen({ navigation }: any) {
   const [formatting, setFormatting] = useState(false);
   const [formatFailed, setFormatFailed] = useState<null | 'not-recipe' | 'error'>(null);
 
+  const [tagsOpen, setTagsOpen] = useState(false);
   const [placeQuery, setPlaceQuery] = useState('');
   const [placeResults, setPlaceResults] = useState<PlaceResult[]>([]);
   const [place, setPlace] = useState<PlaceResult | null>(null);
@@ -171,28 +169,70 @@ export function ComposeScreen({ navigation }: any) {
           <View>
             <View style={styles.photoButtons}>
               <Pressable style={styles.photoBtn} onPress={() => pickPhoto(true)}>
-                <Ionicons name="camera-outline" size={26} color={colors.cocoaSoft} />
+                <Ionicons name="camera" size={28} color={colors.amber} />
                 <Text style={styles.photoBtnText}>Camera</Text>
               </Pressable>
               <Pressable style={styles.photoBtn} onPress={() => pickPhoto(false)}>
-                <Ionicons name="image-outline" size={26} color={colors.cocoaSoft} />
+                <Ionicons name="image" size={28} color={colors.amber} />
                 <Text style={styles.photoBtnText}>Library</Text>
               </Pressable>
-            </View>
-            <Muted style={{ marginTop: spacing.sm }}>
-              A photo is required. Testing without a camera? Use a placeholder:
-            </Muted>
-            <View style={styles.emojiRow}>
-              {PLACEHOLDER_PHOTOS.map((e) => (
-                <Pressable key={e} style={styles.emojiChip} onPress={() => setPhotoEmoji(e)}>
-                  <Text style={{ fontSize: 24 }}>{e}</Text>
-                </Pressable>
-              ))}
             </View>
           </View>
         )}
 
-        {/* 2: meal slot */}
+        {/* 2: tags (restaurant) */}
+        <Text style={styles.stepLabel}>Tags</Text>
+        {place ? (
+          <View style={styles.tagRow}>
+            <Ionicons name="location-sharp" size={20} color={colors.amber} />
+            <View style={{ flex: 1, marginLeft: spacing.md }}>
+              <Text style={styles.tagText}>{place.name}</Text>
+              <Muted>{place.address}</Muted>
+            </View>
+            <Pressable onPress={() => setPlace(null)} hitSlop={8}>
+              <Ionicons name="close" size={18} color={colors.cocoaSoft} />
+            </Pressable>
+          </View>
+        ) : (
+          <View>
+            <Pressable style={styles.tagRow} onPress={() => setTagsOpen((v) => !v)}>
+              <Ionicons name="pricetag" size={20} color={colors.amber} />
+              <Text style={[styles.tagText, { flex: 1, marginLeft: spacing.md }]}>Tag</Text>
+              <Ionicons
+                name={tagsOpen ? 'chevron-up' : 'chevron-down'}
+                size={18}
+                color={colors.amberDark}
+              />
+            </Pressable>
+            {tagsOpen ? (
+              <View style={{ marginTop: spacing.sm }}>
+                <Input
+                  placeholder="Search restaurants"
+                  value={placeQuery}
+                  onChangeText={runPlaceSearch}
+                />
+                {searching ? <Muted>Searching</Muted> : null}
+                {placeResults.map((p) => (
+                  <Pressable
+                    key={p.place_id}
+                    style={styles.placeRow}
+                    onPress={() => {
+                      setPlace(p);
+                      setPlaceResults([]);
+                      setPlaceQuery('');
+                      setTagsOpen(false);
+                    }}
+                  >
+                    <Text style={styles.placeName}>{p.name}</Text>
+                    <Muted>{p.address}</Muted>
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
+          </View>
+        )}
+
+        {/* 3: meal slot */}
         <Text style={styles.stepLabel}>Meal</Text>
         <View style={styles.slotRow}>
           {SLOTS.map((s) => {
@@ -216,7 +256,7 @@ export function ComposeScreen({ navigation }: any) {
           })}
         </View>
 
-        {/* 3: blurb */}
+        {/* 4: blurb */}
         <Text style={styles.stepLabel}>Description</Text>
         <Muted style={{ marginBottom: spacing.sm }}>
           Your own words, shown on the post exactly as written.
@@ -231,7 +271,7 @@ export function ComposeScreen({ navigation }: any) {
           multiline
         />
 
-        {/* 4: AI recipe card (optional, only on demand) */}
+        {/* 5: AI recipe card (optional, only on demand) */}
         {!recipe ? (
           <View>
             <Button
@@ -265,46 +305,8 @@ export function ComposeScreen({ navigation }: any) {
           />
         )}
 
-        {/* 5: restaurant tag (optional) */}
-        <Text style={styles.stepLabel}>Restaurant (optional)</Text>
-        {place ? (
-          <View style={styles.placeSelected}>
-            <Ionicons name="location-sharp" size={16} color={colors.amberDark} />
-            <View style={{ flex: 1, marginLeft: 6 }}>
-              <Text style={styles.placeName}>{place.name}</Text>
-              <Muted>{place.address}</Muted>
-            </View>
-            <Pressable onPress={() => setPlace(null)} hitSlop={8}>
-              <Ionicons name="close" size={18} color={colors.cocoaSoft} />
-            </Pressable>
-          </View>
-        ) : (
-          <View>
-            <Input
-              placeholder="Search restaurants"
-              value={placeQuery}
-              onChangeText={runPlaceSearch}
-            />
-            {searching ? <Muted>Searching</Muted> : null}
-            {placeResults.map((p) => (
-              <Pressable
-                key={p.place_id}
-                style={styles.placeRow}
-                onPress={() => {
-                  setPlace(p);
-                  setPlaceResults([]);
-                  setPlaceQuery('');
-                }}
-              >
-                <Text style={styles.placeName}>{p.name}</Text>
-                <Muted>{p.address}</Muted>
-              </Pressable>
-            ))}
-          </View>
-        )}
-
         <Button
-          title={posting ? 'Posting' : 'Post'}
+          title={posting ? 'Sharing' : 'Share post'}
           onPress={post}
           disabled={!canPost}
           loading={posting}
@@ -374,21 +376,18 @@ const styles = StyleSheet.create({
     color: colors.cocoaSoft,
     fontSize: 14,
   },
-  emojiRow: {
+  tagRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: spacing.sm,
-  },
-  emojiChip: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: colors.white,
     alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: colors.creamDark,
+    backgroundColor: colors.white,
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 15,
+  },
+  tagText: {
+    fontFamily: fonts.bold,
+    fontSize: 16,
+    color: colors.cocoa,
   },
   photoPreview: {
     width: '100%',
@@ -435,15 +434,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     borderWidth: 1,
     borderColor: colors.hairline,
-  },
-  placeSelected: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.white,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    borderWidth: 1.5,
-    borderColor: colors.amberSoft,
   },
   placeName: {
     fontFamily: fonts.bold,

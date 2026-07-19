@@ -23,6 +23,7 @@ import { ComposeScreen } from './src/screens/ComposeScreen';
 import { FeedScreen } from './src/screens/FeedScreen';
 import { FriendsScreen } from './src/screens/FriendsScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
+import { SearchScreen } from './src/screens/SearchScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { AppProvider, useApp } from './src/state/AppContext';
 import { colors, fonts, radius, shadow } from './src/theme';
@@ -33,9 +34,10 @@ const Tab = createBottomTabNavigator();
 function TabBar({ state, navigation }: any) {
   const insets = useSafeAreaInsets();
   const tabs = [
-    { name: 'Feed', icon: 'home-outline', iconActive: 'home', label: 'Feed' },
-    { name: 'Friends', icon: 'people-outline', iconActive: 'people', label: 'Friends' },
+    { name: 'Feed', icon: 'home-outline', iconActive: 'home', label: 'Home' },
+    { name: 'Discover', icon: 'compass-outline', iconActive: 'compass', label: 'Discover' },
     { name: '__post', icon: 'add', iconActive: 'add', label: '' },
+    { name: 'Search', icon: 'search-outline', iconActive: 'search', label: 'Search' },
     { name: 'Profile', icon: 'person-outline', iconActive: 'person', label: 'Profile' },
   ] as const;
   return (
@@ -81,7 +83,8 @@ function Tabs() {
       tabBar={(props) => <TabBar {...props} />}
     >
       <Tab.Screen name="Feed" component={FeedScreen} />
-      <Tab.Screen name="Friends" component={FriendsScreen} />
+      <Tab.Screen name="Discover" component={FriendsScreen} />
+      <Tab.Screen name="Search" component={SearchScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
@@ -162,8 +165,9 @@ const styles = StyleSheet.create({
   },
   tabItem: {
     alignItems: 'center',
-    paddingHorizontal: 18,
+    paddingHorizontal: 10,
     paddingVertical: 2,
+    minWidth: 62,
   },
   tabLabel: {
     fontFamily: fonts.bold,

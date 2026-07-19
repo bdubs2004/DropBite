@@ -52,7 +52,7 @@ export const SEED_USERS: User[] = [
   },
   {
     id: 'u-mike',
-    handle: 'mikeeatsout',
+    handle: 'mikeruiz',
     display_name: 'Mike Ruiz',
     avatar_url: null,
     avatar_emoji: '🧔',
@@ -69,6 +69,7 @@ interface SeedPost extends Post {
 export const SEED_POSTS: SeedPost[] = [
   {
     id: 'p1',
+    comment_count: 2, share_count: 1, repost_count: 1,
     user_id: 'u-marge',
     meal_slot: 'breakfast',
     photo_url: null,
@@ -103,6 +104,7 @@ export const SEED_POSTS: SeedPost[] = [
   },
   {
     id: 'p2',
+    comment_count: 4, share_count: 2, repost_count: 1,
     user_id: 'u-dan',
     meal_slot: 'dinner',
     photo_url: null,
@@ -135,6 +137,7 @@ export const SEED_POSTS: SeedPost[] = [
   },
   {
     id: 'p3',
+    comment_count: 1, share_count: 0, repost_count: 0,
     user_id: 'u-mike',
     meal_slot: 'lunch',
     photo_url: null,
@@ -150,6 +153,7 @@ export const SEED_POSTS: SeedPost[] = [
   },
   {
     id: 'p4',
+    comment_count: 3, share_count: 1, repost_count: 0,
     user_id: 'u-lily',
     meal_slot: 'lunch',
     photo_url: null,
@@ -184,6 +188,7 @@ export const SEED_POSTS: SeedPost[] = [
   },
   {
     id: 'p5',
+    comment_count: 5, share_count: 2, repost_count: 2,
     user_id: 'u-carol',
     meal_slot: 'dinner',
     photo_url: null,
@@ -218,6 +223,7 @@ export const SEED_POSTS: SeedPost[] = [
   },
   {
     id: 'p6',
+    comment_count: 2, share_count: 0, repost_count: 0,
     user_id: 'u-marge',
     meal_slot: 'snack',
     photo_url: null,

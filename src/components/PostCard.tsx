@@ -18,6 +18,7 @@ export function PostCard({
   onPressUser?: (userId: string) => void;
 }) {
   const [showRecipe, setShowRecipe] = useState(false);
+  const [bookmarked, setBookmarked] = useState(false);
   const slot = MEAL_SLOT_META[post.meal_slot];
 
   return (
@@ -44,23 +45,47 @@ export function PostCard({
       {/* actions + blurb */}
       <View style={styles.body}>
         <View style={styles.actionsRow}>
-          <Pressable onPress={() => onToggleLike(post)} style={styles.likeBtn} hitSlop={8}>
+          <Pressable onPress={() => onToggleLike(post)} style={styles.actionBtn} hitSlop={8}>
             <Ionicons
               name={post.reacted_by_me ? 'heart' : 'heart-outline'}
-              size={22}
+              size={23}
               color={post.reacted_by_me ? colors.danger : colors.cocoaSoft}
             />
-            <Text style={styles.likeCount}>{post.reaction_count ?? 0}</Text>
+            <Text style={styles.actionCount}>{post.reaction_count ?? 0}</Text>
           </Pressable>
-          {post.restaurant_name ? (
-            <View style={styles.placeTag}>
-              <Ionicons name="location-sharp" size={13} color={colors.amberDark} />
-              <Text style={styles.placeText} numberOfLines={1}>
-                {post.restaurant_name}
-              </Text>
-            </View>
-          ) : null}
+          <View style={styles.actionBtn}>
+            <Ionicons name="chatbubble-outline" size={21} color={colors.cocoaSoft} />
+            <Text style={styles.actionCount}>{post.comment_count ?? 0}</Text>
+          </View>
+          <View style={styles.actionBtn}>
+            <Ionicons name="paper-plane-outline" size={21} color={colors.cocoaSoft} />
+            <Text style={styles.actionCount}>{post.share_count ?? 0}</Text>
+          </View>
+          <View style={styles.actionBtn}>
+            <Ionicons name="repeat-outline" size={23} color={colors.cocoaSoft} />
+            <Text style={styles.actionCount}>{post.repost_count ?? 0}</Text>
+          </View>
+          <Pressable
+            onPress={() => setBookmarked((v) => !v)}
+            style={styles.bookmarkBtn}
+            hitSlop={8}
+          >
+            <Ionicons
+              name={bookmarked ? 'bookmark' : 'bookmark-outline'}
+              size={21}
+              color={bookmarked ? colors.amberDark : colors.cocoaSoft}
+            />
+          </Pressable>
         </View>
+
+        {post.restaurant_name ? (
+          <View style={styles.placeTag}>
+            <Ionicons name="location-sharp" size={13} color={colors.amberDark} />
+            <Text style={styles.placeText} numberOfLines={1}>
+              {post.restaurant_name}
+            </Text>
+          </View>
+        ) : null}
 
         {/* The user's own words, front and center. Never replaced by AI. */}
         <Text style={styles.blurb}>{post.blurb}</Text>
@@ -136,24 +161,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: spacing.sm,
+    gap: spacing.xl,
   },
-  likeBtn: {
+  actionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginRight: spacing.md,
+    gap: 6,
   },
-  likeCount: {
+  actionCount: {
     fontFamily: fonts.bold,
     color: colors.cocoaSoft,
-    marginLeft: 6,
     fontSize: 14,
   },
-  placeTag: {
+  bookmarkBtn: {
     flex: 1,
+    alignItems: 'flex-end',
+  },
+  placeTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
     gap: 3,
+    marginBottom: spacing.xs,
   },
   placeText: {
     fontFamily: fonts.semi,

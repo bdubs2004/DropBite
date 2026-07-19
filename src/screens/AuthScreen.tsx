@@ -61,9 +61,7 @@ export function AuthScreen() {
         <View style={styles.hero}>
           <LogoMark size={76} />
           <Text style={styles.wordmark}>dropbite</Text>
-          <Text style={styles.tagline}>
-            Share what you actually cook and eat, meal by meal.
-          </Text>
+          <Text style={styles.tagline}>Share what you eat, meal by meal</Text>
         </View>
 
         <View style={styles.card}>

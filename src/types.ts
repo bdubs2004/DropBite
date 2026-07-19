@@ -42,6 +42,10 @@ export interface Post {
   lat: number | null;
   lng: number | null;
   created_at: string;
+  /** Display-only engagement counts (comments/shares/reposts land in Phase 2) */
+  comment_count?: number;
+  share_count?: number;
+  repost_count?: number;
   // hydrated client-side
   user?: User;
   recipe?: Recipe | null;
