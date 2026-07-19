@@ -11,19 +11,19 @@ const SLOT_TIMES: Record<keyof NotificationPrefs, { hour: number; minute: number
   breakfast: {
     hour: 8,
     minute: 0,
-    title: 'Breakfast on DropBite',
+    title: 'Breakfast on nibl',
     body: "What's on your plate this morning? Share it with your friends.",
   },
   lunch: {
     hour: 12,
     minute: 0,
-    title: 'Lunch on DropBite',
+    title: 'Lunch on nibl',
     body: 'Midday check-in. Show your friends what lunch looks like.',
   },
   dinner: {
     hour: 18,
     minute: 0,
-    title: 'Dinner on DropBite',
+    title: 'Dinner on nibl',
     body: 'Dinner time. Cooked or ordered, share it while it is hot.',
   },
 };

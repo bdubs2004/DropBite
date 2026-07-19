@@ -60,7 +60,7 @@ export function SearchScreen({ navigation }: any) {
         <Muted>Find people, dishes, and restaurants.</Muted>
       </View>
       <View style={{ paddingHorizontal: spacing.lg }}>
-        <Input placeholder="Search DropBite" value={query} onChangeText={setQuery} />
+        <Input placeholder="Search nibl" value={query} onChangeText={setQuery} />
       </View>
       <FlatList
         data={posts}

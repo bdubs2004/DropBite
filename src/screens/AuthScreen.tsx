@@ -60,8 +60,8 @@ export function AuthScreen() {
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.hero}>
           <LogoMark size={76} />
-          <Text style={styles.wordmark}>dropbite</Text>
-          <Text style={styles.tagline}>Share what you eat, meal by meal</Text>
+          <Text style={styles.wordmark}>nibl</Text>
+          <Text style={styles.tagline}>Share bites. Discover favorites. Connect over food.</Text>
         </View>
 
         <View style={styles.card}>

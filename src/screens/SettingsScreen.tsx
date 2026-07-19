@@ -53,11 +53,11 @@ export function SettingsScreen({ navigation }: any) {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'dropbite-export.json';
+        a.download = 'nibl-export.json';
         a.click();
         URL.revokeObjectURL(url);
       } else {
-        await Share.share({ message: json, title: 'My DropBite data' });
+        await Share.share({ message: json, title: 'My nibl data' });
       }
     } finally {
       setExporting(false);

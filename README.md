@@ -1,8 +1,10 @@
 <p align="center">
-  <img src="assets/logo-lockup.png" alt="DropBite" width="360" />
+  <img src="assets/nibl-mark.png" alt="nibl" width="140" />
 </p>
 
-# DropBite
+# nibl
+
+**Share bites. Discover favorites. Connect over food.**
 
 A photo-first social app for sharing what you actually cook and eat, meal by meal.
 BeReal energy, restructured around breakfast / lunch / dinner / snacks. Casual blurbs
@@ -84,5 +86,6 @@ supabase/
 
 ## Brand
 
-Amber `#E8862E` · Cream `#FFF4DE` · Cocoa `#4A2E12` · Baloo 2 ExtraBold wordmark ·
-bitten-drop mark with crumb details (recipe cards carry the bitten-corner motif).
+Name: **nibl** (one b). Mark: a fork in a speech bubble with a bite taken out of the
+corner and crumbs. Amber `#E8862E` · Cream `#FFF4DE` · Cocoa `#4A2E12` · Baloo 2
+ExtraBold wordmark (lowercase) · recipe cards carry the bitten-corner motif.

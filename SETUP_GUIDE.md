@@ -1,4 +1,4 @@
-# DropBite Launch & Wiring Guide
+# nibl Launch & Wiring Guide
 
 Two parts:
 

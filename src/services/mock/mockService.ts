@@ -12,7 +12,7 @@ import {
 import { DataService } from '../types';
 import { SEED_FOLLOWING, SEED_POSTS, SEED_REACTIONS, SEED_USERS } from './seed';
 
-const KEY = 'dropbite.demo.v1';
+const KEY = 'nibl.demo.v1';
 
 interface Db {
   users: User[];

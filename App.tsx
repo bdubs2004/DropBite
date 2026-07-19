@@ -96,7 +96,7 @@ function Root() {
     return (
       <View style={styles.splash}>
         <LogoMark size={96} />
-        <Text style={styles.splashWord}>dropbite</Text>
+        <Text style={styles.splashWord}>nibl</Text>
       </View>
     );
   }

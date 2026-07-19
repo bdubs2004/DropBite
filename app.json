@@ -1,12 +1,12 @@
 {
   "expo": {
-    "name": "DropBite",
-    "slug": "dropbite",
+    "name": "nibl",
+    "slug": "nibl",
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "scheme": "dropbite",
+    "scheme": "nibl",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -14,16 +14,16 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.dropbite.app",
+      "bundleIdentifier": "com.nibl.app",
       "infoPlist": {
-        "NSCameraUsageDescription": "DropBite uses your camera so you can snap a photo of your meal.",
-        "NSPhotoLibraryUsageDescription": "DropBite lets you pick a meal photo from your library."
+        "NSCameraUsageDescription": "nibl uses your camera so you can snap a photo of your meal.",
+        "NSPhotoLibraryUsageDescription": "nibl lets you pick a meal photo from your library."
       }
     },
     "android": {
-      "package": "com.dropbite.app",
+      "package": "com.nibl.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E8862E",
+        "backgroundColor": "#EE8C28",
         "foregroundImage": "./assets/adaptive-icon.png"
       },
       "predictiveBackGestureEnabled": false
@@ -41,8 +41,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "DropBite lets you pick a meal photo from your library.",
-          "cameraPermission": "DropBite uses your camera so you can snap a photo of your meal."
+          "photosPermission": "nibl lets you pick a meal photo from your library.",
+          "cameraPermission": "nibl uses your camera so you can snap a photo of your meal."
         }
       ]
     ]

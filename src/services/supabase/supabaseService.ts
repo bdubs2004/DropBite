@@ -10,7 +10,7 @@ import { DataService } from '../types';
 import { getSupabase } from './client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const PREFS_KEY = 'dropbite.notification.prefs';
+const PREFS_KEY = 'nibl.notification.prefs';
 
 /**
  * Production backend. Requires the schema in supabase/schema.sql and the
