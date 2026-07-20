@@ -49,17 +49,17 @@ npm run web
 ```
 
 Opens at <http://localhost:8081>. Tip: press F12 → toggle the device toolbar and pick
-"iPhone 14 Pro" so you see it at phone proportions. Camera/notifications are limited on
-web, so use the placeholder photo chips in the compose screen when testing there.
+"iPhone 14 Pro" so you see it at phone proportions. On web the Camera tile is limited,
+so use the Library tile to pick an image file; notifications are mobile-only.
 
 ### A4. What to test (the core loop)
 
 1. Sign up. The feed is already full (you auto-follow the seed users).
-2. Tap **+**, pick a photo (or a placeholder chip), confirm the meal slot (pre-selected
+2. Tap **+**, pick a photo with Camera or Library, confirm the meal slot (pre-selected
    by time of day), and write a description like *"browned chicken thighs with 3 cloves
    garlic and 2 tbsp butter, simmered 15 min"*.
 3. Tap **Format as recipe card**, fix any field inline (that's the point), tag a
-   restaurant, then tap **Post**.
+   restaurant under **Tags**, then tap **Share post**.
 4. Your post appears at the top of the feed and your streak increments.
 5. Check Profile (stats, streaks, your posts) and Settings (notification toggles,
    data export, account deletion; both really work).
