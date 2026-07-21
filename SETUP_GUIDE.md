@@ -1,8 +1,10 @@
-# nibl Launch & Wiring Guide
+# nibl Launch & Wiring Guide (VS Code)
 
-Two parts:
+Everything in this guide happens inside **Visual Studio Code**: you'll clone the
+project, run commands in VS Code's built-in terminal, and edit config files in the
+editor. Two parts:
 
-- **Part A: run the test app** on your phone or laptop (5 minutes, zero API keys)
+- **Part A: run the test app** on your phone or laptop (about 10 minutes, zero API keys)
 - **Part B: plug in the APIs** so every feature runs for real (Supabase, then Anthropic, Google Places, and push)
 
 ---
@@ -13,46 +15,94 @@ Demo mode is automatic whenever Supabase env vars are missing. You get a seeded 
 (5 fake users, ~10 posts), local sign-up, AI-card formatting via a built-in parser,
 and a demo restaurant list. Everything is stored on the device.
 
-### A1. Prerequisites (laptop)
+### A1. Install the tools (one time)
 
-1. Install **Node.js 20+** from <https://nodejs.org> (LTS is fine).
-2. Clone/download this repo, then in a terminal:
+1. **VS Code:** <https://code.visualstudio.com> (download, install, open it).
+2. **Node.js 20+ (LTS):** <https://nodejs.org>. Use the default installer options.
+3. **Git:** <https://git-scm.com/downloads> (on Mac, VS Code will offer to install
+   it for you the first time you need it).
+
+> If VS Code was already open while you installed Node or Git, fully quit and
+> reopen it so the new tools are picked up.
+
+### A2. Get the project into VS Code
+
+1. Open VS Code.
+2. Press `Ctrl+Shift+P` (Mac: `Cmd+Shift+P`) to open the Command Palette, type
+   **Git: Clone**, and press Enter.
+3. Paste the repository URL:
+
+   ```
+   https://github.com/bdubs2004/DropBite.git
+   ```
+
+   Pick a folder to clone into (Documents is fine). VS Code may ask you to sign in
+   to GitHub; use the browser sign-in it offers.
+4. When cloning finishes, click **Open** in the popup (and **Yes, I trust the
+   authors** if asked).
+5. Important: the app currently lives on the build branch. Click the branch name in
+   the **bottom-left corner** of the VS Code window (it says `main` or similar),
+   then pick **`claude/app-build-test-launch-sypabw`** from the list that appears
+   at the top. The file Explorer on the left should now show folders like `src/`,
+   `assets/`, and `supabase/`.
+
+### A3. Install dependencies (VS Code terminal)
+
+1. Open the integrated terminal: **View → Terminal**, or press `` Ctrl+` ``
+   (the backtick key, above Tab).
+2. The terminal opens already inside the project folder. Run:
 
    ```bash
-   cd DropBite
    npm install
    ```
 
-### A2. On your phone (recommended, since this is a mobile app)
+   This takes a few minutes the first time. You only do it once.
 
-1. Install **Expo Go** from the App Store (iPhone) or Play Store (Android).
-2. Make sure your phone and laptop are on the **same Wi-Fi network**.
-3. In the project folder run:
+### A4. Run it on your phone (recommended, since this is a mobile app)
+
+1. On your phone, install **Expo Go** from the App Store (iPhone) or Play Store
+   (Android).
+2. Make sure your phone and computer are on the **same Wi-Fi network**.
+3. In the VS Code terminal, run:
 
    ```bash
    npx expo start
    ```
 
-4. A QR code appears in the terminal.
-   - **iPhone:** open the Camera app, point at the QR code, tap the banner.
-   - **Android:** open Expo Go, tap "Scan QR code".
+4. A QR code appears right in the terminal panel.
+   - **iPhone:** open the Camera app, point it at the QR code on your screen, tap
+     the banner that pops up.
+   - **Android:** open Expo Go and tap "Scan QR code".
 5. The app loads on your phone. Create an account (any email/password; demo mode
-   stores it locally), and you'll land in a live feed.
+   stores it locally) and you'll land in a live feed.
 
-   > Same Wi-Fi not working (dorm/office networks often block it)? Run
-   > `npx expo start --tunnel` instead, which routes over the internet.
+Terminal basics while the server runs:
 
-### A3. On your laptop (browser)
+- Leave the terminal open; the app hot-reloads on your phone whenever you save a
+  file in VS Code.
+- Stop the server with `Ctrl+C` in the terminal.
+- Need a second terminal while the server runs? Click the **+** in the terminal
+  panel's top-right corner.
+
+> Same Wi-Fi not working (dorm/office networks often block it)? Stop the server
+> (`Ctrl+C`) and run `npx expo start --tunnel` instead, which routes over the
+> internet.
+
+### A5. Or run it in your browser
+
+In the VS Code terminal:
 
 ```bash
 npm run web
 ```
 
-Opens at <http://localhost:8081>. Tip: press F12 → toggle the device toolbar and pick
-"iPhone 14 Pro" so you see it at phone proportions. On web the Camera tile is limited,
-so use the Library tile to pick an image file; notifications are mobile-only.
+Then open <http://localhost:8081> (VS Code usually shows a clickable link in the
+terminal, or offers to open it for you). Tip: press F12 in the browser → toggle the
+device toolbar → pick "iPhone 14 Pro" so you see it at phone proportions. On web the
+Camera tile is limited, so use the Library tile to pick an image file; notifications
+are mobile-only.
 
-### A4. What to test (the core loop)
+### A6. What to test (the core loop)
 
 1. Sign up. The feed is already full (you auto-follow the seed users).
 2. Tap **+**, pick a photo with Camera or Library, confirm the meal slot (pre-selected
@@ -68,47 +118,51 @@ so use the Library tile to pick an image file; notifications are mobile-only.
 
 ## Part B: Plug in the APIs (go live)
 
-Order matters: Supabase first (it's the backbone), then Anthropic, then Places, then push.
+Order matters: Supabase first (it's the backbone), then Anthropic, then Places, then
+push. All terminal commands below go in the VS Code terminal, and all file edits
+happen in the VS Code editor.
 
 ### B1. Supabase: auth, database, photo storage (about 20 min, free tier)
 
 1. Create a project at <https://supabase.com> (choose a region near your users;
    remember your database password).
-2. **Create the schema:** in the dashboard, SQL Editor → New query → paste the entire
-   contents of `supabase/schema.sql` → Run. This creates all tables (users, follows,
-   posts, recipes, reactions, streaks), row-level security, and the public `photos`
-   storage bucket.
+2. **Create the schema:** in VS Code's Explorer, open `supabase/schema.sql`, select
+   everything (`Ctrl+A`), and copy it. Then in the Supabase dashboard go to
+   **SQL Editor → New query**, paste, and click **Run**. This creates all tables
+   (users, follows, posts, recipes, reactions, streaks), row-level security, and
+   the public `photos` storage bucket.
 3. **Turn off email confirmation for testing** (optional): Authentication → Providers
    → Email → disable "Confirm email". Re-enable before public launch.
 4. **Get your keys:** Settings → API. Copy the **Project URL** and the **anon public**
    key.
-5. In the project folder:
-
-   ```bash
-   cp .env.example .env
-   ```
-
-   Fill in:
+5. **Create your .env file in VS Code:** in the Explorer, right-click
+   `.env.example` → **Copy**, then right-click empty space → **Paste**, and rename
+   the copy to `.env` (right-click → Rename). Open `.env` and fill in:
 
    ```
    EXPO_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
    EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJ...
    ```
 
-6. Restart the dev server (`npx expo start --clear`). Demo mode switches off
-   automatically; sign-ups now create real Supabase users, photos upload to storage,
-   and the feed reads from Postgres.
+   Save with `Ctrl+S`. (`.env` is gitignored, so your keys never get committed.)
+6. Restart the dev server: in the terminal press `Ctrl+C`, then run
+   `npx expo start --clear`. Demo mode switches off automatically; sign-ups now
+   create real Supabase users, photos upload to storage, and the feed reads from
+   Postgres.
 
 > The anon key is designed to be public; security comes from the RLS policies in
 > `schema.sql`. Never put the `service_role` key in the app.
 
 ### B2. Anthropic: real AI recipe cards (about 10 min)
 
-The Anthropic key lives **server-side only**, in a Supabase Edge Function the app calls.
+The Anthropic key lives **server-side only**, in a Supabase Edge Function the app
+calls; it never goes in `.env` or the app.
 
 1. Get an API key at <https://console.anthropic.com> (Settings → API keys). Add ~$5
-   prepaid credit; recipe formatting on Claude Haiku costs a fraction of a cent per post.
-2. Install the Supabase CLI (<https://supabase.com/docs/guides/cli>), then:
+   prepaid credit; recipe formatting on Claude Haiku costs a fraction of a cent per
+   post.
+2. Install the Supabase CLI (<https://supabase.com/docs/guides/cli>), then run these
+   in the VS Code terminal, one at a time:
 
    ```bash
    supabase login
@@ -119,8 +173,9 @@ The Anthropic key lives **server-side only**, in a Supabase Edge Function the ap
    ```
 
 3. That's it, no app change needed. With Supabase configured, `src/services/ai.ts`
-   already calls the `format-recipe` function. (Model + prompt are configured in
-   `supabase/functions/format-recipe/index.ts`, mirrored in `src/config.ts`.)
+   already calls the `format-recipe` function. If you want to tune the AI later,
+   the model and prompt are in `supabase/functions/format-recipe/index.ts`
+   (mirrored in `src/config.ts`); open them right in VS Code.
 
    `delete-account` is the same deal for Settings → Delete account (auth deletion
    needs a server-side key).
@@ -132,14 +187,15 @@ The Anthropic key lives **server-side only**, in a Supabase Edge Function the ap
 3. Credentials → Create credentials → API key. Restrict it to the Places API.
    (Billing account required; there's a recurring monthly free allowance that easily
    covers testing.)
-4. Add to `.env`:
+4. Open `.env` in VS Code and add:
 
    ```
    EXPO_PUBLIC_GOOGLE_PLACES_KEY=AIza...
    ```
 
-5. Restart the dev server. The compose screen's restaurant search now hits Google
-   live (`src/services/places.ts`).
+   Save (`Ctrl+S`).
+5. Restart the dev server (`Ctrl+C`, then `npx expo start --clear`). The compose
+   screen's restaurant search now hits Google live (`src/services/places.ts`).
 
 ### B4. Push notifications
 
@@ -157,7 +213,8 @@ Notes:
 
 ### B5. Put it on your phone permanently (no laptop needed)
 
-Expo Go is for development. For a standalone installable app:
+Expo Go is for development. For a standalone installable app, run these in the VS
+Code terminal:
 
 ```bash
 npm install -g eas-cli
@@ -172,12 +229,24 @@ Store / Play Store submission later: `eas submit`.
 
 ---
 
+## Handy VS Code extras (optional)
+
+- **Source Control view** (branch icon in the left sidebar): see your changes and
+  commit without ever leaving VS Code.
+- **Extensions worth adding** (square icon in the sidebar): *Expo Tools* (autocomplete
+  for app.json) and *Prettier* (auto-formatting on save).
+- **Quick file open:** `Ctrl+P`, then type a filename like `theme.ts`.
+- **Project-wide search:** `Ctrl+Shift+F` (e.g. search "AI_CONFIG" to find the AI
+  settings).
+
 ## Troubleshooting
 
 | Symptom | Fix |
 | --- | --- |
-| Phone can't connect to dev server | `npx expo start --tunnel` |
+| Terminal says `npm` or `git` is not recognized | Node/Git finished installing after VS Code opened. Fully quit VS Code and reopen it |
+| Phone can't connect to dev server | Stop with `Ctrl+C`, run `npx expo start --tunnel` |
 | "Demo mode" still showing after adding .env | Restart with `npx expo start --clear`; env vars only load at bundle time |
+| Wrong files in the Explorer / app looks old | Check the branch name in the bottom-left corner is `claude/app-build-test-launch-sypabw` |
 | Sign-up succeeds but no profile | Did you run **all** of `supabase/schema.sql`? Check Table Editor → users |
 | Photos don't upload | Confirm the `photos` bucket exists (schema.sql creates it) and is public |
 | Recipe card button does nothing | Blurb must be ≥ 12 characters; if it's clearly not cooking ("ate at Chipotle") the app intentionally skips the card |
