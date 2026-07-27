@@ -19,6 +19,7 @@ export function Button({
   loading,
   style,
   small,
+  testID,
 }: {
   title: string;
   onPress: () => void;
@@ -27,6 +28,7 @@ export function Button({
   loading?: boolean;
   style?: ViewStyle;
   small?: boolean;
+  testID?: string;
 }) {
   const bg =
     variant === 'primary'
@@ -44,6 +46,7 @@ export function Button({
         : colors.amberDark;
   return (
     <Pressable
+      testID={testID}
       onPress={onPress}
       disabled={disabled || loading}
       style={({ pressed }) => [

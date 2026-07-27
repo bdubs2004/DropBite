@@ -62,6 +62,7 @@ function TabBar({ state, navigation }: any) {
         return (
           <Pressable
             key={t.name}
+            testID={`tab-${t.name}`}
             style={styles.tabItem}
             onPress={() => navigation.navigate(t.name)}
           >

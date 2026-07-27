@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   FlatList,
   Pressable,
@@ -6,6 +6,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '../components/Avatar';
 import { Button, Input, Muted, ScreenTitle } from '../components/ui';
@@ -31,9 +32,13 @@ export function FriendsScreen({ navigation }: any) {
     [svc],
   );
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  // Refresh follow state on focus so following someone from their profile
+  // is reflected here too.
+  useFocusEffect(
+    useCallback(() => {
+      load(query);
+    }, [load, query]),
+  );
 
   const toggle = async (u: User) => {
     if (followingIds.has(u.id)) await svc.unfollow(u.id);
@@ -82,6 +87,7 @@ export function FriendsScreen({ navigation }: any) {
                 </View>
               </Pressable>
               <Button
+                testID={`follow-${item.id}`}
                 title={isFollowing ? 'Following' : 'Follow'}
                 variant={isFollowing ? 'secondary' : 'primary'}
                 onPress={() => toggle(item)}

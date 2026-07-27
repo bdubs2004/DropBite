@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   FlatList,
   Pressable,
@@ -7,6 +7,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '../components/Avatar';
 import { PostCard } from '../components/PostCard';
@@ -77,9 +78,13 @@ export function ProfileScreen({ navigation, route }: any) {
     }
   }, [svc, userId, isMe, me]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  // Reload whenever the screen regains focus so follow/unfollow done elsewhere
+  // (Discover, another profile) is reflected in the counts.
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load]),
+  );
 
   const toggleFollow = async () => {
     if (following) await svc.unfollow(userId);
