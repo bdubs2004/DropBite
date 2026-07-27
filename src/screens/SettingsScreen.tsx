@@ -25,9 +25,17 @@ export function SettingsScreen({ navigation }: any) {
 
   const [displayName, setDisplayName] = useState(user?.display_name ?? '');
   const [bio, setBio] = useState(user?.bio ?? '');
+  const [followsPrivate, setFollowsPrivate] = useState(Boolean(user?.follows_private));
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const toggleFollowsPrivate = async () => {
+    const next = !followsPrivate;
+    setFollowsPrivate(next);
+    await svc.updateProfile({ follows_private: next });
+    await refreshMe();
+  };
 
   const saveProfile = async () => {
     setSaving(true);
@@ -130,6 +138,20 @@ export function SettingsScreen({ navigation }: any) {
         <Muted style={{ marginTop: spacing.md }}>
           Times follow your phone's timezone. Snacks never send reminders.
           {Platform.OS === 'web' ? ' Notifications are mobile-only.' : ''}
+        </Muted>
+      </Card>
+
+      <Text style={styles.section}>Privacy</Text>
+      <Card>
+        <PrefRow
+          label="Private follower list"
+          value={followsPrivate}
+          onChange={toggleFollowsPrivate}
+          last
+        />
+        <Muted style={{ marginTop: spacing.md }}>
+          When on, people can still tap your followers and following counts, but the
+          names stay hidden and they see a private notice instead.
         </Muted>
       </Card>
 

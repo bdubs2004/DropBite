@@ -14,6 +14,7 @@ import { DataService } from '../types';
 import {
   SEED_COMMENTS,
   SEED_FOLLOWING,
+  SEED_FOLLOWS,
   SEED_POSTS,
   SEED_REACTIONS,
   SEED_REPOSTS,
@@ -43,7 +44,7 @@ function freshDb(): Db {
     users: [...SEED_USERS],
     posts: SEED_POSTS.map(({ recipe, ...p }) => ({ ...p })),
     recipes: SEED_POSTS.flatMap((p) => (p.recipe ? [p.recipe] : [])),
-    follows: [],
+    follows: [...SEED_FOLLOWS],
     reactions: [...SEED_REACTIONS],
     comments: [...SEED_COMMENTS],
     reposts: [...SEED_REPOSTS],
@@ -198,7 +199,9 @@ export class MockService implements DataService {
     );
   }
 
-  async updateProfile(patch: Partial<Pick<User, 'display_name' | 'bio' | 'avatar_emoji'>>): Promise<User> {
+  async updateProfile(
+    patch: Partial<Pick<User, 'display_name' | 'bio' | 'avatar_emoji' | 'follows_private'>>,
+  ): Promise<User> {
     const db = await this.load();
     const me = await this.me();
     Object.assign(me, patch);
@@ -243,10 +246,21 @@ export class MockService implements DataService {
   async getFollowCounts(userId: string): Promise<{ followers: number; following: number }> {
     const db = await this.load();
     return {
-      followers: db.follows.filter((f) => f.followee_id === userId).length +
-        (SEED_FOLLOWING.includes(userId) ? 1 : 0), // seeds "follow back" for demo warmth
-      following: db.follows.filter((f) => f.follower_id === userId).length || (userId.startsWith('u-') ? 4 : 0),
+      followers: db.follows.filter((f) => f.followee_id === userId).length,
+      following: db.follows.filter((f) => f.follower_id === userId).length,
     };
+  }
+
+  async getFollowers(userId: string): Promise<User[]> {
+    const db = await this.load();
+    const ids = db.follows.filter((f) => f.followee_id === userId).map((f) => f.follower_id);
+    return db.users.filter((u) => ids.includes(u.id));
+  }
+
+  async getFollowingUsers(userId: string): Promise<User[]> {
+    const db = await this.load();
+    const ids = db.follows.filter((f) => f.follower_id === userId).map((f) => f.followee_id);
+    return db.users.filter((u) => ids.includes(u.id));
   }
 
   async getFeed(): Promise<Post[]> {

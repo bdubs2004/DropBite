@@ -28,7 +28,9 @@ export interface DataService {
   exportMyData(): Promise<string>; // JSON string of everything the user owns
 
   // profile
-  updateProfile(patch: Partial<Pick<User, 'display_name' | 'bio' | 'avatar_emoji'>>): Promise<User>;
+  updateProfile(
+    patch: Partial<Pick<User, 'display_name' | 'bio' | 'avatar_emoji' | 'follows_private'>>,
+  ): Promise<User>;
 
   // social graph
   listUsers(query?: string): Promise<User[]>;
@@ -36,6 +38,8 @@ export interface DataService {
   follow(userId: string): Promise<void>;
   unfollow(userId: string): Promise<void>;
   getFollowCounts(userId: string): Promise<{ followers: number; following: number }>;
+  getFollowers(userId: string): Promise<User[]>; // users who follow userId
+  getFollowingUsers(userId: string): Promise<User[]>; // users userId follows
 
   // posts
   getFeed(): Promise<Post[]>; // me + people I follow, newest first

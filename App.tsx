@@ -26,6 +26,7 @@ import { FriendsScreen } from './src/screens/FriendsScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { SearchScreen } from './src/screens/SearchScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
+import { UserListScreen } from './src/screens/UserListScreen';
 import { AppProvider, useApp } from './src/state/AppContext';
 import { colors, fonts, radius, shadow } from './src/theme';
 
@@ -116,6 +117,7 @@ function Root() {
         options={{ presentation: 'modal' }}
       />
       <Stack.Screen name="UserProfile" component={ProfileScreen} />
+      <Stack.Screen name="UserList" component={UserListScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
     </Stack.Navigator>
   );

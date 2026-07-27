@@ -12,6 +12,7 @@ create table public.users (
   avatar_emoji text,
   bio text,
   timezone text not null default 'UTC',
+  follows_private boolean not null default false,
   created_at timestamptz not null default now()
 );
 

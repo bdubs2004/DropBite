@@ -58,6 +58,7 @@ export const SEED_USERS: User[] = [
     avatar_emoji: '🧔',
     bio: 'I rate every burger in the Midwest. Currently: 247.',
     timezone: 'America/Chicago',
+    follows_private: true, // demo: shows the private-list notice to others
     created_at: new Date(now - 30 * 24 * H).toISOString(),
   },
 ];
@@ -290,6 +291,22 @@ export const SEED_POSTS: SeedPost[] = [
 
 /** The demo account follows these seeds so the feed is full on first launch. */
 export const SEED_FOLLOWING = ['u-marge', 'u-dan', 'u-lily', 'u-carol', 'u-mike'];
+
+/** Follow relationships among the seed users, so follower/following lists have content. */
+export const SEED_FOLLOWS: { follower_id: string; followee_id: string }[] = [
+  { follower_id: 'u-marge', followee_id: 'u-dan' },
+  { follower_id: 'u-marge', followee_id: 'u-lily' },
+  { follower_id: 'u-marge', followee_id: 'u-carol' },
+  { follower_id: 'u-dan', followee_id: 'u-marge' },
+  { follower_id: 'u-dan', followee_id: 'u-mike' },
+  { follower_id: 'u-lily', followee_id: 'u-marge' },
+  { follower_id: 'u-lily', followee_id: 'u-carol' },
+  { follower_id: 'u-carol', followee_id: 'u-marge' },
+  { follower_id: 'u-carol', followee_id: 'u-dan' },
+  { follower_id: 'u-carol', followee_id: 'u-lily' },
+  { follower_id: 'u-mike', followee_id: 'u-marge' },
+  { follower_id: 'u-mike', followee_id: 'u-dan' },
+];
 
 export const SEED_REACTIONS: { post_id: string; user_id: string }[] = [
   { post_id: 'p1', user_id: 'u-dan' },

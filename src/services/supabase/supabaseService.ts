@@ -111,7 +111,9 @@ export class SupabaseService implements DataService {
     );
   }
 
-  async updateProfile(patch: Partial<Pick<User, 'display_name' | 'bio' | 'avatar_emoji'>>): Promise<User> {
+  async updateProfile(
+    patch: Partial<Pick<User, 'display_name' | 'bio' | 'avatar_emoji' | 'follows_private'>>,
+  ): Promise<User> {
     const meId = await this.myId();
     const { data, error } = await this.sb
       .from('users')
@@ -157,6 +159,22 @@ export class SupabaseService implements DataService {
       this.sb.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId),
     ]);
     return { followers: followers.count ?? 0, following: following.count ?? 0 };
+  }
+
+  async getFollowers(userId: string): Promise<User[]> {
+    const { data } = await this.sb
+      .from('follows')
+      .select('users!follows_follower_id_fkey(*)')
+      .eq('followee_id', userId);
+    return (data ?? []).map((r: any) => r.users as User).filter(Boolean);
+  }
+
+  async getFollowingUsers(userId: string): Promise<User[]> {
+    const { data } = await this.sb
+      .from('follows')
+      .select('users!follows_followee_id_fkey(*)')
+      .eq('follower_id', userId);
+    return (data ?? []).map((r: any) => r.users as User).filter(Boolean);
   }
 
   private hydrateRow(row: any, meId: string): Post {

@@ -9,6 +9,8 @@ export interface User {
   avatar_emoji?: string | null;
   bio: string | null;
   timezone: string;
+  /** When true, this user's followers/following lists are hidden from others. */
+  follows_private?: boolean;
   created_at: string;
 }
 

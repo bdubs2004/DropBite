@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   FlatList,
   Pressable,
@@ -27,6 +27,7 @@ export function ProfileScreen({ navigation, route }: any) {
 
   const userId: string = route?.params?.userId ?? me?.id;
   const isMe = userId === me?.id;
+  const listRef = useRef<FlatList<Post>>(null);
 
   const [profile, setProfile] = useState<User | null>(isMe ? me : null);
   const [posts, setPosts] = useState<Post[]>([]);
@@ -34,6 +35,22 @@ export function ProfileScreen({ navigation, route }: any) {
   const [counts, setCounts] = useState({ followers: 0, following: 0 });
   const [following, setFollowing] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  const openList = (mode: 'followers' | 'following') => {
+    navigation.navigate('UserList', {
+      userId,
+      mode,
+      displayName: profile?.display_name ?? 'This user',
+      isPrivate: Boolean(profile?.follows_private),
+      isMe,
+    });
+  };
+
+  const scrollToPosts = () => {
+    if (posts.length) {
+      listRef.current?.scrollToIndex({ index: 0, viewOffset: 8, animated: true });
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -84,9 +101,9 @@ export function ProfileScreen({ navigation, route }: any) {
         <View style={styles.topRow}>
           <Avatar user={profile} size={72} />
           <View style={styles.stats}>
-            <Stat label="posts" value={posts.length} />
-            <Stat label="followers" value={counts.followers} />
-            <Stat label="following" value={counts.following} />
+            <Stat label="posts" value={posts.length} onPress={scrollToPosts} />
+            <Stat label="followers" value={counts.followers} onPress={() => openList('followers')} />
+            <Stat label="following" value={counts.following} onPress={() => openList('following')} />
           </View>
         </View>
         <Text style={styles.name}>{profile?.display_name ?? '…'}</Text>
@@ -135,8 +152,10 @@ export function ProfileScreen({ navigation, route }: any) {
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <FlatList
+        ref={listRef}
         data={posts}
         keyExtractor={(p) => p.id}
+        onScrollToIndexFailed={() => {}}
         ListHeaderComponent={header}
         renderItem={({ item }) => (
           <PostCard
@@ -161,12 +180,20 @@ export function ProfileScreen({ navigation, route }: any) {
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function Stat({
+  label,
+  value,
+  onPress,
+}: {
+  label: string;
+  value: number;
+  onPress?: () => void;
+}) {
   return (
-    <View style={styles.stat}>
+    <Pressable style={styles.stat} onPress={onPress} hitSlop={6}>
       <Text style={styles.statNum}>{value}</Text>
       <Muted>{label}</Muted>
-    </View>
+    </Pressable>
   );
 }
 
