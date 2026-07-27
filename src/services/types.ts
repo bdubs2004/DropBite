@@ -1,4 +1,5 @@
 import {
+  Comment,
   NewPostInput,
   NotificationPrefs,
   Post,
@@ -41,6 +42,12 @@ export interface DataService {
   getUserPosts(userId: string): Promise<Post[]>;
   createPost(input: NewPostInput): Promise<Post>;
   toggleReaction(postId: string): Promise<void>;
+
+  // engagement (comments, reposts, shares)
+  getComments(postId: string): Promise<Comment[]>;
+  addComment(postId: string, text: string): Promise<Comment>;
+  toggleRepost(postId: string): Promise<void>;
+  recordShare(postId: string): Promise<void>;
 
   // streaks
   getStreak(userId: string): Promise<Streak>;

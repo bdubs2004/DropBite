@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { uid } from '../../lib/id';
 import { daysBetween, localDateString } from '../../lib/time';
 import {
+  Comment,
   NewPostInput,
   NotificationPrefs,
   Post,
@@ -10,7 +11,15 @@ import {
   User,
 } from '../../types';
 import { DataService } from '../types';
-import { SEED_FOLLOWING, SEED_POSTS, SEED_REACTIONS, SEED_USERS } from './seed';
+import {
+  SEED_COMMENTS,
+  SEED_FOLLOWING,
+  SEED_POSTS,
+  SEED_REACTIONS,
+  SEED_REPOSTS,
+  SEED_SHARES,
+  SEED_USERS,
+} from './seed';
 
 const KEY = 'nibl.demo.v1';
 
@@ -20,6 +29,9 @@ interface Db {
   recipes: Recipe[];
   follows: { follower_id: string; followee_id: string }[];
   reactions: { post_id: string; user_id: string }[];
+  comments: Comment[];
+  reposts: { post_id: string; user_id: string }[];
+  shares: { post_id: string; user_id: string }[];
   streaks: Streak[];
   sessionUserId: string | null;
   credentials: { email: string; password: string; userId: string }[];
@@ -33,6 +45,9 @@ function freshDb(): Db {
     recipes: SEED_POSTS.flatMap((p) => (p.recipe ? [p.recipe] : [])),
     follows: [],
     reactions: [...SEED_REACTIONS],
+    comments: [...SEED_COMMENTS],
+    reposts: [...SEED_REPOSTS],
+    shares: [...SEED_SHARES],
     streaks: [
       { user_id: 'u-marge', current_streak: 12, longest_streak: 34, last_post_date: localDateString() },
       { user_id: 'u-dan', current_streak: 5, longest_streak: 21, last_post_date: localDateString() },
@@ -78,6 +93,10 @@ export class MockService implements DataService {
       recipe: db.recipes.find((r) => r.post_id === post.id) ?? null,
       reaction_count: db.reactions.filter((r) => r.post_id === post.id).length,
       reacted_by_me: db.reactions.some((r) => r.post_id === post.id && r.user_id === meId),
+      comment_count: db.comments.filter((c) => c.post_id === post.id).length,
+      share_count: db.shares.filter((s) => s.post_id === post.id).length,
+      repost_count: db.reposts.filter((r) => r.post_id === post.id).length,
+      reposted_by_me: db.reposts.some((r) => r.post_id === post.id && r.user_id === meId),
     };
   }
 
@@ -148,6 +167,9 @@ export class MockService implements DataService {
     db.recipes = db.recipes.filter((r) => !myPosts.has(r.post_id));
     db.follows = db.follows.filter((f) => f.follower_id !== meId && f.followee_id !== meId);
     db.reactions = db.reactions.filter((r) => r.user_id !== meId && !myPosts.has(r.post_id));
+    db.comments = db.comments.filter((c) => c.user_id !== meId && !myPosts.has(c.post_id));
+    db.reposts = db.reposts.filter((r) => r.user_id !== meId && !myPosts.has(r.post_id));
+    db.shares = db.shares.filter((s) => s.user_id !== meId && !myPosts.has(s.post_id));
     db.streaks = db.streaks.filter((s) => s.user_id !== meId);
     db.credentials = db.credentials.filter((c) => c.userId !== meId);
     db.sessionUserId = null;
@@ -167,6 +189,8 @@ export class MockService implements DataService {
         recipes: db.recipes.filter((r) => postIds.has(r.post_id)),
         follows: db.follows.filter((f) => f.follower_id === me.id),
         reactions: db.reactions.filter((r) => r.user_id === me.id),
+        comments: db.comments.filter((c) => c.user_id === me.id),
+        reposts: db.reposts.filter((r) => r.user_id === me.id),
         streak: db.streaks.find((s) => s.user_id === me.id) ?? null,
       },
       null,
@@ -289,6 +313,48 @@ export class MockService implements DataService {
     if (idx >= 0) db.reactions.splice(idx, 1);
     else db.reactions.push({ post_id: postId, user_id: me.id });
     await this.save();
+  }
+
+  async getComments(postId: string): Promise<Comment[]> {
+    const db = await this.load();
+    return db.comments
+      .filter((c) => c.post_id === postId)
+      .sort((a, b) => a.created_at.localeCompare(b.created_at))
+      .map((c) => ({ ...c, user: db.users.find((u) => u.id === c.user_id) }));
+  }
+
+  async addComment(postId: string, text: string): Promise<Comment> {
+    const db = await this.load();
+    const me = await this.me();
+    const comment: Comment = {
+      id: uid('c-'),
+      post_id: postId,
+      user_id: me.id,
+      text: text.trim(),
+      created_at: new Date().toISOString(),
+    };
+    db.comments.push(comment);
+    await this.save();
+    return { ...comment, user: me };
+  }
+
+  async toggleRepost(postId: string): Promise<void> {
+    const db = await this.load();
+    const me = await this.me();
+    const idx = db.reposts.findIndex((r) => r.post_id === postId && r.user_id === me.id);
+    if (idx >= 0) db.reposts.splice(idx, 1);
+    else db.reposts.push({ post_id: postId, user_id: me.id });
+    await this.save();
+  }
+
+  async recordShare(postId: string): Promise<void> {
+    const db = await this.load();
+    const me = await this.me();
+    // one share record per user per post keeps the count honest and idempotent
+    if (!db.shares.some((s) => s.post_id === postId && s.user_id === me.id)) {
+      db.shares.push({ post_id: postId, user_id: me.id });
+      await this.save();
+    }
   }
 
   async getStreak(userId: string): Promise<Streak> {

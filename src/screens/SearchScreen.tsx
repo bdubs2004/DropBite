@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '../components/Avatar';
 import { PostCard } from '../components/PostCard';
 import { Input, Muted, ScreenTitle } from '../components/ui';
+import { usePostActions } from '../lib/usePostActions';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
 import { colors, fonts, radius, shadowSoft, spacing } from '../theme';
@@ -48,10 +49,7 @@ export function SearchScreen({ navigation }: any) {
       )
     : [];
 
-  const toggleLike = async (post: Post) => {
-    await svc.toggleReaction(post.id);
-    refreshFeed();
-  };
+  const { like, comment, share, repost } = usePostActions(navigation, refreshFeed);
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -88,7 +86,16 @@ export function SearchScreen({ navigation }: any) {
             </View>
           ) : null
         }
-        renderItem={({ item }) => <PostCard post={item} onToggleLike={toggleLike} />}
+        renderItem={({ item }) => (
+          <PostCard
+            post={item}
+            onToggleLike={like}
+            onComment={comment}
+            onShare={share}
+            onRepost={repost}
+            onPressUser={(uid) => navigation.navigate('UserProfile', { userId: uid })}
+          />
+        )}
         ListEmptyComponent={
           !q ? (
             <View style={styles.empty}>

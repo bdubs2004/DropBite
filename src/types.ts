@@ -51,6 +51,17 @@ export interface Post {
   recipe?: Recipe | null;
   reaction_count?: number;
   reacted_by_me?: boolean;
+  reposted_by_me?: boolean;
+}
+
+export interface Comment {
+  id: string;
+  post_id: string;
+  user_id: string;
+  text: string;
+  created_at: string;
+  // hydrated client-side
+  user?: User;
 }
 
 export interface Streak {

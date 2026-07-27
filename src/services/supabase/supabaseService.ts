@@ -1,4 +1,5 @@
 import {
+  Comment,
   NewPostInput,
   NotificationPrefs,
   Post,
@@ -165,15 +166,22 @@ export class SupabaseService implements DataService {
       recipe: Array.isArray(row.recipes) ? row.recipes[0] ?? null : row.recipes ?? null,
       reaction_count: (row.reactions ?? []).length,
       reacted_by_me: (row.reactions ?? []).some((r: any) => r.user_id === meId),
+      comment_count: (row.comments ?? []).length,
+      share_count: (row.shares ?? []).length,
+      repost_count: (row.reposts ?? []).length,
+      reposted_by_me: (row.reposts ?? []).some((r: any) => r.user_id === meId),
     };
   }
+
+  private readonly POST_SELECT =
+    '*, users(*), recipes(*), reactions(user_id), comments(id), shares(user_id), reposts(user_id)';
 
   async getFeed(): Promise<Post[]> {
     const meId = await this.myId();
     const ids = [...(await this.getFollowingIds()), meId];
     const { data, error } = await this.sb
       .from('posts')
-      .select('*, users(*), recipes(*), reactions(user_id)')
+      .select(this.POST_SELECT)
       .in('user_id', ids)
       .order('created_at', { ascending: false })
       .limit(100);
@@ -185,7 +193,7 @@ export class SupabaseService implements DataService {
     const meId = await this.myId();
     const { data } = await this.sb
       .from('posts')
-      .select('*, users(*), recipes(*), reactions(user_id)')
+      .select(this.POST_SELECT)
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
     return (data ?? []).map((row: any) => this.hydrateRow(row, meId));
@@ -267,6 +275,46 @@ export class SupabaseService implements DataService {
     } else {
       await this.sb.from('reactions').insert({ post_id: postId, user_id: meId, type: 'like' });
     }
+  }
+
+  async getComments(postId: string): Promise<Comment[]> {
+    const { data } = await this.sb
+      .from('comments')
+      .select('*, users(*)')
+      .eq('post_id', postId)
+      .order('created_at', { ascending: true });
+    return (data ?? []).map((row: any) => ({ ...(row as Comment), user: row.users as User }));
+  }
+
+  async addComment(postId: string, text: string): Promise<Comment> {
+    const meId = await this.myId();
+    const { data, error } = await this.sb
+      .from('comments')
+      .insert({ post_id: postId, user_id: meId, text: text.trim() })
+      .select('*, users(*)')
+      .single();
+    if (error) throw error;
+    return { ...(data as Comment), user: (data as any).users as User };
+  }
+
+  async toggleRepost(postId: string): Promise<void> {
+    const meId = await this.myId();
+    const { data } = await this.sb
+      .from('reposts')
+      .select('*')
+      .match({ post_id: postId, user_id: meId })
+      .maybeSingle();
+    if (data) {
+      await this.sb.from('reposts').delete().match({ post_id: postId, user_id: meId });
+    } else {
+      await this.sb.from('reposts').insert({ post_id: postId, user_id: meId });
+    }
+  }
+
+  async recordShare(postId: string): Promise<void> {
+    const meId = await this.myId();
+    // upsert keeps one share row per user per post (idempotent count)
+    await this.sb.from('shares').upsert({ post_id: postId, user_id: meId });
   }
 
   async getStreak(userId: string): Promise<Streak> {

@@ -1,4 +1,4 @@
-import { Post, Recipe, User } from '../../types';
+import { Comment, Post, Recipe, User } from '../../types';
 
 /**
  * Seed data so the feed is testable immediately (CLAUDE.md convention).
@@ -69,7 +69,6 @@ interface SeedPost extends Post {
 export const SEED_POSTS: SeedPost[] = [
   {
     id: 'p1',
-    comment_count: 2, share_count: 1, repost_count: 1,
     user_id: 'u-marge',
     meal_slot: 'breakfast',
     photo_url: null,
@@ -104,7 +103,6 @@ export const SEED_POSTS: SeedPost[] = [
   },
   {
     id: 'p2',
-    comment_count: 4, share_count: 2, repost_count: 1,
     user_id: 'u-dan',
     meal_slot: 'dinner',
     photo_url: null,
@@ -137,7 +135,6 @@ export const SEED_POSTS: SeedPost[] = [
   },
   {
     id: 'p3',
-    comment_count: 1, share_count: 0, repost_count: 0,
     user_id: 'u-mike',
     meal_slot: 'lunch',
     photo_url: null,
@@ -153,7 +150,6 @@ export const SEED_POSTS: SeedPost[] = [
   },
   {
     id: 'p4',
-    comment_count: 3, share_count: 1, repost_count: 0,
     user_id: 'u-lily',
     meal_slot: 'lunch',
     photo_url: null,
@@ -188,7 +184,6 @@ export const SEED_POSTS: SeedPost[] = [
   },
   {
     id: 'p5',
-    comment_count: 5, share_count: 2, repost_count: 2,
     user_id: 'u-carol',
     meal_slot: 'dinner',
     photo_url: null,
@@ -223,7 +218,6 @@ export const SEED_POSTS: SeedPost[] = [
   },
   {
     id: 'p6',
-    comment_count: 2, share_count: 0, repost_count: 0,
     user_id: 'u-marge',
     meal_slot: 'snack',
     photo_url: null,
@@ -310,4 +304,29 @@ export const SEED_REACTIONS: { post_id: string; user_id: string }[] = [
   { post_id: 'p5', user_id: 'u-marge' },
   { post_id: 'p5', user_id: 'u-dan' },
   { post_id: 'p6', user_id: 'u-lily' },
+];
+
+/** A few sample comment threads so the comment button opens to real content. */
+export const SEED_COMMENTS: Comment[] = [
+  { id: 'c1', post_id: 'p1', user_id: 'u-dan', text: 'Rhubarb jam on pancakes is elite. Recipe please!', created_at: new Date(now - 1.5 * H).toISOString() },
+  { id: 'c2', post_id: 'p1', user_id: 'u-lily', text: 'Making these Sunday for sure.', created_at: new Date(now - 1 * H).toISOString() },
+  { id: 'c3', post_id: 'p2', user_id: 'u-marge', text: '14 hours is dedication. Worth every minute I bet.', created_at: new Date(now - 12 * H).toISOString() },
+  { id: 'c4', post_id: 'p2', user_id: 'u-carol', text: 'Save me a plate next time!', created_at: new Date(now - 11 * H).toISOString() },
+  { id: 'c5', post_id: 'p5', user_id: 'u-mike', text: 'Hotdish is the state food and I will not be taking questions.', created_at: new Date(now - 20 * H).toISOString() },
+];
+
+export const SEED_REPOSTS: { post_id: string; user_id: string }[] = [
+  { post_id: 'p1', user_id: 'u-mike' },
+  { post_id: 'p2', user_id: 'u-lily' },
+  { post_id: 'p5', user_id: 'u-marge' },
+  { post_id: 'p5', user_id: 'u-dan' },
+];
+
+export const SEED_SHARES: { post_id: string; user_id: string }[] = [
+  { post_id: 'p1', user_id: 'u-carol' },
+  { post_id: 'p2', user_id: 'u-mike' },
+  { post_id: 'p2', user_id: 'u-lily' },
+  { post_id: 'p4', user_id: 'u-dan' },
+  { post_id: 'p5', user_id: 'u-marge' },
+  { post_id: 'p5', user_id: 'u-carol' },
 ];

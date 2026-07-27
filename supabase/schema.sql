@@ -63,6 +63,33 @@ create table public.reactions (
   primary key (post_id, user_id)
 );
 
+-- ------------------------------------------------------------- comments
+create table public.comments (
+  id uuid primary key default gen_random_uuid(),
+  post_id uuid not null references public.posts (id) on delete cascade,
+  user_id uuid not null references public.users (id) on delete cascade,
+  text text not null check (char_length(text) between 1 and 2000),
+  created_at timestamptz not null default now()
+);
+create index comments_post_created_idx on public.comments (post_id, created_at);
+
+-- -------------------------------------------------------------- reposts
+create table public.reposts (
+  post_id uuid not null references public.posts (id) on delete cascade,
+  user_id uuid not null references public.users (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (post_id, user_id)
+);
+
+-- --------------------------------------------------------------- shares
+-- One row per (user, post): keeps the share count honest and idempotent.
+create table public.shares (
+  post_id uuid not null references public.posts (id) on delete cascade,
+  user_id uuid not null references public.users (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (post_id, user_id)
+);
+
 -- -------------------------------------------------------------- streaks
 create table public.streaks (
   user_id uuid primary key references public.users (id) on delete cascade,
@@ -77,6 +104,9 @@ alter table public.follows enable row level security;
 alter table public.posts enable row level security;
 alter table public.recipes enable row level security;
 alter table public.reactions enable row level security;
+alter table public.comments enable row level security;
+alter table public.reposts enable row level security;
+alter table public.shares enable row level security;
 alter table public.streaks enable row level security;
 
 -- users: everyone signed-in can read profiles; you manage your own row
@@ -130,6 +160,30 @@ create policy "react as self" on public.reactions
   for insert to authenticated with check (user_id = auth.uid());
 create policy "unreact as self" on public.reactions
   for delete to authenticated using (user_id = auth.uid());
+
+-- comments: all signed-in users read; you write/delete your own
+create policy "comments readable" on public.comments
+  for select to authenticated using (true);
+create policy "comment as self" on public.comments
+  for insert to authenticated with check (user_id = auth.uid());
+create policy "delete own comment" on public.comments
+  for delete to authenticated using (user_id = auth.uid());
+
+-- reposts
+create policy "reposts readable" on public.reposts
+  for select to authenticated using (true);
+create policy "repost as self" on public.reposts
+  for insert to authenticated with check (user_id = auth.uid());
+create policy "unrepost as self" on public.reposts
+  for delete to authenticated using (user_id = auth.uid());
+
+-- shares
+create policy "shares readable" on public.shares
+  for select to authenticated using (true);
+create policy "share as self" on public.shares
+  for insert to authenticated with check (user_id = auth.uid());
+create policy "update own share" on public.shares
+  for update to authenticated using (user_id = auth.uid());
 
 -- streaks
 create policy "streaks readable" on public.streaks

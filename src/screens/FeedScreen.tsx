@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React from 'react';
 import {
   FlatList,
   RefreshControl,
@@ -11,23 +11,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LogoLockup } from '../components/Logo';
 import { PostCard } from '../components/PostCard';
 import { Muted } from '../components/ui';
-import { getDataService } from '../services';
+import { usePostActions } from '../lib/usePostActions';
 import { useApp } from '../state/AppContext';
 import { colors, fonts, radius, spacing } from '../theme';
-import { Post } from '../types';
 
 export function FeedScreen({ navigation }: any) {
   const { feed, feedLoading, refreshFeed, streak } = useApp();
   const insets = useSafeAreaInsets();
-  const svc = getDataService();
-
-  const toggleLike = useCallback(
-    async (post: Post) => {
-      await svc.toggleReaction(post.id);
-      refreshFeed();
-    },
-    [svc, refreshFeed],
-  );
+  const { like, comment, share, repost } = usePostActions(navigation, refreshFeed);
 
   const openProfile = (userId: string) => navigation.navigate('UserProfile', { userId });
 
@@ -45,7 +36,14 @@ export function FeedScreen({ navigation }: any) {
         data={feed}
         keyExtractor={(p) => p.id}
         renderItem={({ item }) => (
-          <PostCard post={item} onToggleLike={toggleLike} onPressUser={openProfile} />
+          <PostCard
+            post={item}
+            onToggleLike={like}
+            onComment={comment}
+            onShare={share}
+            onRepost={repost}
+            onPressUser={openProfile}
+          />
         )}
         contentContainerStyle={{ paddingTop: spacing.md, paddingBottom: 120 }}
         refreshControl={

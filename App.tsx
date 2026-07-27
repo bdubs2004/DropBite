@@ -19,6 +19,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LogoMark } from './src/components/Logo';
 import { AuthScreen } from './src/screens/AuthScreen';
+import { CommentsScreen } from './src/screens/CommentsScreen';
 import { ComposeScreen } from './src/screens/ComposeScreen';
 import { FeedScreen } from './src/screens/FeedScreen';
 import { FriendsScreen } from './src/screens/FriendsScreen';
@@ -107,6 +108,11 @@ function Root() {
       <Stack.Screen
         name="Compose"
         component={ComposeScreen}
+        options={{ presentation: 'modal' }}
+      />
+      <Stack.Screen
+        name="Comments"
+        component={CommentsScreen}
         options={{ presentation: 'modal' }}
       />
       <Stack.Screen name="UserProfile" component={ProfileScreen} />

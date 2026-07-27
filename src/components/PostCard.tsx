@@ -11,10 +11,16 @@ import { RecipeCardView } from './RecipeCardView';
 export function PostCard({
   post,
   onToggleLike,
+  onComment,
+  onShare,
+  onRepost,
   onPressUser,
 }: {
   post: Post;
   onToggleLike: (post: Post) => void;
+  onComment?: (post: Post) => void;
+  onShare?: (post: Post) => void;
+  onRepost?: (post: Post) => void;
   onPressUser?: (userId: string) => void;
 }) {
   const [showRecipe, setShowRecipe] = useState(false);
@@ -45,7 +51,12 @@ export function PostCard({
       {/* actions + blurb */}
       <View style={styles.body}>
         <View style={styles.actionsRow}>
-          <Pressable onPress={() => onToggleLike(post)} style={styles.actionBtn} hitSlop={8}>
+          <Pressable
+            testID="post-like"
+            onPress={() => onToggleLike(post)}
+            style={styles.actionBtn}
+            hitSlop={8}
+          >
             <Ionicons
               name={post.reacted_by_me ? 'heart' : 'heart-outline'}
               size={23}
@@ -53,18 +64,41 @@ export function PostCard({
             />
             <Text style={styles.actionCount}>{post.reaction_count ?? 0}</Text>
           </Pressable>
-          <View style={styles.actionBtn}>
+          <Pressable
+            testID="post-comment"
+            onPress={() => onComment?.(post)}
+            style={styles.actionBtn}
+            hitSlop={8}
+          >
             <Ionicons name="chatbubble-outline" size={21} color={colors.cocoaSoft} />
             <Text style={styles.actionCount}>{post.comment_count ?? 0}</Text>
-          </View>
-          <View style={styles.actionBtn}>
+          </Pressable>
+          <Pressable
+            testID="post-share"
+            onPress={() => onShare?.(post)}
+            style={styles.actionBtn}
+            hitSlop={8}
+          >
             <Ionicons name="paper-plane-outline" size={21} color={colors.cocoaSoft} />
             <Text style={styles.actionCount}>{post.share_count ?? 0}</Text>
-          </View>
-          <View style={styles.actionBtn}>
-            <Ionicons name="repeat-outline" size={23} color={colors.cocoaSoft} />
-            <Text style={styles.actionCount}>{post.repost_count ?? 0}</Text>
-          </View>
+          </Pressable>
+          <Pressable
+            testID="post-repost"
+            onPress={() => onRepost?.(post)}
+            style={styles.actionBtn}
+            hitSlop={8}
+          >
+            <Ionicons
+              name={post.reposted_by_me ? 'repeat' : 'repeat-outline'}
+              size={23}
+              color={post.reposted_by_me ? colors.success : colors.cocoaSoft}
+            />
+            <Text
+              style={[styles.actionCount, post.reposted_by_me && { color: colors.success }]}
+            >
+              {post.repost_count ?? 0}
+            </Text>
+          </Pressable>
           <Pressable
             onPress={() => setBookmarked((v) => !v)}
             style={styles.bookmarkBtn}

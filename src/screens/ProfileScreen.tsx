@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '../components/Avatar';
 import { PostCard } from '../components/PostCard';
 import { Button, Muted } from '../components/ui';
+import { usePostActions } from '../lib/usePostActions';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
 import { colors, fonts, radius, shadowSoft, spacing } from '../theme';
@@ -70,10 +71,7 @@ export function ProfileScreen({ navigation, route }: any) {
     refreshFeed();
   };
 
-  const toggleLike = async (post: Post) => {
-    await svc.toggleReaction(post.id);
-    load();
-  };
+  const { like, comment, share, repost } = usePostActions(navigation, load);
 
   const header = (
     <View style={styles.headerWrap}>
@@ -140,7 +138,16 @@ export function ProfileScreen({ navigation, route }: any) {
         data={posts}
         keyExtractor={(p) => p.id}
         ListHeaderComponent={header}
-        renderItem={({ item }) => <PostCard post={item} onToggleLike={toggleLike} />}
+        renderItem={({ item }) => (
+          <PostCard
+            post={item}
+            onToggleLike={like}
+            onComment={comment}
+            onShare={share}
+            onRepost={repost}
+            onPressUser={(uid) => navigation.push('UserProfile', { userId: uid })}
+          />
+        )}
         contentContainerStyle={{ paddingBottom: 120 }}
         ListEmptyComponent={
           loading ? null : (
