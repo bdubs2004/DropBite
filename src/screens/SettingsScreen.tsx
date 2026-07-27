@@ -4,12 +4,12 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  Share,
   StyleSheet,
   Switch,
   Text,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DEMO_MODE } from '../config';
 import { Button, Card, Input, Muted, ScreenTitle } from '../components/ui';
@@ -27,7 +27,6 @@ export function SettingsScreen({ navigation }: any) {
   const [bio, setBio] = useState(user?.bio ?? '');
   const [followsPrivate, setFollowsPrivate] = useState(Boolean(user?.follows_private));
   const [saving, setSaving] = useState(false);
-  const [exporting, setExporting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const toggleFollowsPrivate = async () => {
@@ -49,27 +48,6 @@ export function SettingsScreen({ navigation }: any) {
 
   const togglePref = (key: keyof NotificationPrefs) => {
     setPrefs({ ...prefs, [key]: !prefs[key] });
-  };
-
-  const exportData = async () => {
-    setExporting(true);
-    try {
-      const json = await svc.exportMyData();
-      if (Platform.OS === 'web') {
-        // download as a file in the browser
-        const blob = new Blob([json], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'nibl-export.json';
-        a.click();
-        URL.revokeObjectURL(url);
-      } else {
-        await Share.share({ message: json, title: 'My nibl data' });
-      }
-    } finally {
-      setExporting(false);
-    }
   };
 
   const deleteAccount = async () => {
@@ -98,7 +76,8 @@ export function SettingsScreen({ navigation }: any) {
       contentContainerStyle={[styles.scroll, { paddingTop: insets.top + spacing.md }]}
     >
       <View style={styles.headerRow}>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={10}>
+        <Pressable onPress={() => navigation.goBack()} hitSlop={10} style={styles.backBtn}>
+          <Ionicons name="chevron-back" size={20} color={colors.amberDark} />
           <Text style={styles.back}>Back</Text>
         </Pressable>
       </View>
@@ -155,15 +134,8 @@ export function SettingsScreen({ navigation }: any) {
         </Muted>
       </Card>
 
-      <Text style={styles.section}>Your data</Text>
+      <Text style={styles.section}>Account</Text>
       <Card>
-        <Button
-          title={exporting ? 'Exporting…' : 'Export my data (JSON)'}
-          variant="secondary"
-          onPress={exportData}
-          loading={exporting}
-        />
-        <View style={{ height: spacing.md }} />
         {confirmDelete ? (
           <View>
             <Text style={styles.dangerText}>
@@ -237,6 +209,13 @@ const styles = StyleSheet.create({
   },
   headerRow: {
     marginBottom: spacing.sm,
+  },
+  backBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 2,
+    marginLeft: -4,
   },
   back: {
     fontFamily: fonts.bold,

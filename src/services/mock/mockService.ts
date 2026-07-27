@@ -204,9 +204,13 @@ export class MockService implements DataService {
   ): Promise<User> {
     const db = await this.load();
     const me = await this.me();
-    Object.assign(me, patch);
+    // Replace with a NEW object (not an in-place mutation) so React sees a
+    // fresh reference and re-renders the profile after a save.
+    const updated: User = { ...me, ...patch };
+    const idx = db.users.findIndex((u) => u.id === me.id);
+    db.users[idx] = updated;
     await this.save();
-    return me;
+    return updated;
   }
 
   async listUsers(query?: string): Promise<User[]> {

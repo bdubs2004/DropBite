@@ -29,7 +29,10 @@ export function ProfileScreen({ navigation, route }: any) {
   const isMe = userId === me?.id;
   const listRef = useRef<FlatList<Post>>(null);
 
-  const [profile, setProfile] = useState<User | null>(isMe ? me : null);
+  const [otherProfile, setOtherProfile] = useState<User | null>(null);
+  // For my own profile, read straight from live context so a saved bio /
+  // name shows the moment Settings updates it.
+  const profile = isMe ? me : otherProfile;
   const [posts, setPosts] = useState<Post[]>([]);
   const [streak, setStreak] = useState<Streak | null>(null);
   const [counts, setCounts] = useState({ followers: 0, following: 0 });
@@ -65,11 +68,9 @@ export function ProfileScreen({ navigation, route }: any) {
       setStreak(s);
       setCounts(c);
       setFollowing(followingIds.includes(userId));
-      if (isMe) {
-        setProfile(me);
-      } else {
+      if (!isMe) {
         const all = await svc.listUsers();
-        setProfile(all.find((u) => u.id === userId) ?? null);
+        setOtherProfile(all.find((u) => u.id === userId) ?? null);
       }
     } finally {
       setLoading(false);
