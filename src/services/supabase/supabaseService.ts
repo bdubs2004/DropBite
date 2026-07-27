@@ -188,11 +188,12 @@ export class SupabaseService implements DataService {
       share_count: (row.shares ?? []).length,
       repost_count: (row.reposts ?? []).length,
       reposted_by_me: (row.reposts ?? []).some((r: any) => r.user_id === meId),
+      saved_by_me: (row.saved_posts ?? []).some((r: any) => r.user_id === meId),
     };
   }
 
   private readonly POST_SELECT =
-    '*, users(*), recipes(*), reactions(user_id), comments(id), shares(user_id), reposts(user_id)';
+    '*, users(*), recipes(*), reactions(user_id), comments(id), shares(user_id), reposts(user_id), saved_posts(user_id)';
 
   async getFeed(): Promise<Post[]> {
     const meId = await this.myId();
@@ -333,6 +334,33 @@ export class SupabaseService implements DataService {
     const meId = await this.myId();
     // upsert keeps one share row per user per post (idempotent count)
     await this.sb.from('shares').upsert({ post_id: postId, user_id: meId });
+  }
+
+  async toggleSave(postId: string): Promise<void> {
+    const meId = await this.myId();
+    const { data } = await this.sb
+      .from('saved_posts')
+      .select('*')
+      .match({ post_id: postId, user_id: meId })
+      .maybeSingle();
+    if (data) {
+      await this.sb.from('saved_posts').delete().match({ post_id: postId, user_id: meId });
+    } else {
+      await this.sb.from('saved_posts').insert({ post_id: postId, user_id: meId });
+    }
+  }
+
+  async getSavedPosts(): Promise<Post[]> {
+    const meId = await this.myId();
+    const { data } = await this.sb
+      .from('saved_posts')
+      .select('created_at, posts(' + this.POST_SELECT + ')')
+      .eq('user_id', meId)
+      .order('created_at', { ascending: false });
+    return (data ?? [])
+      .map((r: any) => r.posts)
+      .filter(Boolean)
+      .map((row: any) => this.hydrateRow(row, meId));
   }
 
   async getStreak(userId: string): Promise<Streak> {

@@ -91,6 +91,16 @@ create table public.shares (
   primary key (post_id, user_id)
 );
 
+-- ---------------------------------------------------------- saved_posts
+-- Private bookmarks: a user's saved posts (only they can read their own).
+create table public.saved_posts (
+  post_id uuid not null references public.posts (id) on delete cascade,
+  user_id uuid not null references public.users (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (post_id, user_id)
+);
+create index saved_posts_user_created_idx on public.saved_posts (user_id, created_at desc);
+
 -- -------------------------------------------------------------- streaks
 create table public.streaks (
   user_id uuid primary key references public.users (id) on delete cascade,
@@ -108,6 +118,7 @@ alter table public.reactions enable row level security;
 alter table public.comments enable row level security;
 alter table public.reposts enable row level security;
 alter table public.shares enable row level security;
+alter table public.saved_posts enable row level security;
 alter table public.streaks enable row level security;
 
 -- users: everyone signed-in can read profiles; you manage your own row
@@ -185,6 +196,14 @@ create policy "share as self" on public.shares
   for insert to authenticated with check (user_id = auth.uid());
 create policy "update own share" on public.shares
   for update to authenticated using (user_id = auth.uid());
+
+-- saved_posts: private to the owner (only you read/write your bookmarks)
+create policy "read own saves" on public.saved_posts
+  for select to authenticated using (user_id = auth.uid());
+create policy "save as self" on public.saved_posts
+  for insert to authenticated with check (user_id = auth.uid());
+create policy "unsave as self" on public.saved_posts
+  for delete to authenticated using (user_id = auth.uid());
 
 -- streaks
 create policy "streaks readable" on public.streaks

@@ -49,7 +49,7 @@ export function SearchScreen({ navigation }: any) {
       )
     : [];
 
-  const { like, comment, share, repost } = usePostActions(navigation, refreshFeed);
+  const { like, comment, share, repost, save } = usePostActions(navigation, refreshFeed);
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -93,6 +93,7 @@ export function SearchScreen({ navigation }: any) {
             onComment={comment}
             onShare={share}
             onRepost={repost}
+            onToggleSave={save}
             onPressUser={(uid) => navigation.navigate('UserProfile', { userId: uid })}
           />
         )}

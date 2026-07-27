@@ -54,6 +54,7 @@ export interface Post {
   reaction_count?: number;
   reacted_by_me?: boolean;
   reposted_by_me?: boolean;
+  saved_by_me?: boolean;
 }
 
 export interface Comment {

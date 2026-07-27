@@ -24,6 +24,7 @@ import { ComposeScreen } from './src/screens/ComposeScreen';
 import { FeedScreen } from './src/screens/FeedScreen';
 import { FriendsScreen } from './src/screens/FriendsScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
+import { SavedScreen } from './src/screens/SavedScreen';
 import { SearchScreen } from './src/screens/SearchScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { UserListScreen } from './src/screens/UserListScreen';
@@ -119,6 +120,7 @@ function Root() {
       />
       <Stack.Screen name="UserProfile" component={ProfileScreen} />
       <Stack.Screen name="UserList" component={UserListScreen} />
+      <Stack.Screen name="Saved" component={SavedScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
     </Stack.Navigator>
   );

@@ -94,7 +94,7 @@ export function ProfileScreen({ navigation, route }: any) {
     refreshFeed();
   };
 
-  const { like, comment, share, repost } = usePostActions(navigation, load);
+  const { like, comment, share, repost, save } = usePostActions(navigation, load);
 
   const header = (
     <View style={styles.headerWrap}>
@@ -134,12 +134,20 @@ export function ProfileScreen({ navigation, route }: any) {
         </View>
 
         {isMe ? (
-          <Button
-            title="Settings"
-            variant="secondary"
-            onPress={() => navigation.navigate('Settings')}
-            style={{ marginTop: spacing.lg }}
-          />
+          <View style={styles.meButtons}>
+            <Button
+              title="Saved"
+              variant="secondary"
+              onPress={() => navigation.navigate('Saved')}
+              style={{ flex: 1 }}
+            />
+            <Button
+              title="Settings"
+              variant="secondary"
+              onPress={() => navigation.navigate('Settings')}
+              style={{ flex: 1 }}
+            />
+          </View>
         ) : (
           <Button
             title={following ? 'Following ✓' : 'Follow'}
@@ -170,6 +178,7 @@ export function ProfileScreen({ navigation, route }: any) {
             onComment={comment}
             onShare={share}
             onRepost={repost}
+            onToggleSave={save}
             onPressUser={(uid) => navigation.push('UserProfile', { userId: uid })}
           />
         )}
@@ -267,6 +276,11 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     alignItems: 'center',
     paddingVertical: spacing.md,
+  },
+  meButtons: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.lg,
   },
   streakValue: {
     flexDirection: 'row',

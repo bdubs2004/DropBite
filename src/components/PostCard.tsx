@@ -14,6 +14,7 @@ export function PostCard({
   onComment,
   onShare,
   onRepost,
+  onToggleSave,
   onPressUser,
 }: {
   post: Post;
@@ -21,10 +22,10 @@ export function PostCard({
   onComment?: (post: Post) => void;
   onShare?: (post: Post) => void;
   onRepost?: (post: Post) => void;
+  onToggleSave?: (post: Post) => void;
   onPressUser?: (userId: string) => void;
 }) {
   const [showRecipe, setShowRecipe] = useState(false);
-  const [bookmarked, setBookmarked] = useState(false);
   const slot = MEAL_SLOT_META[post.meal_slot];
 
   return (
@@ -100,14 +101,15 @@ export function PostCard({
             </Text>
           </Pressable>
           <Pressable
-            onPress={() => setBookmarked((v) => !v)}
+            testID="post-save"
+            onPress={() => onToggleSave?.(post)}
             style={styles.bookmarkBtn}
             hitSlop={8}
           >
             <Ionicons
-              name={bookmarked ? 'bookmark' : 'bookmark-outline'}
+              name={post.saved_by_me ? 'bookmark' : 'bookmark-outline'}
               size={21}
-              color={bookmarked ? colors.amberDark : colors.cocoaSoft}
+              color={post.saved_by_me ? colors.amberDark : colors.cocoaSoft}
             />
           </Pressable>
         </View>

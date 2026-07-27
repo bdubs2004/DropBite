@@ -53,6 +53,10 @@ export interface DataService {
   toggleRepost(postId: string): Promise<void>;
   recordShare(postId: string): Promise<void>;
 
+  // saved posts (bookmarks) — private to the user
+  toggleSave(postId: string): Promise<void>;
+  getSavedPosts(): Promise<Post[]>; // my saved posts, most recently saved first
+
   // streaks
   getStreak(userId: string): Promise<Streak>;
 

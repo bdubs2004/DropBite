@@ -45,5 +45,13 @@ export function usePostActions(navigation: any, refresh: () => void) {
     [svc, refresh],
   );
 
-  return { like, comment, share, repost };
+  const save = useCallback(
+    async (post: Post) => {
+      await svc.toggleSave(post.id);
+      refresh();
+    },
+    [svc, refresh],
+  );
+
+  return { like, comment, share, repost, save };
 }

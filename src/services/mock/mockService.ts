@@ -33,6 +33,7 @@ interface Db {
   comments: Comment[];
   reposts: { post_id: string; user_id: string }[];
   shares: { post_id: string; user_id: string }[];
+  saves: { post_id: string; user_id: string }[];
   streaks: Streak[];
   sessionUserId: string | null;
   credentials: { email: string; password: string; userId: string }[];
@@ -49,6 +50,7 @@ function freshDb(): Db {
     comments: [...SEED_COMMENTS],
     reposts: [...SEED_REPOSTS],
     shares: [...SEED_SHARES],
+    saves: [],
     streaks: [
       { user_id: 'u-marge', current_streak: 12, longest_streak: 34, last_post_date: localDateString() },
       { user_id: 'u-dan', current_streak: 5, longest_streak: 21, last_post_date: localDateString() },
@@ -98,6 +100,7 @@ export class MockService implements DataService {
       share_count: db.shares.filter((s) => s.post_id === post.id).length,
       repost_count: db.reposts.filter((r) => r.post_id === post.id).length,
       reposted_by_me: db.reposts.some((r) => r.post_id === post.id && r.user_id === meId),
+      saved_by_me: db.saves.some((s) => s.post_id === post.id && s.user_id === meId),
     };
   }
 
@@ -171,6 +174,7 @@ export class MockService implements DataService {
     db.comments = db.comments.filter((c) => c.user_id !== meId && !myPosts.has(c.post_id));
     db.reposts = db.reposts.filter((r) => r.user_id !== meId && !myPosts.has(r.post_id));
     db.shares = db.shares.filter((s) => s.user_id !== meId && !myPosts.has(s.post_id));
+    db.saves = db.saves.filter((s) => s.user_id !== meId && !myPosts.has(s.post_id));
     db.streaks = db.streaks.filter((s) => s.user_id !== meId);
     db.credentials = db.credentials.filter((c) => c.userId !== meId);
     db.sessionUserId = null;
@@ -373,6 +377,30 @@ export class MockService implements DataService {
       db.shares.push({ post_id: postId, user_id: me.id });
       await this.save();
     }
+  }
+
+  async toggleSave(postId: string): Promise<void> {
+    const db = await this.load();
+    const me = await this.me();
+    const idx = db.saves.findIndex((s) => s.post_id === postId && s.user_id === me.id);
+    if (idx >= 0) db.saves.splice(idx, 1);
+    else db.saves.push({ post_id: postId, user_id: me.id });
+    await this.save();
+  }
+
+  async getSavedPosts(): Promise<Post[]> {
+    const db = await this.load();
+    const me = await this.me();
+    // most recently saved first (saves are pushed in save order)
+    const myPostIds = db.saves
+      .filter((s) => s.user_id === me.id)
+      .map((s) => s.post_id)
+      .reverse();
+    const byId = new Map(db.posts.map((p) => [p.id, p]));
+    return myPostIds
+      .map((id) => byId.get(id))
+      .filter((p): p is Post => Boolean(p))
+      .map((p) => this.hydrate(db, p, me.id));
   }
 
   async getStreak(userId: string): Promise<Streak> {
