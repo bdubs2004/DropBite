@@ -84,16 +84,9 @@ export function Card({ children, style }: { children: React.ReactNode; style?: V
   return <View style={[styles.card, style]}>{children}</View>;
 }
 
-/** Recipe cards get a "bitten" top-right corner, the brand motif. */
+/** Cream-toned card used for recipe cards. */
 export function BittenCard({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
-  return (
-    <View style={[styles.card, styles.bittenCard, style]}>
-      <View style={styles.biteCircleBig} />
-      <View style={styles.biteCrumb1} />
-      <View style={styles.biteCrumb2} />
-      {children}
-    </View>
-  );
+  return <View style={[styles.card, styles.bittenCard, style]}>{children}</View>;
 }
 
 export function ScreenTitle({ children }: { children: React.ReactNode }) {
@@ -157,37 +150,9 @@ const styles = StyleSheet.create({
     ...(shadowSoft as object),
   },
   bittenCard: {
-    overflow: 'hidden',
     backgroundColor: colors.cream,
     borderWidth: 1.5,
     borderColor: colors.creamDark,
-  },
-  biteCircleBig: {
-    position: 'absolute',
-    top: -26,
-    right: -14,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.white,
-  },
-  biteCrumb1: {
-    position: 'absolute',
-    top: 16,
-    right: 22,
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: colors.amberSoft,
-  },
-  biteCrumb2: {
-    position: 'absolute',
-    top: 30,
-    right: 12,
-    width: 5,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: colors.amberSoft,
   },
   screenTitle: {
     fontFamily: fonts.display,
