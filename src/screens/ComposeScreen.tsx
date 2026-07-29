@@ -19,6 +19,7 @@ import { defaultMealSlot } from '../lib/time';
 import { getDataService } from '../services';
 import { formatRecipe, FormattedRecipe } from '../services/ai';
 import { searchPlaces } from '../services/places';
+import { LOCATION_TAGGING_ENABLED } from '../config';
 import { useApp } from '../state/AppContext';
 import { colors, fonts, MEAL_SLOT_META, radius, spacing } from '../theme';
 import { MealSlot, PlaceResult } from '../types';
@@ -180,57 +181,63 @@ export function ComposeScreen({ navigation }: any) {
           </View>
         )}
 
-        {/* 2: tags (restaurant) */}
-        <Text style={styles.stepLabel}>Tags</Text>
-        {place ? (
-          <View style={styles.tagRow}>
-            <Ionicons name="location-sharp" size={20} color={colors.amber} />
-            <View style={{ flex: 1, marginLeft: spacing.md }}>
-              <Text style={styles.tagText}>{place.name}</Text>
-              <Muted>{place.address}</Muted>
-            </View>
-            <Pressable onPress={() => setPlace(null)} hitSlop={8}>
-              <Ionicons name="close" size={18} color={colors.cocoaSoft} />
-            </Pressable>
-          </View>
-        ) : (
-          <View>
-            <Pressable style={styles.tagRow} onPress={() => setTagsOpen((v) => !v)}>
-              <Ionicons name="pricetag" size={20} color={colors.amber} />
-              <Text style={[styles.tagText, { flex: 1, marginLeft: spacing.md }]}>Tag</Text>
-              <Ionicons
-                name={tagsOpen ? 'chevron-up' : 'chevron-down'}
-                size={18}
-                color={colors.amberDark}
-              />
-            </Pressable>
-            {tagsOpen ? (
-              <View style={{ marginTop: spacing.sm }}>
-                <Input
-                  placeholder="Search restaurants"
-                  value={placeQuery}
-                  onChangeText={runPlaceSearch}
-                />
-                {searching ? <Muted>Searching</Muted> : null}
-                {placeResults.map((p) => (
-                  <Pressable
-                    key={p.place_id}
-                    style={styles.placeRow}
-                    onPress={() => {
-                      setPlace(p);
-                      setPlaceResults([]);
-                      setPlaceQuery('');
-                      setTagsOpen(false);
-                    }}
-                  >
-                    <Text style={styles.placeName}>{p.name}</Text>
-                    <Muted>{p.address}</Muted>
-                  </Pressable>
-                ))}
+        {/* 2: tags (restaurant "where you ate") — deferred to Phase 2.
+            Gated on LOCATION_TAGGING_ENABLED (src/config.ts). Flip that flag
+            to bring the whole tagging UI back; nothing else needs to change. */}
+        {LOCATION_TAGGING_ENABLED ? (
+          <>
+            <Text style={styles.stepLabel}>Tags</Text>
+            {place ? (
+              <View style={styles.tagRow}>
+                <Ionicons name="location-sharp" size={20} color={colors.amber} />
+                <View style={{ flex: 1, marginLeft: spacing.md }}>
+                  <Text style={styles.tagText}>{place.name}</Text>
+                  <Muted>{place.address}</Muted>
+                </View>
+                <Pressable onPress={() => setPlace(null)} hitSlop={8}>
+                  <Ionicons name="close" size={18} color={colors.cocoaSoft} />
+                </Pressable>
               </View>
-            ) : null}
-          </View>
-        )}
+            ) : (
+              <View>
+                <Pressable style={styles.tagRow} onPress={() => setTagsOpen((v) => !v)}>
+                  <Ionicons name="pricetag" size={20} color={colors.amber} />
+                  <Text style={[styles.tagText, { flex: 1, marginLeft: spacing.md }]}>Tag</Text>
+                  <Ionicons
+                    name={tagsOpen ? 'chevron-up' : 'chevron-down'}
+                    size={18}
+                    color={colors.amberDark}
+                  />
+                </Pressable>
+                {tagsOpen ? (
+                  <View style={{ marginTop: spacing.sm }}>
+                    <Input
+                      placeholder="Search restaurants"
+                      value={placeQuery}
+                      onChangeText={runPlaceSearch}
+                    />
+                    {searching ? <Muted>Searching</Muted> : null}
+                    {placeResults.map((p) => (
+                      <Pressable
+                        key={p.place_id}
+                        style={styles.placeRow}
+                        onPress={() => {
+                          setPlace(p);
+                          setPlaceResults([]);
+                          setPlaceQuery('');
+                          setTagsOpen(false);
+                        }}
+                      >
+                        <Text style={styles.placeName}>{p.name}</Text>
+                        <Muted>{p.address}</Muted>
+                      </Pressable>
+                    ))}
+                  </View>
+                ) : null}
+              </View>
+            )}
+          </>
+        ) : null}
 
         {/* 3: meal slot */}
         <Text style={styles.stepLabel}>Meal</Text>

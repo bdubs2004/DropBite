@@ -8,22 +8,26 @@
 
 A photo-first social app for sharing what you actually cook and eat, meal by meal.
 BeReal energy, restructured around breakfast / lunch / dinner / snacks. Casual blurbs
-become editable AI recipe cards; restaurant meals get tagged via Google Places.
+become editable AI recipe cards.
 
-Built with **React Native + Expo (TypeScript)**, **Supabase**, the **Anthropic API**,
-and **Google Places**. See `PROJECT_SCOPE.md` for product vision and `CLAUDE.md` for
-build conventions.
+Built with **React Native + Expo (TypeScript)**, **Supabase**, and the **Anthropic
+API**. See `PROJECT_SCOPE.md` for product vision and `CLAUDE.md` for build conventions.
+
+> **Location / restaurant tagging is deferred to Phase 2.** The "where you ate" tagging
+> (Google Places-backed) is fully built but turned off behind `LOCATION_TAGGING_ENABLED`
+> in `src/config.ts` — we're validating the core photo → blurb → post loop first. Flip
+> the flag to bring it back.
 
 ## It runs out of the box, no API keys needed
 
 The app ships with a **demo mode**: when no Supabase env vars are set, everything runs
-locally on-device (AsyncStorage) with a seeded feed of fake users and posts, a local
-heuristic recipe formatter, and a built-in restaurant list. The full product loop
-(sign up, follow, post, AI recipe card, streak) is testable immediately.
+locally on-device (AsyncStorage) with a seeded feed of fake users and posts and a local
+heuristic recipe formatter. The full product loop (sign up, follow, post, AI recipe
+card, streak) is testable immediately.
 
 When you're ready to go live, plug in the real services: **[SETUP_GUIDE.md](SETUP_GUIDE.md)**
 has the step-by-step for running it on your phone and wiring up Supabase, Anthropic,
-Google Places, and push notifications.
+and push notifications.
 
 ## Quick start
 
@@ -43,9 +47,9 @@ npm run web             # or run in a browser
 | --- | --- | --- |
 | ![Recipe](docs/screenshots/08-recipe-card.png) | ![Profile](docs/screenshots/12-profile.png) | ![Settings](docs/screenshots/13-settings.png) |
 
-| Discover | Search | Restaurant tagging |
-| --- | --- | --- |
-| ![Discover](docs/screenshots/11-discover.png) | ![Search](docs/screenshots/14-search.png) | ![Places](docs/screenshots/09-places.png) |
+| Discover | Search |
+| --- | --- |
+| ![Discover](docs/screenshots/11-discover.png) | ![Search](docs/screenshots/14-search.png) |
 
 The full walkthrough set (sign-up through posting) lives in `docs/screenshots/`.
 
@@ -54,10 +58,11 @@ The full walkthrough set (sign-up through posting) lives in `docs/screenshots/`.
 - Email auth + profiles (display name, handle, emoji avatar, bio)
 - Follow system + chronological friends feed with pull-to-refresh
 - Post flow: photo (required) → meal slot (smart default by time of day) → blurb →
-  optional AI recipe card → optional restaurant tag
+  optional AI recipe card
 - AI recipe cleanup: blurb to structured `{title, ingredients[{item,quantity,unit}], steps[], cook_time}`,
   **every field editable before posting**, never blocks the post
-- Restaurant tagging (Google Places Text Search in production, demo list offline)
+- Restaurant tagging (Google Places Text Search + demo list) — **built, deferred to
+  Phase 2** behind `LOCATION_TAGGING_ENABLED`
 - Likes (❤️ only for MVP)
 - Streaks (current + longest, lapses after a missed day)
 - Mealtime notifications (~8:00 / ~12:00 / ~18:00 local time, individually toggleable)
@@ -79,7 +84,7 @@ src/
     mock/                   demo mode: AsyncStorage + seeded data
     supabase/               production: Supabase auth/db/storage
     ai.ts                   recipe formatting (edge function or local heuristic)
-    places.ts               Google Places search (or demo list)
+    places.ts               Google Places search (or demo list) — Phase 2, gated
     notifications.ts        local scheduled mealtime notifications
   state/AppContext.tsx      session, feed, streak, prefs
   components/               PostCard, RecipeCardEditor, BittenCard, …

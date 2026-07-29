@@ -37,7 +37,7 @@ Goal: prove retention. Success = users posting 3+ times/week after one month.
 - Meal-slot posting (breakfast / lunch / dinner / snack) with photo upload
 - Casual blurb field on every post
 - Basic AI recipe cleanup (light formatting of the blurb into readable structure)
-- Restaurant tagging via Google Places API (no custom location DB)
+- Restaurant tagging via Google Places API (no custom location DB) — *built but deferred: shipping the core loop first, then enabling via `LOCATION_TAGGING_ENABLED`*
 - Friends feed (chronological)
 - Mealtime push notifications (timezone-aware)
 - Streaks

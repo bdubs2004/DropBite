@@ -20,7 +20,7 @@ A mobile-first, photo-first social app where users post meals in slots (breakfas
 - [ ] Post creation: photo (required) + meal slot + blurb + optional restaurant tag
 - [ ] Meal slots: breakfast, lunch, dinner, snack — user picks, sensible default by time of day
 - [ ] AI recipe cleanup: send blurb to Claude API, get back structured recipe (title, ingredients[], steps[], est. cook time), render as editable card
-- [ ] Restaurant tagging via Google Places API (search + attach place_id, name, location)
+- [ ] Restaurant tagging via Google Places API (search + attach place_id, name, location) — **DEFERRED to Phase 2.** Built but gated off behind `LOCATION_TAGGING_ENABLED` in `src/config.ts`; we're validating the core photo→blurb→post loop first, then re-enabling with one flag flip.
 - [ ] Chronological friends feed with pull-to-refresh
 - [ ] Push notifications: ~8:00 breakfast, ~12:00 lunch, ~18:00 dinner, local timezone, individually toggleable
 - [ ] Streak counter (consecutive days with ≥1 post)

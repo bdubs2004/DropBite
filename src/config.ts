@@ -14,6 +14,19 @@ export const GOOGLE_PLACES_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY ?? ''
 export const DEMO_MODE = !SUPABASE_URL || !SUPABASE_ANON_KEY;
 
 /**
+ * Location / restaurant tagging ("where you ate", Google Places-backed).
+ *
+ * DEFERRED to Phase 2. We're launching the core loop (photo → blurb → post →
+ * feed) first and want proof people use the base features before layering on
+ * venue tagging. The data model, services (`src/services/places.ts`), and UI
+ * are all still wired up — they're just hidden behind this flag. To bring the
+ * feature back, flip this to `true` (and set EXPO_PUBLIC_GOOGLE_PLACES_KEY for
+ * live search; the demo list works without a key). No other code changes
+ * needed. Search the codebase for LOCATION_TAGGING_ENABLED to find every spot.
+ */
+export const LOCATION_TAGGING_ENABLED: boolean = false;
+
+/**
  * AI recipe formatting model + prompt live here so cost/quality tuning is
  * one edit (CLAUDE.md: "Keep prompts and model choice in one config module").
  * The real call happens server-side in the Supabase Edge Function

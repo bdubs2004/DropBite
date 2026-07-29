@@ -5,15 +5,19 @@ project, run commands in VS Code's built-in terminal, and edit config files in t
 editor. Two parts:
 
 - **Part A: run the test app** on your phone or laptop (about 10 minutes, zero API keys)
-- **Part B: plug in the APIs** so every feature runs for real (Supabase, then Anthropic, Google Places, and push)
+- **Part B: plug in the APIs** so every feature runs for real (Supabase, then Anthropic, and push; Google Places is deferred to Phase 2)
 
 ---
 
 ## Part A: Run the test app (demo mode, no keys)
 
 Demo mode is automatic whenever Supabase env vars are missing. You get a seeded feed
-(5 fake users, ~10 posts), local sign-up, AI-card formatting via a built-in parser,
-and a demo restaurant list. Everything is stored on the device.
+(5 fake users, ~10 posts), local sign-up, and AI-card formatting via a built-in parser.
+Everything is stored on the device.
+
+> **Note:** Location / restaurant tagging ("where you ate") is turned **off** for the
+> MVP — we're validating the core photo → blurb → post loop first. It's a one-line
+> re-enable later (`LOCATION_TAGGING_ENABLED` in `src/config.ts`). See B3 below.
 
 ### A1. Install the tools (one time)
 
@@ -108,8 +112,8 @@ are mobile-only.
 2. Tap **+**, pick a photo with Camera or Library, confirm the meal slot (pre-selected
    by time of day), and write a description like *"browned chicken thighs with 3 cloves
    garlic and 2 tbsp butter, simmered 15 min"*.
-3. Tap **Format as recipe card**, fix any field inline (that's the point), tag a
-   restaurant under **Tags**, then tap **Share post**.
+3. Tap **Format as recipe card**, fix any field inline (that's the point), then tap
+   **Share post**. (Restaurant tagging is off for the MVP — see the note above.)
 4. Your post appears at the top of the feed and your streak increments.
 5. Check Profile (stats, streaks, your posts) and Settings (notification toggles,
    data export, account deletion; both really work).
@@ -118,9 +122,10 @@ are mobile-only.
 
 ## Part B: Plug in the APIs (go live)
 
-Order matters: Supabase first (it's the backbone), then Anthropic, then Places, then
-push. All terminal commands below go in the VS Code terminal, and all file edits
-happen in the VS Code editor.
+Order matters: Supabase first (it's the backbone), then Anthropic, then push.
+Google Places (B3) is deferred to Phase 2 and not needed to launch. All terminal
+commands below go in the VS Code terminal, and all file edits happen in the VS Code
+editor.
 
 ### B1. Supabase: auth, database, photo storage (about 20 min, free tier)
 
@@ -180,21 +185,25 @@ calls; it never goes in `.env` or the app.
    `delete-account` is the same deal for Settings → Delete account (auth deletion
    needs a server-side key).
 
-### B3. Google Places: real restaurant search (about 10 min)
+### B3. Google Places: real restaurant search — DEFERRED to Phase 2
 
-1. Go to <https://console.cloud.google.com>, create a project.
-2. APIs & Services → Library → enable **Places API (New)**.
-3. Credentials → Create credentials → API key. Restrict it to the Places API.
-   (Billing account required; there's a recurring monthly free allowance that easily
-   covers testing.)
-4. Open `.env` in VS Code and add:
+Location / restaurant tagging is **off** for the MVP, so you can skip this section
+entirely at launch. We're shipping the core loop first and adding "where you ate"
+tagging once people are using the base features. Everything for it is already built
+and just gated behind `LOCATION_TAGGING_ENABLED` in `src/config.ts`.
 
-   ```
-   EXPO_PUBLIC_GOOGLE_PLACES_KEY=AIza...
-   ```
+When you're ready to turn it on:
 
-   Save (`Ctrl+S`).
-5. Restart the dev server (`Ctrl+C`, then `npx expo start --clear`). The compose
+1. Set `LOCATION_TAGGING_ENABLED = true` in `src/config.ts`. That alone restores the
+   **Tags** step in compose and the restaurant tag on posts (with a built-in demo
+   list, no key needed).
+2. For live search instead of the demo list, add a Google Places key:
+   - Go to <https://console.cloud.google.com>, create a project.
+   - APIs & Services → Library → enable **Places API (New)**.
+   - Credentials → Create credentials → API key. Restrict it to the Places API.
+     (Billing account required; a recurring monthly free allowance covers testing.)
+   - Open `.env` in VS Code and add `EXPO_PUBLIC_GOOGLE_PLACES_KEY=AIza...`, save.
+3. Restart the dev server (`Ctrl+C`, then `npx expo start --clear`). The compose
    screen's restaurant search now hits Google live (`src/services/places.ts`).
 
 ### B4. Push notifications
@@ -251,7 +260,8 @@ Store / Play Store submission later: `eas submit`.
 | Photos don't upload | Confirm the `photos` bucket exists (schema.sql creates it) and is public |
 | Recipe card button does nothing | Blurb must be ≥ 12 characters; if it's clearly not cooking ("ate at Chipotle") the app intentionally skips the card |
 | AI formatting fails in production | Check `supabase functions logs format-recipe`; usually a missing or mistyped `ANTHROPIC_API_KEY` secret |
-| Restaurant search returns nothing | Key restricted to the wrong API. Enable **Places API (New)**, not the legacy one |
+| No **Tags** step in compose / no restaurant on posts | Expected — location tagging is deferred (`LOCATION_TAGGING_ENABLED = false` in `src/config.ts`) |
+| Restaurant search returns nothing (after re-enabling) | Key restricted to the wrong API. Enable **Places API (New)**, not the legacy one |
 
 ## Cost cheat-sheet (at test scale)
 
@@ -259,7 +269,7 @@ Store / Play Store submission later: `eas submit`.
 | --- | --- |
 | Supabase | Free tier covers MVP testing comfortably |
 | Anthropic (Claude Haiku) | ~$2 per 1,000 recipe formats, prepaid |
-| Google Places | Monthly free allowance covers testing |
+| Google Places | Deferred to Phase 2; monthly free allowance covers testing when enabled |
 | Expo / EAS | Free tier fine for dev builds |
 | Apple Developer | $99/yr (only when you want iOS installs/TestFlight) |
 | Google Play | $25 one-time (only for Play Store) |

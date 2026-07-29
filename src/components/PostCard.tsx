@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { LOCATION_TAGGING_ENABLED } from '../config';
 import { relativeTime } from '../lib/time';
 import { colors, fonts, MEAL_SLOT_META, radius, shadow, spacing } from '../theme';
 import { Post } from '../types';
@@ -114,7 +115,10 @@ export function PostCard({
           </Pressable>
         </View>
 
-        {post.restaurant_name ? (
+        {/* Restaurant "where you ate" tag — deferred to Phase 2, gated on
+            LOCATION_TAGGING_ENABLED (src/config.ts). Existing posts keep their
+            restaurant_name in the data; it just isn't shown while off. */}
+        {LOCATION_TAGGING_ENABLED && post.restaurant_name ? (
           <View style={styles.placeTag}>
             <Ionicons name="location-sharp" size={13} color={colors.amberDark} />
             <Text style={styles.placeText} numberOfLines={1}>

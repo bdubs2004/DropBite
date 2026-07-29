@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '../components/Avatar';
 import { PostCard } from '../components/PostCard';
 import { Input, Muted, ScreenTitle } from '../components/ui';
+import { LOCATION_TAGGING_ENABLED } from '../config';
 import { usePostActions } from '../lib/usePostActions';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
@@ -45,7 +46,8 @@ export function SearchScreen({ navigation }: any) {
         (p) =>
           p.blurb.toLowerCase().includes(q) ||
           (p.recipe?.title ?? '').toLowerCase().includes(q) ||
-          (p.restaurant_name ?? '').toLowerCase().includes(q),
+          // Restaurant matching is part of location tagging (Phase 2, gated).
+          (LOCATION_TAGGING_ENABLED && (p.restaurant_name ?? '').toLowerCase().includes(q)),
       )
     : [];
 
@@ -55,7 +57,11 @@ export function SearchScreen({ navigation }: any) {
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <ScreenTitle>Search</ScreenTitle>
-        <Muted>Find people, dishes, and restaurants.</Muted>
+        <Muted>
+          {LOCATION_TAGGING_ENABLED
+            ? 'Find people, dishes, and restaurants.'
+            : 'Find people and dishes.'}
+        </Muted>
       </View>
       <View style={{ paddingHorizontal: spacing.lg }}>
         <Input placeholder="Search nibl" value={query} onChangeText={setQuery} />
