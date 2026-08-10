@@ -102,6 +102,10 @@ export interface DataService {
   // saved posts (bookmarks) — private to the user
   toggleSave(postId: string): Promise<void>;
   getSavedPosts(): Promise<Post[]>; // my saved posts, most recently saved first
+  /** Posts I've liked, most recently liked first. Private to me. */
+  getLikedPosts(): Promise<Post[]>;
+  /** Posts I've commented on, most recent comment first. Private to me. */
+  getCommentedPosts(): Promise<Post[]>;
 
   // streaks
   getStreak(userId: string): Promise<Streak>;

@@ -749,6 +749,37 @@ export class SupabaseService implements DataService {
       .map((row: any) => this.hydrateRow(row, meId));
   }
 
+  async getLikedPosts(): Promise<Post[]> {
+    const meId = await this.myId();
+    const { data } = await this.sb
+      .from('reactions')
+      .select('created_at, posts(' + this.POST_SELECT + ')')
+      .eq('user_id', meId)
+      .order('created_at', { ascending: false });
+    return (data ?? [])
+      .map((r: any) => r.posts)
+      .filter(Boolean)
+      .map((row: any) => this.hydrateRow(row, meId));
+  }
+
+  async getCommentedPosts(): Promise<Post[]> {
+    const meId = await this.myId();
+    const { data } = await this.sb
+      .from('comments')
+      .select('post_id, created_at, posts(' + this.POST_SELECT + ')')
+      .eq('user_id', meId)
+      .order('created_at', { ascending: false });
+    // One row per post even if I commented on it several times.
+    const seen = new Set<string>();
+    const out: Post[] = [];
+    for (const row of (data ?? []) as any[]) {
+      if (!row.posts || seen.has(row.post_id)) continue;
+      seen.add(row.post_id);
+      out.push(this.hydrateRow(row.posts, meId));
+    }
+    return out;
+  }
+
   async getStreak(userId: string): Promise<Streak> {
     const { data } = await this.sb.from('streaks').select('*').eq('user_id', userId).maybeSingle();
     const s = (data as Streak) ?? {

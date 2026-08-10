@@ -723,6 +723,37 @@ export class MockService implements DataService {
       .map((p) => this.hydrate(db, p, me.id));
   }
 
+  async getLikedPosts(): Promise<Post[]> {
+    const db = await this.load();
+    const me = await this.me();
+    // Reactions have no timestamp in demo mode, so fall back to post recency.
+    const liked = new Set(
+      db.reactions.filter((r) => r.user_id === me.id).map((r) => r.post_id),
+    );
+    return db.posts
+      .filter((p) => liked.has(p.id))
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .map((p) => this.hydrate(db, p, me.id));
+  }
+
+  async getCommentedPosts(): Promise<Post[]> {
+    const db = await this.load();
+    const me = await this.me();
+    // Newest comment first, one row per post even if I commented repeatedly.
+    const mine = db.comments
+      .filter((c) => c.user_id === me.id)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at));
+    const seen = new Set<string>();
+    const out: Post[] = [];
+    for (const c of mine) {
+      if (seen.has(c.post_id)) continue;
+      seen.add(c.post_id);
+      const post = db.posts.find((p) => p.id === c.post_id);
+      if (post) out.push(this.hydrate(db, post, me.id));
+    }
+    return out;
+  }
+
   async getStreak(userId: string): Promise<Streak> {
     const db = await this.load();
     const s = db.streaks.find((x) => x.user_id === userId);

@@ -32,7 +32,7 @@ import { ShareSheetScreen } from './src/screens/ShareSheetScreen';
 import { PostDetailScreen } from './src/screens/PostDetailScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { ReportScreen } from './src/screens/ReportScreen';
-import { SavedScreen } from './src/screens/SavedScreen';
+import { ActivityScreen } from './src/screens/ActivityScreen';
 import { SearchScreen } from './src/screens/SearchScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { UserListScreen } from './src/screens/UserListScreen';
@@ -191,7 +191,7 @@ function Root() {
       />
       <Stack.Screen name="UserProfile" component={ProfileScreen} />
       <Stack.Screen name="UserList" component={UserListScreen} />
-      <Stack.Screen name="Saved" component={SavedScreen} />
+      <Stack.Screen name="Activity" component={ActivityScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
     </Stack.Navigator>
   );

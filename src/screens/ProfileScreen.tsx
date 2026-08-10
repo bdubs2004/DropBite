@@ -10,7 +10,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '../components/Avatar';
-import { PostCard } from '../components/PostCard';
+import { ActivityDrawer } from '../components/ActivityDrawer';
+import { PostThumb } from '../components/PostThumb';
 import { Button, Muted } from '../components/ui';
 import { usePostActions } from '../lib/usePostActions';
 import { getDataService } from '../services';
@@ -21,6 +22,9 @@ import { Post, Streak, User } from '../types';
 /**
  * Shows either my own profile (tab) or another user's (pushed from feed).
  */
+const GRID_COLUMNS = 3;
+const GRID_GAP = 2;
+
 export function ProfileScreen({ navigation, route }: any) {
   const { user: me, refreshFeed } = useApp();
   const svc = getDataService();
@@ -28,7 +32,7 @@ export function ProfileScreen({ navigation, route }: any) {
 
   const userId: string = route?.params?.userId ?? me?.id;
   const isMe = userId === me?.id;
-  const listRef = useRef<FlatList<Post>>(null);
+  const listRef = useRef<FlatList<Post | null>>(null);
 
   const [otherProfile, setOtherProfile] = useState<User | null>(null);
   // For my own profile, read straight from live context so a saved bio /
@@ -94,7 +98,14 @@ export function ProfileScreen({ navigation, route }: any) {
     refreshFeed();
   };
 
-  const { like, comment, share, repost, save, remove, report } = usePostActions(navigation, load);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  /** Pad to whole rows so a lone final tile stays a third wide. */
+  const gridData: (Post | null)[] = (() => {
+    const remainder = posts.length % GRID_COLUMNS;
+    if (remainder === 0) return posts;
+    return [...posts, ...Array(GRID_COLUMNS - remainder).fill(null)];
+  })();
 
   const header = (
     <View style={styles.headerWrap}>
@@ -104,12 +115,23 @@ export function ProfileScreen({ navigation, route }: any) {
         </Pressable>
       ) : null}
       <View style={styles.card}>
+        {isMe ? (
+          <Pressable
+            testID="profile-menu"
+            onPress={() => setMenuOpen(true)}
+            hitSlop={10}
+            style={styles.menuBtn}
+            accessibilityLabel="Your stuff"
+          >
+            <Ionicons name="menu" size={24} color={colors.cocoa} />
+          </Pressable>
+        ) : null}
         <View style={styles.topRow}>
           <Avatar user={profile} size={72} />
           <View style={styles.stats}>
-            <Stat label="posts" value={posts.length} onPress={scrollToPosts} />
-            <Stat label="followers" value={counts.followers} onPress={() => openList('followers')} />
-            <Stat label="following" value={counts.following} onPress={() => openList('following')} />
+            <Stat label="Posts" value={posts.length} onPress={scrollToPosts} />
+            <Stat label="Followers" value={counts.followers} onPress={() => openList('followers')} />
+            <Stat label="Following" value={counts.following} onPress={() => openList('following')} />
           </View>
         </View>
         <Text style={styles.name}>{profile?.display_name ?? '…'}</Text>
@@ -136,15 +158,16 @@ export function ProfileScreen({ navigation, route }: any) {
         {isMe ? (
           <View style={styles.meButtons}>
             <Button
-              title="Saved"
+              title="Edit profile"
               variant="secondary"
-              onPress={() => navigation.navigate('Saved')}
+              onPress={() => navigation.navigate('Settings')}
               style={{ flex: 1 }}
             />
             <Button
-              title="Settings"
+              testID="profile-activity"
+              title="Your activity"
               variant="secondary"
-              onPress={() => navigation.navigate('Settings')}
+              onPress={() => navigation.navigate('Activity', { tab: 'liked' })}
               style={{ flex: 1 }}
             />
           </View>
@@ -157,9 +180,7 @@ export function ProfileScreen({ navigation, route }: any) {
           />
         )}
       </View>
-      {posts.length ? (
-        <Text style={styles.sectionTitle}>Posts</Text>
-      ) : null}
+      {posts.length ? <Text style={styles.sectionTitle}>Posts</Text> : null}
     </View>
   );
 
@@ -167,25 +188,25 @@ export function ProfileScreen({ navigation, route }: any) {
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <FlatList
         ref={listRef}
-        data={posts}
-        keyExtractor={(p) => p.id}
+        testID="profile-grid"
+        data={gridData}
+        keyExtractor={(p, i) => p?.id ?? `spacer-${i}`}
+        numColumns={GRID_COLUMNS}
         onScrollToIndexFailed={() => {}}
         ListHeaderComponent={header}
-        renderItem={({ item }) => (
-          <PostCard
-            post={item}
-            onToggleLike={like}
-            onComment={comment}
-            onShare={share}
-            onRepost={repost}
-            onToggleSave={save}
-            onPressUser={(uid) => navigation.push('UserProfile', { userId: uid })}
-            onDelete={remove}
-            onReport={report}
-            isMine={item.user_id === me?.id}
-          />
-        )}
-        contentContainerStyle={{ paddingBottom: 120 }}
+        columnWrapperStyle={{ gap: GRID_GAP }}
+        contentContainerStyle={{ gap: GRID_GAP, paddingBottom: 120 }}
+        renderItem={({ item }) =>
+          item ? (
+            <PostThumb
+              post={item}
+              onPress={() => navigation.navigate('PostDetail', { postId: item.id })}
+              style={{ flex: 1 }}
+            />
+          ) : (
+            <View style={{ flex: 1 }} />
+          )
+        }
         ListEmptyComponent={
           loading ? null : (
             <Muted style={{ textAlign: 'center', marginTop: spacing.xl }}>
@@ -193,6 +214,92 @@ export function ProfileScreen({ navigation, route }: any) {
             </Muted>
           )
         }
+      />
+
+      <ActivityDrawer
+        visible={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        sections={[
+          {
+            title: 'Your activity',
+            items: [
+              {
+                key: 'liked',
+                label: 'Liked',
+                hint: 'Posts you have hearted',
+                icon: 'heart-outline',
+                onPress: () => navigation.navigate('Activity', { tab: 'liked' }),
+              },
+              {
+                key: 'saved',
+                label: 'Saved',
+                hint: 'Your private bookmarks',
+                icon: 'bookmark-outline',
+                onPress: () => navigation.navigate('Activity', { tab: 'saved' }),
+              },
+              {
+                key: 'commented',
+                label: 'Comments',
+                hint: 'Posts you have replied to',
+                icon: 'chatbubble-outline',
+                onPress: () => navigation.navigate('Activity', { tab: 'commented' }),
+              },
+            ],
+          },
+          {
+            title: 'Social',
+            items: [
+              {
+                key: 'messages',
+                label: 'Messages',
+                hint: 'Your direct messages',
+                icon: 'paper-plane-outline',
+                onPress: () => navigation.navigate('Inbox'),
+              },
+              {
+                key: 'streaks',
+                label: 'Streaks',
+                hint: 'Leaderboard and your best run',
+                icon: 'flame-outline',
+                onPress: () => navigation.navigate('Leaderboard'),
+              },
+            ],
+          },
+          {
+            title: 'Settings',
+            items: [
+              {
+                key: 'edit-profile',
+                label: 'Edit profile',
+                hint: 'Photo, name, and bio',
+                icon: 'person-outline',
+                onPress: () => navigation.navigate('Settings'),
+              },
+              {
+                key: 'notifications',
+                label: 'Notifications',
+                hint: 'Mealtime reminder times',
+                icon: 'notifications-outline',
+                onPress: () => navigation.navigate('Settings'),
+              },
+              {
+                key: 'privacy',
+                label: 'Privacy',
+                hint: 'Who can see your follower list',
+                icon: 'lock-closed-outline',
+                onPress: () => navigation.navigate('Settings'),
+              },
+              {
+                key: 'account',
+                label: 'Account',
+                hint: 'Sign out or delete your account',
+                icon: 'log-out-outline',
+                danger: true,
+                onPress: () => navigation.navigate('Settings'),
+              },
+            ],
+          },
+        ]}
       />
     </View>
   );
@@ -236,6 +343,13 @@ const styles = StyleSheet.create({
     borderRadius: radius.xl,
     padding: spacing.xl,
     ...(shadowSoft as object),
+  },
+  menuBtn: {
+    position: 'absolute',
+    top: spacing.md,
+    right: spacing.md,
+    zIndex: 2,
+    padding: 4,
   },
   topRow: {
     flexDirection: 'row',
