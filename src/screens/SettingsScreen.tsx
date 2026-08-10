@@ -12,11 +12,19 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DEMO_MODE } from '../config';
+import { TimePickerModal } from '../components/TimePickerModal';
 import { Button, Card, Input, Muted, ScreenTitle } from '../components/ui';
+import { formatTime, MEAL_REMINDER_SLOTS, timeFor } from '../lib/mealTimes';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
-import { colors, fonts, spacing } from '../theme';
-import { NotificationPrefs } from '../types';
+import { colors, fonts, radius, spacing } from '../theme';
+import { MealReminderSlot, NotificationPrefs } from '../types';
+
+const MEAL_LABELS: Record<MealReminderSlot, string> = {
+  breakfast: 'Breakfast',
+  lunch: 'Lunch',
+  dinner: 'Dinner',
+};
 
 export function SettingsScreen({ navigation }: any) {
   const { user, setUser, prefs, setPrefs, refreshMe } = useApp();
@@ -28,6 +36,7 @@ export function SettingsScreen({ navigation }: any) {
   const [followsPrivate, setFollowsPrivate] = useState(Boolean(user?.follows_private));
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [editingSlot, setEditingSlot] = useState<MealReminderSlot | null>(null);
 
   const toggleFollowsPrivate = async () => {
     const next = !followsPrivate;
@@ -46,8 +55,20 @@ export function SettingsScreen({ navigation }: any) {
     }
   };
 
-  const togglePref = (key: keyof NotificationPrefs) => {
+  const togglePref = (key: MealReminderSlot) => {
     setPrefs({ ...prefs, [key]: !prefs[key] });
+  };
+
+  /**
+   * Save a new reminder time. Turning a reminder's time on implies wanting the
+   * reminder, so picking a time also enables the slot if it was off.
+   */
+  const setMealTime = (slot: MealReminderSlot, next: string) => {
+    setPrefs({
+      ...prefs,
+      [slot]: true,
+      times: { ...(prefs.times ?? {}), [slot]: next },
+    });
   };
 
   const deleteAccount = async () => {
@@ -98,27 +119,32 @@ export function SettingsScreen({ navigation }: any) {
 
       <Text style={styles.section}>Mealtime notifications</Text>
       <Card>
-        <PrefRow
-          label="Breakfast, around 8:00 AM"
-          value={prefs.breakfast}
-          onChange={() => togglePref('breakfast')}
-        />
-        <PrefRow
-          label="Lunch, around 12:00 PM"
-          value={prefs.lunch}
-          onChange={() => togglePref('lunch')}
-        />
-        <PrefRow
-          label="Dinner, around 6:00 PM"
-          value={prefs.dinner}
-          onChange={() => togglePref('dinner')}
-          last
-        />
+        {MEAL_REMINDER_SLOTS.map((slot, i) => (
+          <PrefRow
+            key={slot}
+            slot={slot}
+            label={MEAL_LABELS[slot]}
+            value={prefs[slot]}
+            time={timeFor(prefs, slot)}
+            onChange={() => togglePref(slot)}
+            onPressTime={() => setEditingSlot(slot)}
+            last={i === MEAL_REMINDER_SLOTS.length - 1}
+          />
+        ))}
         <Muted style={{ marginTop: spacing.md }}>
-          Times follow your phone's timezone. Snacks never send reminders.
+          Tap a time to change it. Reminders follow your phone's timezone, so
+          they stay right when you travel. Snacks never send reminders.
           {Platform.OS === 'web' ? ' Notifications are mobile-only.' : ''}
         </Muted>
       </Card>
+
+      <TimePickerModal
+        visible={editingSlot !== null}
+        value={editingSlot ? timeFor(prefs, editingSlot) : '12:00'}
+        title={editingSlot ? `${MEAL_LABELS[editingSlot]} reminder` : 'Reminder time'}
+        onSelect={(next) => editingSlot && setMealTime(editingSlot, next)}
+        onClose={() => setEditingSlot(null)}
+      />
 
       <Text style={styles.section}>Privacy</Text>
       <Card>
@@ -180,22 +206,44 @@ function PrefRow({
   value,
   onChange,
   last,
+  slot,
+  time,
+  onPressTime,
 }: {
   label: string;
   value: boolean;
   onChange: () => void;
   last?: boolean;
+  /** Present only on the mealtime rows, which carry an editable time. */
+  slot?: MealReminderSlot;
+  time?: string;
+  onPressTime?: () => void;
 }) {
   return (
     <View style={[styles.prefRow, !last && styles.prefRowBorder]}>
       <Text style={styles.prefLabel}>{label}</Text>
-      <Switch
-        value={value}
-        onValueChange={onChange}
-        trackColor={{ false: colors.creamDark, true: colors.amber }}
-        thumbColor={colors.white}
-        {...(Platform.OS === 'web' ? ({ activeThumbColor: colors.white } as object) : {})}
-      />
+      <View style={styles.prefRight}>
+        {time && onPressTime ? (
+          <Pressable
+            testID={`meal-time-${slot}`}
+            onPress={onPressTime}
+            // Dim the time when the reminder is off: it still shows what it
+            // would be, but it clearly isn't doing anything right now.
+            style={[styles.timePill, !value && styles.timePillOff]}
+          >
+            <Text style={[styles.timePillText, !value && styles.timePillTextOff]}>
+              {formatTime(time)}
+            </Text>
+          </Pressable>
+        ) : null}
+        <Switch
+          value={value}
+          onValueChange={onChange}
+          trackColor={{ false: colors.creamDark, true: colors.amber }}
+          thumbColor={colors.white}
+          {...(Platform.OS === 'web' ? ({ activeThumbColor: colors.white } as object) : {})}
+        />
+      </View>
     </View>
   );
 }
@@ -240,6 +288,30 @@ const styles = StyleSheet.create({
   prefRowBorder: {
     borderBottomWidth: 1,
     borderColor: colors.hairline,
+  },
+  prefRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  timePill: {
+    backgroundColor: colors.cream,
+    borderRadius: radius.pill,
+    borderWidth: 1.5,
+    borderColor: colors.creamDark,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+  },
+  timePillOff: {
+    opacity: 0.5,
+  },
+  timePillText: {
+    fontFamily: fonts.bold,
+    fontSize: 13.5,
+    color: colors.amberDark,
+  },
+  timePillTextOff: {
+    color: colors.cocoaFaint,
   },
   prefLabel: {
     fontFamily: fonts.semi,

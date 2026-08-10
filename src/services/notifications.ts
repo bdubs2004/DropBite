@@ -1,28 +1,26 @@
 import { Platform } from 'react-native';
-import { NotificationPrefs } from '../types';
+import { MEAL_REMINDER_SLOTS, parseTime, timeFor } from '../lib/mealTimes';
+import { MealReminderSlot, NotificationPrefs } from '../types';
 
 /**
  * Mealtime push notifications via local scheduled notifications
  * (no server needed; they fire in the user's own timezone by definition).
  * Web: gracefully no-ops.
+ *
+ * The hour/minute for each slot comes from the user's saved prefs, so someone
+ * who eats dinner at 8pm gets reminded at 8pm. See src/lib/mealTimes.ts.
  */
 
-const SLOT_TIMES: Record<keyof NotificationPrefs, { hour: number; minute: number; title: string; body: string }> = {
+const SLOT_COPY: Record<MealReminderSlot, { title: string; body: string }> = {
   breakfast: {
-    hour: 8,
-    minute: 0,
     title: 'Breakfast on nibl',
     body: "What's on your plate this morning? Share it with your friends.",
   },
   lunch: {
-    hour: 12,
-    minute: 0,
     title: 'Lunch on nibl',
     body: 'Midday check-in. Show your friends what lunch looks like.',
   },
   dinner: {
-    hour: 18,
-    minute: 0,
     title: 'Dinner on nibl',
     body: 'Dinner time. Cooked or ordered, share it while it is hot.',
   },
@@ -44,16 +42,20 @@ export async function syncMealtimeNotifications(prefs: NotificationPrefs): Promi
       }),
     });
 
+    // Clear and re-schedule wholesale: simpler than diffing, and this runs
+    // only when prefs change.
     await Notifications.cancelAllScheduledNotificationsAsync();
-    for (const slot of Object.keys(SLOT_TIMES) as (keyof NotificationPrefs)[]) {
+    for (const slot of MEAL_REMINDER_SLOTS) {
       if (!prefs[slot]) continue;
-      const t = SLOT_TIMES[slot];
+      const at = parseTime(timeFor(prefs, slot));
+      if (!at) continue; // timeFor already falls back, so this is belt-and-braces
+      const copy = SLOT_COPY[slot];
       await Notifications.scheduleNotificationAsync({
-        content: { title: t.title, body: t.body, data: { slot } },
+        content: { title: copy.title, body: copy.body, data: { slot } },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DAILY,
-          hour: t.hour,
-          minute: t.minute,
+          hour: at.hour,
+          minute: at.minute,
         },
       });
     }

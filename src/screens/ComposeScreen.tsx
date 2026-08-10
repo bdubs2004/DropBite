@@ -47,12 +47,32 @@ export function ComposeScreen({ navigation }: any) {
   const [searching, setSearching] = useState(false);
 
   const [posting, setPosting] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
 
   const hasPhoto = Boolean(photoUri || photoEmoji);
   const canPost = hasPhoto && blurb.trim().length > 0 && !posting;
 
   const pickPhoto = async (fromCamera: boolean) => {
+    setPhotoError(null);
     try {
+      // The camera needs an explicit runtime permission grant. Without this
+      // request, launchCameraAsync just fails and (previously) the error was
+      // swallowed, so tapping Camera appeared to do nothing. The library
+      // picker needs no grant on modern iOS/Android, which is why it worked.
+      if (fromCamera) {
+        const current = await ImagePicker.getCameraPermissionsAsync();
+        let granted = current.granted;
+        if (!granted && current.canAskAgain) {
+          granted = (await ImagePicker.requestCameraPermissionsAsync()).granted;
+        }
+        if (!granted) {
+          setPhotoError(
+            'nibl needs camera access to take a photo. Turn it on in your device settings, or pick one from your library.',
+          );
+          return;
+        }
+      }
+
       const opts: ImagePicker.ImagePickerOptions = {
         mediaTypes: ['images'],
         quality: 0.9,
@@ -72,8 +92,16 @@ export function ComposeScreen({ navigation }: any) {
       );
       setPhotoUri(manipulated.uri);
       setPhotoEmoji(null);
-    } catch {
-      // camera unavailable (e.g. web); user can pick from library or a placeholder
+    } catch (e) {
+      // Never fail silently again: say what went wrong and leave the library
+      // route open. Desktop browsers have no camera to launch.
+      setPhotoError(
+        fromCamera
+          ? Platform.OS === 'web'
+            ? 'Taking a photo is not supported in this browser. Use Library instead, or open nibl on your phone.'
+            : 'Could not open the camera. Try again, or pick a photo from your library.'
+          : 'Could not open your photo library. Please try again.',
+      );
     }
   };
 
@@ -169,15 +197,28 @@ export function ComposeScreen({ navigation }: any) {
         ) : (
           <View>
             <View style={styles.photoButtons}>
-              <Pressable style={styles.photoBtn} onPress={() => pickPhoto(true)}>
+              <Pressable
+                testID="photo-camera"
+                style={styles.photoBtn}
+                onPress={() => pickPhoto(true)}
+              >
                 <Ionicons name="camera" size={28} color={colors.amber} />
                 <Text style={styles.photoBtnText}>Camera</Text>
               </Pressable>
-              <Pressable style={styles.photoBtn} onPress={() => pickPhoto(false)}>
+              <Pressable
+                testID="photo-library"
+                style={styles.photoBtn}
+                onPress={() => pickPhoto(false)}
+              >
                 <Ionicons name="image" size={28} color={colors.amber} />
                 <Text style={styles.photoBtnText}>Library</Text>
               </Pressable>
             </View>
+            {photoError ? (
+              <Text testID="photo-error" style={styles.photoErrorText}>
+                {photoError}
+              </Text>
+            ) : null}
           </View>
         )}
 
@@ -382,6 +423,13 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
     color: colors.cocoaSoft,
     fontSize: 14,
+  },
+  photoErrorText: {
+    fontFamily: fonts.semi,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.danger,
+    marginTop: spacing.sm,
   },
   tagRow: {
     flexDirection: 'row',

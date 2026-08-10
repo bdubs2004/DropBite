@@ -118,10 +118,19 @@ export interface PlaceResult {
   lng: number | null;
 }
 
+export type MealReminderSlot = 'breakfast' | 'lunch' | 'dinner';
+
 export interface NotificationPrefs {
   breakfast: boolean;
   lunch: boolean;
   dinner: boolean;
+  /**
+   * Reminder times as "HH:MM" in 24-hour local time.
+   *
+   * Optional so prefs saved before custom times existed still parse; anything
+   * missing falls back to DEFAULT_MEAL_TIMES via timeFor().
+   */
+  times?: Partial<Record<MealReminderSlot, string>>;
 }
 
 export interface NewPostInput {
