@@ -211,7 +211,56 @@ When you're ready to turn it on:
 3. Restart the dev server (`Ctrl+C`, then `npx expo start --clear`). The compose
    screen's restaurant search now hits Google live (`src/services/places.ts`).
 
-### B4. Push notifications
+### B4. Deep links: make shared links open the app
+
+Sharing a post out of nibl attaches a link. What that link *does* depends on
+how much of this you've set up.
+
+**Working already, no setup:**
+
+- `nibl://post/<id>` — the custom scheme. Opens the installed app straight to
+  the post. Already configured (`scheme` in `app.json`).
+- `/post/<id>` and `/u/<id>` on the **web build** — same routes, same screens.
+
+**Needs a domain you own** (this is the part nobody can do for you):
+
+An `https://` link only opens the app instead of a browser once the operating
+system can verify the domain belongs to you. That means:
+
+1. Point `EXPO_PUBLIC_APP_LINK_BASE` at your domain (defaults to
+   `https://nibl.app`):
+
+   ```
+   EXPO_PUBLIC_APP_LINK_BASE=https://yourdomain.com
+   ```
+
+2. **iOS** — host `https://yourdomain.com/.well-known/apple-app-site-association`
+   (JSON, no file extension, served as `application/json`):
+
+   ```json
+   { "applinks": { "details": [
+     { "appID": "TEAMID.com.nibl.app", "paths": ["/post/*", "/u/*"] }
+   ] } }
+   ```
+
+   Then add the associated domain to `app.json`:
+
+   ```json
+   "ios": { "associatedDomains": ["applinks:yourdomain.com"] }
+   ```
+
+3. **Android** — host `https://yourdomain.com/.well-known/assetlinks.json` with
+   your release signing fingerprint, and add `intentFilters` for the domain
+   under `android` in `app.json`.
+
+4. Rebuild with EAS. Association files are read at install time, so this does
+   **not** work in Expo Go — you need a development or production build.
+
+Until step 2/3 are live, an external `https` link opens your web build rather
+than the app. The routing is identical either way, so the link always lands on
+the right content; it's only *where* it opens that changes.
+
+### B5. Push notifications
 
 Mealtime reminders are **local scheduled notifications**. They already work in Expo Go
 on Android, and in any development/production build on both platforms, with no server:
