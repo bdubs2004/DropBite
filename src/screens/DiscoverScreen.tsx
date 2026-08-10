@@ -41,7 +41,7 @@ export function DiscoverScreen({ navigation }: any) {
   const [people, setPeople] = useState<DiscoverPerson[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const gridRef = useRef<FlatList<Post>>(null);
+  const gridRef = useRef<FlatList<Post | null>>(null);
   const peopleRef = useRef<FlatList<DiscoverPerson>>(null);
 
   const load = useCallback(async () => {
@@ -80,6 +80,17 @@ export function DiscoverScreen({ navigation }: any) {
   }, [navigation, refresh]);
 
   const openPost = (post: Post) => navigation.navigate('PostDetail', { postId: post.id });
+
+  /**
+   * Pad the grid to a whole number of rows. Without this the last row's items
+   * are flex:1 with nothing beside them, so a lone tile stretches the full
+   * width instead of staying a third.
+   */
+  const gridData: (Post | null)[] = (() => {
+    const remainder = posts.length % GRID_COLUMNS;
+    if (remainder === 0) return posts;
+    return [...posts, ...Array(GRID_COLUMNS - remainder).fill(null)];
+  })();
   const openProfile = (userId: string) => navigation.navigate('UserProfile', { userId });
 
   const toggleFollow = async (person: DiscoverPerson) => {
@@ -122,9 +133,9 @@ export function DiscoverScreen({ navigation }: any) {
         <FlatList
           ref={gridRef}
           testID="discover-grid"
-          data={posts}
+          data={gridData}
           key="grid"
-          keyExtractor={(p) => p.id}
+          keyExtractor={(p, i) => p?.id ?? `spacer-${i}`}
           numColumns={GRID_COLUMNS}
           ListHeaderComponent={header}
           columnWrapperStyle={{ gap: GRID_GAP }}
@@ -132,9 +143,13 @@ export function DiscoverScreen({ navigation }: any) {
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.amber} />
           }
-          renderItem={({ item }) => (
-            <PostThumb post={item} onPress={() => openPost(item)} style={{ flex: 1 }} />
-          )}
+          renderItem={({ item }) =>
+            item ? (
+              <PostThumb post={item} onPress={() => openPost(item)} style={{ flex: 1 }} />
+            ) : (
+              <View style={{ flex: 1 }} />
+            )
+          }
           ListEmptyComponent={
             <Muted style={styles.empty}>
               Nothing to discover yet. Once other people post, their meals show up here.
