@@ -61,12 +61,24 @@ function TabBar({ state, navigation }: any) {
         }
         const idx = state.routes.findIndex((r: any) => r.name === t.name);
         const active = state.index === idx;
+        const route = state.routes[idx];
+        // A custom tabBar doesn't emit `tabPress` for free, so do it here the
+        // way the stock bar does. Screens listen for it to scroll to top and
+        // refresh when you tap the tab you're already on (Instagram-style).
+        const onPress = () => {
+          const event = navigation.emit({
+            type: 'tabPress',
+            target: route?.key,
+            canPreventDefault: true,
+          });
+          if (!active && !event.defaultPrevented) navigation.navigate(t.name);
+        };
         return (
           <Pressable
             key={t.name}
             testID={`tab-${t.name}`}
             style={styles.tabItem}
-            onPress={() => navigation.navigate(t.name)}
+            onPress={onPress}
           >
             <Ionicons
               name={active ? t.iconActive : t.icon}

@@ -219,8 +219,21 @@ export function PostCard({
           </View>
         ) : null}
 
-        {/* The user's own words, front and center. Never replaced by AI. */}
-        <Text style={styles.blurb}>{post.blurb}</Text>
+        {/* The user's own words, front and center. Never replaced by AI.
+            The handle runs inline in bold ahead of the caption, Instagram
+            style — one Text so it wraps as a single paragraph. */}
+        <Text style={styles.blurb}>
+          {post.user?.handle ? (
+            <Text
+              style={styles.blurbHandle}
+              onPress={() => onPressUser?.(post.user_id)}
+              suppressHighlighting
+            >
+              {post.user.handle}{' '}
+            </Text>
+          ) : null}
+          {post.blurb}
+        </Text>
 
         {post.recipe ? (
           <Pressable onPress={() => setShowRecipe((v) => !v)} style={styles.recipeToggle}>
@@ -370,6 +383,10 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semi,
     fontSize: 15.5,
     lineHeight: 22,
+    color: colors.cocoa,
+  },
+  blurbHandle: {
+    fontFamily: fonts.bold,
     color: colors.cocoa,
   },
   recipeToggle: {

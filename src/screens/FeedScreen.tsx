@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   FlatList,
   RefreshControl,
@@ -20,6 +20,20 @@ export function FeedScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
   const { like, comment, share, repost, save, remove, report } = usePostActions(navigation, refreshFeed);
 
+  const listRef = useRef<FlatList<any>>(null);
+
+  // Tapping Home while already on Home jumps to the top and pulls fresh posts,
+  // the way Instagram behaves. The event comes from the custom TabBar in
+  // App.tsx, which emits `tabPress` itself.
+  useEffect(() => {
+    const unsub = navigation.addListener('tabPress', () => {
+      if (!navigation.isFocused()) return;
+      listRef.current?.scrollToOffset({ offset: 0, animated: true });
+      refreshFeed();
+    });
+    return unsub;
+  }, [navigation, refreshFeed]);
+
   const openProfile = (userId: string) => navigation.navigate('UserProfile', { userId });
 
   return (
@@ -33,6 +47,8 @@ export function FeedScreen({ navigation }: any) {
       </View>
 
       <FlatList
+        ref={listRef}
+        testID="feed-list"
         data={feed}
         keyExtractor={(p) => p.id}
         renderItem={({ item }) => (
