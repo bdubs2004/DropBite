@@ -11,7 +11,9 @@ BeReal energy, restructured around breakfast / lunch / dinner / snacks. Casual b
 become editable AI recipe cards.
 
 Built with **React Native + Expo (TypeScript)**, **Supabase**, and the **Anthropic
-API**. See `PROJECT_SCOPE.md` for product vision and `CLAUDE.md` for build conventions.
+API**. See `PROJECT_SCOPE.md` for product vision, `CLAUDE.md` for build
+conventions, and **[MODERATION.md](MODERATION.md)** for how to review reported
+posts.
 
 > **Location / restaurant tagging is deferred to Phase 2.** The "where you ate" tagging
 > (Google Places-backed) is fully built but turned off behind `LOCATION_TAGGING_ENABLED`
@@ -91,8 +93,11 @@ src/
   screens/                  Auth, Feed, Compose, Friends, Profile, Settings
 supabase/
   schema.sql                full Postgres schema + RLS + storage policies
+  migrations/               incremental SQL for already-deployed databases
+  tests/                    security tests: run schema.sql on scratch Postgres
   functions/format-recipe   Anthropic call (key stays server-side)
   functions/delete-account  account deletion (service-role, server-side)
+MODERATION.md               how to review reported posts (report queue runbook)
 ```
 
 ## Brand

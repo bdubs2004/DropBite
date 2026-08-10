@@ -101,6 +101,43 @@ create table public.saved_posts (
 );
 create index saved_posts_user_created_idx on public.saved_posts (user_id, created_at desc);
 
+-- -------------------------------------------------------------- reports
+-- Content reports. This is a legal/compliance record, so it is deliberately
+-- more durable than the content it describes:
+--
+--  * post_id is ON DELETE SET NULL, not CASCADE. If the reported user deletes
+--    the post, the report survives — otherwise deleting your post would erase
+--    the evidence against you.
+--  * The blurb and photo URL are snapshotted at report time for the same
+--    reason, so a reviewer can still see what was actually reported.
+--  * reported_user_id survives post deletion too, so repeat offenders are
+--    still visible in the queue.
+--
+-- Reviewing happens in the Supabase dashboard for now. See MODERATION.md.
+create table public.reports (
+  id uuid primary key default gen_random_uuid(),
+  post_id uuid references public.posts (id) on delete set null,
+  reporter_id uuid not null references public.users (id) on delete cascade,
+  reported_user_id uuid references public.users (id) on delete set null,
+  reason text not null check (
+    reason in ('spam', 'harassment', 'sexual', 'violence', 'self_harm',
+               'false_info', 'intellectual_property', 'other')
+  ),
+  detail text check (detail is null or char_length(detail) <= 1000),
+  post_blurb_snapshot text check (post_blurb_snapshot is null or char_length(post_blurb_snapshot) <= 2000),
+  post_photo_url_snapshot text check (post_photo_url_snapshot is null or char_length(post_photo_url_snapshot) <= 1000),
+  status text not null default 'open' check (status in ('open', 'reviewing', 'actioned', 'dismissed')),
+  created_at timestamptz not null default now(),
+  reviewed_at timestamptz,
+  reviewer_notes text check (reviewer_notes is null or char_length(reviewer_notes) <= 2000)
+);
+-- One report per person per post: stops one user spamming the queue to bury
+-- a post, while still letting many different people report the same thing.
+create unique index reports_one_per_reporter_idx on public.reports (reporter_id, post_id);
+-- The triage view: oldest open reports first.
+create index reports_status_created_idx on public.reports (status, created_at);
+create index reports_reported_user_idx on public.reports (reported_user_id);
+
 -- -------------------------------------------------------------- streaks
 create table public.streaks (
   user_id uuid primary key references public.users (id) on delete cascade,
@@ -119,6 +156,7 @@ alter table public.comments enable row level security;
 alter table public.reposts enable row level security;
 alter table public.shares enable row level security;
 alter table public.saved_posts enable row level security;
+alter table public.reports enable row level security;
 alter table public.streaks enable row level security;
 
 -- users: everyone signed-in can read profiles; you manage your own row
@@ -204,6 +242,25 @@ create policy "save as self" on public.saved_posts
   for insert to authenticated with check (user_id = auth.uid());
 create policy "unsave as self" on public.saved_posts
   for delete to authenticated using (user_id = auth.uid());
+
+-- reports: WRITE-ONLY from the client.
+--
+-- A reporter can file a report and read back only their own (so the UI can say
+-- "you already reported this"). There is deliberately no policy letting anyone
+-- read reports filed against them or by others: the reported user must never
+-- learn who filed, and the queue must not be enumerable. Moderators read this
+-- table through the dashboard / service role, which bypasses RLS.
+--
+-- No UPDATE or DELETE policy either — a reporter cannot retract or edit a
+-- report, and a reported user cannot delete one. Only staff can change status.
+create policy "file report as self" on public.reports
+  for insert to authenticated with check (
+    reporter_id = auth.uid()
+    -- You cannot report your own post; use delete instead.
+    and reported_user_id is distinct from auth.uid()
+  );
+create policy "read own reports" on public.reports
+  for select to authenticated using (reporter_id = auth.uid());
 
 -- streaks
 create policy "streaks readable" on public.streaks

@@ -67,6 +67,42 @@ export interface Comment {
   user?: User;
 }
 
+/**
+ * Why a post was reported. Stored as a stable key, never a display string, so
+ * the wording can change without rewriting historical moderation records.
+ */
+export type ReportReason =
+  | 'spam'
+  | 'harassment'
+  | 'sexual'
+  | 'violence'
+  | 'self_harm'
+  | 'false_info'
+  | 'intellectual_property'
+  | 'other';
+
+/** Where a report sits in the review queue. */
+export type ReportStatus = 'open' | 'reviewing' | 'actioned' | 'dismissed';
+
+export interface Report {
+  id: string;
+  /** Null once the post is deleted; the snapshot below preserves the evidence. */
+  post_id: string | null;
+  reporter_id: string;
+  /** Author of the reported post, kept even if the post is gone. */
+  reported_user_id: string | null;
+  reason: ReportReason;
+  /** Optional free-text context from the reporter. */
+  detail: string | null;
+  /** Copy of the post at report time, so deleting it can't destroy the record. */
+  post_blurb_snapshot: string | null;
+  post_photo_url_snapshot: string | null;
+  status: ReportStatus;
+  created_at: string;
+  reviewed_at: string | null;
+  reviewer_notes: string | null;
+}
+
 export interface Streak {
   user_id: string;
   current_streak: number;

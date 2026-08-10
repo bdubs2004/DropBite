@@ -3,6 +3,7 @@ import {
   NewPostInput,
   NotificationPrefs,
   Post,
+  ReportReason,
   Streak,
   User,
 } from '../types';
@@ -54,6 +55,14 @@ export interface DataService {
   addComment(postId: string, text: string): Promise<Comment>;
   toggleRepost(postId: string): Promise<void>;
   recordShare(postId: string): Promise<void>;
+
+  // moderation
+  /**
+   * Report a post for review. Write-only from the client: reporters never see
+   * the queue, and the reported user is never told who filed it.
+   * Reporting the same post twice is a no-op rather than an error.
+   */
+  reportPost(postId: string, reason: ReportReason, detail?: string): Promise<void>;
 
   // saved posts (bookmarks) — private to the user
   toggleSave(postId: string): Promise<void>;

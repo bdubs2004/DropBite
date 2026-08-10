@@ -18,7 +18,7 @@ import { colors, fonts, radius, spacing } from '../theme';
 export function FeedScreen({ navigation }: any) {
   const { feed, feedLoading, refreshFeed, streak, user } = useApp();
   const insets = useSafeAreaInsets();
-  const { like, comment, share, repost, save, remove } = usePostActions(navigation, refreshFeed);
+  const { like, comment, share, repost, save, remove, report } = usePostActions(navigation, refreshFeed);
 
   const openProfile = (userId: string) => navigation.navigate('UserProfile', { userId });
 
@@ -45,6 +45,7 @@ export function FeedScreen({ navigation }: any) {
             onToggleSave={save}
             onPressUser={openProfile}
             onDelete={remove}
+            onReport={report}
             isMine={item.user_id === user?.id}
           />
         )}

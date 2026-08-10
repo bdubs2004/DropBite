@@ -18,6 +18,7 @@ export function PostCard({
   onToggleSave,
   onPressUser,
   onDelete,
+  onReport,
   isMine,
 }: {
   post: Post;
@@ -29,6 +30,8 @@ export function PostCard({
   onPressUser?: (userId: string) => void;
   /** Omit to hide the delete affordance entirely. */
   onDelete?: (post: Post) => void;
+  /** Omit to hide the report affordance entirely. */
+  onReport?: (post: Post) => void;
   /** True when the signed-in user wrote this post. */
   isMine?: boolean;
 }) {
@@ -36,7 +39,21 @@ export function PostCard({
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const slot = MEAL_SLOT_META[post.meal_slot];
+
+  // One menu, two outcomes: your own post can be deleted, anyone else's can be
+  // reported. Reporting your own post is meaningless (just delete it), so the
+  // two never appear together.
   const canDelete = Boolean(isMine && onDelete);
+  const canReport = Boolean(!isMine && onReport);
+  const hasMenu = canDelete || canReport;
+
+  const openMenu = () => {
+    if (canReport) {
+      onReport?.(post);
+      return;
+    }
+    askDelete();
+  };
 
   const askDelete = () => {
     // Alert.alert is a no-op on react-native-web, so web gets an inline
@@ -82,13 +99,13 @@ export function PostCard({
         <View style={[styles.slotPill, { backgroundColor: slot.bg }]}>
           <Text style={[styles.slotText, { color: slot.color }]}>{slot.label}</Text>
         </View>
-        {canDelete ? (
+        {hasMenu ? (
           <Pressable
-            testID="post-menu"
-            onPress={askDelete}
+            testID={canDelete ? 'post-menu-delete' : 'post-menu-report'}
+            onPress={openMenu}
             hitSlop={10}
             style={styles.menuBtn}
-            accessibilityLabel="Post options"
+            accessibilityLabel={canDelete ? 'Delete post' : 'Report post'}
           >
             <Ionicons name="ellipsis-horizontal" size={19} color={colors.cocoaFaint} />
           </Pressable>

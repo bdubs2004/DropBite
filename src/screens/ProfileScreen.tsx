@@ -94,7 +94,7 @@ export function ProfileScreen({ navigation, route }: any) {
     refreshFeed();
   };
 
-  const { like, comment, share, repost, save, remove } = usePostActions(navigation, load);
+  const { like, comment, share, repost, save, remove, report } = usePostActions(navigation, load);
 
   const header = (
     <View style={styles.headerWrap}>
@@ -181,6 +181,7 @@ export function ProfileScreen({ navigation, route }: any) {
             onToggleSave={save}
             onPressUser={(uid) => navigation.push('UserProfile', { userId: uid })}
             onDelete={remove}
+            onReport={report}
             isMine={item.user_id === me?.id}
           />
         )}

@@ -24,6 +24,7 @@ import { ComposeScreen } from './src/screens/ComposeScreen';
 import { FeedScreen } from './src/screens/FeedScreen';
 import { FriendsScreen } from './src/screens/FriendsScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
+import { ReportScreen } from './src/screens/ReportScreen';
 import { SavedScreen } from './src/screens/SavedScreen';
 import { SearchScreen } from './src/screens/SearchScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
@@ -116,6 +117,11 @@ function Root() {
       <Stack.Screen
         name="Comments"
         component={CommentsScreen}
+        options={{ presentation: 'modal' }}
+      />
+      <Stack.Screen
+        name="Report"
+        component={ReportScreen}
         options={{ presentation: 'modal' }}
       />
       <Stack.Screen name="UserProfile" component={ProfileScreen} />

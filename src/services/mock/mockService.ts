@@ -7,6 +7,8 @@ import {
   NotificationPrefs,
   Post,
   Recipe,
+  Report,
+  ReportReason,
   Streak,
   User,
 } from '../../types';
@@ -34,6 +36,7 @@ interface Db {
   reposts: { post_id: string; user_id: string }[];
   shares: { post_id: string; user_id: string }[];
   saves: { post_id: string; user_id: string }[];
+  reports: Report[];
   streaks: Streak[];
   sessionUserId: string | null;
   credentials: { email: string; password: string; userId: string }[];
@@ -51,6 +54,7 @@ function freshDb(): Db {
     reposts: [...SEED_REPOSTS],
     shares: [...SEED_SHARES],
     saves: [],
+    reports: [],
     streaks: [
       { user_id: 'u-marge', current_streak: 12, longest_streak: 34, last_post_date: localDateString() },
       { user_id: 'u-dan', current_streak: 5, longest_streak: 21, last_post_date: localDateString() },
@@ -328,6 +332,37 @@ export class MockService implements DataService {
     return this.hydrate(db, post, me.id);
   }
 
+  async reportPost(postId: string, reason: ReportReason, detail?: string): Promise<void> {
+    const db = await this.load();
+    const me = await this.me();
+    const post = db.posts.find((p) => p.id === postId);
+    if (!post) throw new Error('That post no longer exists.');
+    if (post.user_id === me.id) throw new Error('You cannot report your own post.');
+
+    // Filing twice is a no-op, so the UI can stay simple and the queue doesn't
+    // fill with duplicates from one person repeatedly tapping Report.
+    const already = db.reports.some((r) => r.post_id === postId && r.reporter_id === me.id);
+    if (already) return;
+
+    db.reports.push({
+      id: uid('rep-'),
+      post_id: postId,
+      reporter_id: me.id,
+      reported_user_id: post.user_id,
+      reason,
+      detail: detail?.trim() ? detail.trim().slice(0, 1000) : null,
+      // Snapshot the content: if the author deletes the post, the report must
+      // still show a reviewer what was actually reported.
+      post_blurb_snapshot: post.blurb ?? null,
+      post_photo_url_snapshot: post.photo_url ?? null,
+      status: 'open',
+      created_at: new Date().toISOString(),
+      reviewed_at: null,
+      reviewer_notes: null,
+    });
+    await this.save();
+  }
+
   async deletePost(postId: string): Promise<void> {
     const db = await this.load();
     const me = await this.me();
@@ -345,6 +380,10 @@ export class MockService implements DataService {
     db.reposts = db.reposts.filter((r) => r.post_id !== postId);
     db.shares = db.shares.filter((s) => s.post_id !== postId);
     db.saves = db.saves.filter((s) => s.post_id !== postId);
+    // Reports are NOT deleted with the post — mirrors ON DELETE SET NULL in
+    // schema.sql. Deleting a reported post must not erase the moderation
+    // record; the snapshot on the report preserves what was reported.
+    db.reports = db.reports.map((r) => (r.post_id === postId ? { ...r, post_id: null } : r));
     await this.save();
   }
 

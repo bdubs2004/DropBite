@@ -51,7 +51,7 @@ export function SearchScreen({ navigation }: any) {
       )
     : [];
 
-  const { like, comment, share, repost, save, remove } = usePostActions(navigation, refreshFeed);
+  const { like, comment, share, repost, save, remove, report } = usePostActions(navigation, refreshFeed);
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -102,6 +102,7 @@ export function SearchScreen({ navigation }: any) {
             onToggleSave={save}
             onPressUser={(uid) => navigation.navigate('UserProfile', { userId: uid })}
             onDelete={remove}
+            onReport={report}
             isMine={item.user_id === user?.id}
           />
         )}

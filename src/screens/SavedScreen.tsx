@@ -31,7 +31,7 @@ export function SavedScreen({ navigation }: any) {
     }, [load]),
   );
 
-  const { like, comment, share, repost, save, remove } = usePostActions(navigation, load);
+  const { like, comment, share, repost, save, remove, report } = usePostActions(navigation, load);
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -57,6 +57,7 @@ export function SavedScreen({ navigation }: any) {
             onToggleSave={save}
             onPressUser={(uid) => navigation.navigate('UserProfile', { userId: uid })}
             onDelete={remove}
+            onReport={report}
             isMine={item.user_id === user?.id}
           />
         )}

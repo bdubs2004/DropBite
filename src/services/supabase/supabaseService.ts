@@ -3,6 +3,7 @@ import {
   NewPostInput,
   NotificationPrefs,
   Post,
+  ReportReason,
   Streak,
   User,
 } from '../../types';
@@ -298,6 +299,37 @@ export class SupabaseService implements DataService {
       last_post_date: today,
     });
     return post;
+  }
+
+  async reportPost(postId: string, reason: ReportReason, detail?: string): Promise<void> {
+    const meId = await this.myId();
+
+    // Snapshot the post now. The report outlives the post (post_id is
+    // ON DELETE SET NULL), so without this a reviewer would see an empty row
+    // after the author deletes the content.
+    const { data: post } = await this.sb
+      .from('posts')
+      .select('user_id, blurb, photo_url')
+      .eq('id', postId)
+      .maybeSingle();
+    if (!post) throw new Error('That post no longer exists.');
+
+    const target = post as { user_id: string; blurb: string | null; photo_url: string | null };
+    if (target.user_id === meId) throw new Error('You cannot report your own post.');
+
+    const { error } = await this.sb.from('reports').insert({
+      post_id: postId,
+      reporter_id: meId,
+      reported_user_id: target.user_id,
+      reason,
+      detail: detail?.trim() ? detail.trim().slice(0, 1000) : null,
+      post_blurb_snapshot: target.blurb,
+      post_photo_url_snapshot: target.photo_url,
+    });
+
+    // 23505 = unique violation on (reporter_id, post_id): they already
+    // reported this. Treat as success so the UI doesn't show a scary error.
+    if (error && (error as { code?: string }).code !== '23505') throw error;
   }
 
   async deletePost(postId: string): Promise<void> {

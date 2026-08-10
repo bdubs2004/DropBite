@@ -53,6 +53,13 @@ export function usePostActions(navigation: any, refresh: () => void) {
     [svc, refresh],
   );
 
+  const report = useCallback(
+    (post: Post) => {
+      navigation.navigate('Report', { postId: post.id });
+    },
+    [navigation],
+  );
+
   const remove = useCallback(
     async (post: Post) => {
       await svc.deletePost(post.id);
@@ -61,5 +68,5 @@ export function usePostActions(navigation: any, refresh: () => void) {
     [svc, refresh],
   );
 
-  return { like, comment, share, repost, save, remove };
+  return { like, comment, share, repost, save, remove, report };
 }
