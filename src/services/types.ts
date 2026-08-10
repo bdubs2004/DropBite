@@ -30,8 +30,15 @@ export interface DataService {
 
   // profile
   updateProfile(
-    patch: Partial<Pick<User, 'display_name' | 'bio' | 'avatar_emoji' | 'follows_private'>>,
+    patch: Partial<
+      Pick<User, 'display_name' | 'bio' | 'avatar_emoji' | 'avatar_url' | 'follows_private'>
+    >,
   ): Promise<User>;
+  /**
+   * Upload a local image as the user's profile picture and save it.
+   * Storage details stay in the service so screens only handle a local URI.
+   */
+  setAvatar(localUri: string): Promise<User>;
 
   // social graph
   listUsers(query?: string): Promise<User[]>;

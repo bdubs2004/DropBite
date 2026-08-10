@@ -1,6 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as ImageManipulator from 'expo-image-manipulator';
-import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
 import {
   Image,
@@ -15,6 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RecipeCardEditor } from '../components/RecipeCardEditor';
 import { Button, Input, Muted } from '../components/ui';
+import { pickImage } from '../lib/pickImage';
 import { defaultMealSlot } from '../lib/time';
 import { getDataService } from '../services';
 import { formatRecipe, FormattedRecipe } from '../services/ai';
@@ -54,55 +53,14 @@ export function ComposeScreen({ navigation }: any) {
 
   const pickPhoto = async (fromCamera: boolean) => {
     setPhotoError(null);
-    try {
-      // The camera needs an explicit runtime permission grant. Without this
-      // request, launchCameraAsync just fails and (previously) the error was
-      // swallowed, so tapping Camera appeared to do nothing. The library
-      // picker needs no grant on modern iOS/Android, which is why it worked.
-      if (fromCamera) {
-        const current = await ImagePicker.getCameraPermissionsAsync();
-        let granted = current.granted;
-        if (!granted && current.canAskAgain) {
-          granted = (await ImagePicker.requestCameraPermissionsAsync()).granted;
-        }
-        if (!granted) {
-          setPhotoError(
-            'nibl needs camera access to take a photo. Turn it on in your device settings, or pick one from your library.',
-          );
-          return;
-        }
-      }
-
-      const opts: ImagePicker.ImagePickerOptions = {
-        mediaTypes: ['images'],
-        quality: 0.9,
-        allowsEditing: true,
-        aspect: [4, 5],
-      };
-      const res = fromCamera
-        ? await ImagePicker.launchCameraAsync(opts)
-        : await ImagePicker.launchImageLibraryAsync(opts);
-      if (res.canceled || !res.assets?.length) return;
-      // compress client-side before upload; photos are the product,
-      // so cap width generously (CLAUDE.md image handling rule)
-      const manipulated = await ImageManipulator.manipulateAsync(
-        res.assets[0].uri,
-        [{ resize: { width: 1600 } }],
-        { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG },
-      );
-      setPhotoUri(manipulated.uri);
-      setPhotoEmoji(null);
-    } catch (e) {
-      // Never fail silently again: say what went wrong and leave the library
-      // route open. Desktop browsers have no camera to launch.
-      setPhotoError(
-        fromCamera
-          ? Platform.OS === 'web'
-            ? 'Taking a photo is not supported in this browser. Use Library instead, or open nibl on your phone.'
-            : 'Could not open the camera. Try again, or pick a photo from your library.'
-          : 'Could not open your photo library. Please try again.',
-      );
+    const res = await pickImage({ fromCamera, aspect: [4, 5], width: 1600 });
+    if (res.error) {
+      setPhotoError(res.error);
+      return;
     }
+    if (!res.uri) return; // cancelled
+    setPhotoUri(res.uri);
+    setPhotoEmoji(null);
   };
 
   const runFormat = async () => {

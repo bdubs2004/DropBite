@@ -208,7 +208,9 @@ export class MockService implements DataService {
   }
 
   async updateProfile(
-    patch: Partial<Pick<User, 'display_name' | 'bio' | 'avatar_emoji' | 'follows_private'>>,
+    patch: Partial<
+      Pick<User, 'display_name' | 'bio' | 'avatar_emoji' | 'avatar_url' | 'follows_private'>
+    >,
   ): Promise<User> {
     const db = await this.load();
     const me = await this.me();
@@ -219,6 +221,12 @@ export class MockService implements DataService {
     db.users[idx] = updated;
     await this.save();
     return updated;
+  }
+
+  async setAvatar(localUri: string): Promise<User> {
+    // Demo mode has no storage bucket: keep the URI as-is. pickImage() already
+    // converted web blob: URLs to data URLs so this survives a reload.
+    return this.updateProfile({ avatar_url: localUri, avatar_emoji: null });
   }
 
   async listUsers(query?: string): Promise<User[]> {

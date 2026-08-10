@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DEMO_MODE } from '../config';
+import { AvatarPicker } from '../components/AvatarPicker';
 import { TimePickerModal } from '../components/TimePickerModal';
 import { Button, Card, Input, Muted, ScreenTitle } from '../components/ui';
 import { formatTime, MEAL_REMINDER_SLOTS, timeFor } from '../lib/mealTimes';
@@ -42,6 +43,11 @@ export function SettingsScreen({ navigation }: any) {
     const next = !followsPrivate;
     setFollowsPrivate(next);
     await svc.updateProfile({ follows_private: next });
+    await refreshMe();
+  };
+
+  const changeAvatar = async (localUri: string) => {
+    await svc.setAvatar(localUri);
     await refreshMe();
   };
 
@@ -112,6 +118,7 @@ export function SettingsScreen({ navigation }: any) {
 
       <Text style={styles.section}>Profile</Text>
       <Card>
+        <AvatarPicker user={user} onPick={changeAvatar} />
         <Input label="Display name" value={displayName} onChangeText={setDisplayName} />
         <Input label="Bio" value={bio} onChangeText={setBio} multiline />
         <Button title="Save profile" onPress={saveProfile} loading={saving} />

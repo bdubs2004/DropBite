@@ -131,7 +131,9 @@ export class SupabaseService implements DataService {
   }
 
   async updateProfile(
-    patch: Partial<Pick<User, 'display_name' | 'bio' | 'avatar_emoji' | 'follows_private'>>,
+    patch: Partial<
+      Pick<User, 'display_name' | 'bio' | 'avatar_emoji' | 'avatar_url' | 'follows_private'>
+    >,
   ): Promise<User> {
     const meId = await this.myId();
     const { data, error } = await this.sb
@@ -142,6 +144,22 @@ export class SupabaseService implements DataService {
       .single();
     if (error) throw error;
     return data as User;
+  }
+
+  async setAvatar(localUri: string): Promise<User> {
+    const meId = await this.myId();
+    // Same bucket and per-user folder as post photos, so the existing storage
+    // policy ("write only under your own uid") already covers it.
+    const resp = await fetch(localUri);
+    const bytes = await resp.arrayBuffer();
+    const path = `${meId}/avatar-${Date.now()}.jpg`;
+    const { error } = await this.sb.storage
+      .from('photos')
+      .upload(path, bytes, { contentType: 'image/jpeg' });
+    if (error) throw error;
+    const url = this.sb.storage.from('photos').getPublicUrl(path).data.publicUrl;
+    // Clearing avatar_emoji keeps one source of truth for what to render.
+    return this.updateProfile({ avatar_url: url, avatar_emoji: null });
   }
 
   async listUsers(query?: string): Promise<User[]> {
