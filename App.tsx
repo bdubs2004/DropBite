@@ -54,6 +54,9 @@ import { colors, fonts, radius, shadow } from './src/theme';
 const linking: LinkingOptions<any> = {
   prefixes: [Linking.createURL('/'), 'nibl://', APP_LINK_BASE],
   config: {
+    // Cold-opening a shared link puts Tabs underneath the target screen, so
+    // the tab bar is there and Back leads into the app instead of nowhere.
+    initialRouteName: 'Tabs',
     screens: {
       Tabs: {
         screens: {
