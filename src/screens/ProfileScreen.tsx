@@ -1,6 +1,8 @@
 import React, { useCallback, useRef, useState } from 'react';
 import {
+  Alert,
   FlatList,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -13,7 +15,6 @@ import { Avatar } from '../components/Avatar';
 import { ActivityDrawer } from '../components/ActivityDrawer';
 import { PostThumb } from '../components/PostThumb';
 import { Button, Muted } from '../components/ui';
-import { usePostActions } from '../lib/usePostActions';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
 import { colors, fonts, radius, shadowSoft, spacing } from '../theme';
@@ -74,6 +75,7 @@ export function ProfileScreen({ navigation, route }: any) {
       setCounts(c);
       setFollowing(followingIds.includes(userId));
       if (!isMe) {
+        setBlocked(await svc.isBlocked(userId));
         const all = await svc.listUsers();
         setOtherProfile(all.find((u) => u.id === userId) ?? null);
       }
@@ -99,6 +101,31 @@ export function ProfileScreen({ navigation, route }: any) {
   };
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [blocked, setBlocked] = useState(false);
+  const [confirmingBlock, setConfirmingBlock] = useState(false);
+
+  const doBlock = async () => {
+    await svc.blockUser(userId);
+    setBlocked(true);
+    load();
+    refreshFeed();
+  };
+
+  /** Blocking is reversible but surprising, so confirm first. */
+  const confirmBlock = () => {
+    if (Platform.OS === 'web') {
+      setConfirmingBlock(true);
+      return;
+    }
+    Alert.alert(
+      `Block @${profile?.handle ?? ''}?`,
+      'You will not see their posts and they will not see yours. Any follow between you is removed, and neither of you can message the other.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Block', style: 'destructive', onPress: doBlock },
+      ],
+    );
+  };
 
   /** Pad to whole rows so a lone final tile stays a third wide. */
   const gridData: (Post | null)[] = (() => {
@@ -171,13 +198,65 @@ export function ProfileScreen({ navigation, route }: any) {
               style={{ flex: 1 }}
             />
           </View>
+        ) : blocked ? (
+          <View style={{ marginTop: spacing.lg, gap: spacing.sm }}>
+            <Muted style={{ textAlign: 'center' }}>
+              You blocked this account. You will not see each other's posts.
+            </Muted>
+            <Button
+              testID="unblock-user"
+              title="Unblock"
+              variant="secondary"
+              onPress={async () => {
+                await svc.unblockUser(userId);
+                setBlocked(false);
+                load();
+                refreshFeed();
+              }}
+            />
+          </View>
         ) : (
-          <Button
-            title={following ? 'Following ✓' : 'Follow'}
-            variant={following ? 'secondary' : 'primary'}
-            onPress={toggleFollow}
-            style={{ marginTop: spacing.lg }}
-          />
+          <View style={{ marginTop: spacing.lg, gap: spacing.sm }}>
+            <Button
+              title={following ? 'Following ✓' : 'Follow'}
+              variant={following ? 'secondary' : 'primary'}
+              onPress={toggleFollow}
+            />
+            {confirmingBlock ? (
+              <View style={styles.confirmBlock}>
+                <Text style={styles.confirmBlockText}>
+                  Block @{profile?.handle ?? ''}? You will not see each other's
+                  posts, any follow between you is removed, and neither of you
+                  can message the other.
+                </Text>
+                <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                  <Button
+                    title="Cancel"
+                    variant="secondary"
+                    onPress={() => setConfirmingBlock(false)}
+                    style={{ flex: 1 }}
+                  />
+                  <Button
+                    testID="block-confirm"
+                    title="Block"
+                    variant="danger"
+                    onPress={async () => {
+                      setConfirmingBlock(false);
+                      await doBlock();
+                    }}
+                    style={{ flex: 1 }}
+                  />
+                </View>
+              </View>
+            ) : (
+              <Button
+                testID="block-user"
+                title="Block"
+                variant="ghost"
+                onPress={confirmBlock}
+              />
+            )}
+          </View>
         )}
       </View>
       {posts.length ? <Text style={styles.sectionTitle}>Posts</Text> : null}
@@ -290,6 +369,13 @@ export function ProfileScreen({ navigation, route }: any) {
                 onPress: () => navigation.navigate('Settings'),
               },
               {
+                key: 'blocked',
+                label: 'Blocked accounts',
+                hint: 'People you have blocked',
+                icon: 'ban-outline',
+                onPress: () => navigation.navigate('Blocked'),
+              },
+              {
                 key: 'account',
                 label: 'Account',
                 hint: 'Sign out or delete your account',
@@ -343,6 +429,20 @@ const styles = StyleSheet.create({
     borderRadius: radius.xl,
     padding: spacing.xl,
     ...(shadowSoft as object),
+  },
+  confirmBlock: {
+    backgroundColor: colors.cream,
+    borderRadius: radius.lg,
+    borderWidth: 1.5,
+    borderColor: colors.creamDark,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  confirmBlockText: {
+    fontFamily: fonts.semi,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.cocoa,
   },
   menuBtn: {
     position: 'absolute',

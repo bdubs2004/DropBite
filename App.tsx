@@ -24,6 +24,7 @@ import { CommentsScreen } from './src/screens/CommentsScreen';
 import { ComposeScreen } from './src/screens/ComposeScreen';
 import { FeedScreen } from './src/screens/FeedScreen';
 import { DiscoverScreen } from './src/screens/DiscoverScreen';
+import { BlockedScreen } from './src/screens/BlockedScreen';
 import { ChatScreen } from './src/screens/ChatScreen';
 import { InboxScreen } from './src/screens/InboxScreen';
 import { LeaderboardScreen } from './src/screens/LeaderboardScreen';
@@ -195,6 +196,7 @@ function Root() {
       <Stack.Screen name="UserProfile" component={ProfileScreen} />
       <Stack.Screen name="UserList" component={UserListScreen} />
       <Stack.Screen name="Activity" component={ActivityScreen} />
+      <Stack.Screen name="Blocked" component={BlockedScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
     </Stack.Navigator>
   );

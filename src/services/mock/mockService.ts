@@ -69,6 +69,7 @@ interface Db {
   conversations: { id: string; created_at: string; updated_at: string }[];
   conversationMembers: { conversation_id: string; user_id: string; last_read_at: string }[];
   messages: Message[];
+  blocks: { blocker_id: string; blocked_id: string }[];
   reports: Report[];
   streaks: Streak[];
   sessionUserId: string | null;
@@ -91,6 +92,7 @@ function freshDb(): Db {
     conversations: [],
     conversationMembers: [],
     messages: [],
+    blocks: [],
     reports: [],
     streaks: [
       { user_id: 'u-marge', current_streak: 12, longest_streak: 34, last_post_date: localDateString() },
@@ -268,9 +270,11 @@ export class MockService implements DataService {
 
   async listUsers(query?: string): Promise<User[]> {
     const db = await this.load();
+    const meForBlocks = await this.me();
+    const blockedU = this.blockedIds(db, meForBlocks.id);
     const q = (query ?? '').trim().toLowerCase();
     return db.users
-      .filter((u) => u.id !== db.sessionUserId)
+      .filter((u) => u.id !== db.sessionUserId && !blockedU.has(u.id))
       .filter(
         (u) =>
           !q ||
@@ -323,10 +327,13 @@ export class MockService implements DataService {
   async getFeed(): Promise<Post[]> {
     const db = await this.load();
     const me = await this.me();
+    // Production hides blocked content via RLS; demo mode filters here so the
+    // two behave identically.
+    const blocked = this.blockedIds(db, me.id);
     const followed = new Set(await this.getFollowingIds());
     followed.add(me.id);
     return db.posts
-      .filter((p) => followed.has(p.user_id))
+      .filter((p) => followed.has(p.user_id) && !blocked.has(p.user_id))
       .sort((a, b) => b.created_at.localeCompare(a.created_at))
       .map((p) => this.hydrate(db, p, me.id));
   }
@@ -343,8 +350,9 @@ export class MockService implements DataService {
     const me = await this.me();
     // Everyone's posts, not just people you follow — that's the whole point of
     // Discover. Your own are excluded; you already know what you cooked.
+    const blocked = this.blockedIds(db, me.id);
     return db.posts
-      .filter((p) => p.user_id !== me.id)
+      .filter((p) => p.user_id !== me.id && !blocked.has(p.user_id))
       .sort((a, b) => b.created_at.localeCompare(a.created_at))
       .map((p) => this.hydrate(db, p, me.id));
   }
@@ -354,8 +362,10 @@ export class MockService implements DataService {
     const me = await this.me();
     const q = query.trim().toLowerCase();
     if (!q) return [];
+    const blocked = this.blockedIds(db, me.id);
     return db.posts
       .filter((p) => {
+        if (blocked.has(p.user_id)) return false;
         const recipe = db.recipes.find((r) => r.post_id === p.id);
         return (
           p.blurb.toLowerCase().includes(q) ||
@@ -374,8 +384,9 @@ export class MockService implements DataService {
     const following = new Set(
       db.follows.filter((f) => f.follower_id === me.id).map((f) => f.followee_id),
     );
+    const blockedIds = this.blockedIds(db, me.id);
     return db.users
-      .filter((u) => u.id !== me.id)
+      .filter((u) => u.id !== me.id && !blockedIds.has(u.id))
       .map((u) => {
         const posts = db.posts
           .filter((p) => p.user_id === u.id)
@@ -586,6 +597,68 @@ export class MockService implements DataService {
     return convs.reduce((sum, c) => sum + c.unread_count, 0);
   }
 
+  // ------------------------------------------------------------- blocking
+
+  /** Either direction counts: a block hides content both ways. */
+  private blockedPair(db: Db, a: string, b: string): boolean {
+    return (db.blocks ?? []).some(
+      (x) =>
+        (x.blocker_id === a && x.blocked_id === b) ||
+        (x.blocker_id === b && x.blocked_id === a),
+    );
+  }
+
+  /** Ids the signed-in user should never see content from. */
+  private blockedIds(db: Db, meId: string): Set<string> {
+    const out = new Set<string>();
+    for (const x of db.blocks ?? []) {
+      if (x.blocker_id === meId) out.add(x.blocked_id);
+      if (x.blocked_id === meId) out.add(x.blocker_id);
+    }
+    return out;
+  }
+
+  async blockUser(userId: string): Promise<void> {
+    const db = await this.load();
+    const me = await this.me();
+    if (userId === me.id) throw new Error('You cannot block yourself.');
+    if (!db.blocks) db.blocks = [];
+    if (!db.blocks.some((x) => x.blocker_id === me.id && x.blocked_id === userId)) {
+      db.blocks.push({ blocker_id: me.id, blocked_id: userId });
+    }
+    // Blocking severs the relationship in both directions.
+    db.follows = db.follows.filter(
+      (f) =>
+        !(f.follower_id === me.id && f.followee_id === userId) &&
+        !(f.follower_id === userId && f.followee_id === me.id),
+    );
+    await this.save();
+  }
+
+  async unblockUser(userId: string): Promise<void> {
+    const db = await this.load();
+    const me = await this.me();
+    db.blocks = (db.blocks ?? []).filter(
+      (x) => !(x.blocker_id === me.id && x.blocked_id === userId),
+    );
+    await this.save();
+  }
+
+  async getBlockedUsers(): Promise<User[]> {
+    const db = await this.load();
+    const me = await this.me();
+    const ids = (db.blocks ?? [])
+      .filter((x) => x.blocker_id === me.id)
+      .map((x) => x.blocked_id);
+    return db.users.filter((u) => ids.includes(u.id));
+  }
+
+  async isBlocked(userId: string): Promise<boolean> {
+    const db = await this.load();
+    const me = await this.me();
+    return this.blockedPair(db, me.id, userId);
+  }
+
   async reportPost(postId: string, reason: ReportReason, detail?: string): Promise<void> {
     const db = await this.load();
     const me = await this.me();
@@ -661,8 +734,9 @@ export class MockService implements DataService {
     const me = await this.me();
     // Older saved demo databases predate comment likes.
     const likes = db.commentReactions ?? [];
+    const blockedC = this.blockedIds(db, me.id);
     return db.comments
-      .filter((c) => c.post_id === postId)
+      .filter((c) => c.post_id === postId && !blockedC.has(c.user_id))
       .sort((a, b) => a.created_at.localeCompare(b.created_at))
       .map((c) => ({
         ...c,

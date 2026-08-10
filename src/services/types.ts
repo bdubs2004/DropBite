@@ -100,6 +100,15 @@ export interface DataService {
    * Reporting the same post twice is a no-op rather than an error.
    */
   reportPost(postId: string, reason: ReportReason, detail?: string): Promise<void>;
+  /**
+   * Block a user. Symmetric in effect: neither of you sees the other's posts
+   * or comments, follows are severed, and neither can message the other.
+   */
+  blockUser(userId: string): Promise<void>;
+  unblockUser(userId: string): Promise<void>;
+  /** Users I have blocked. The blocked party can never see this. */
+  getBlockedUsers(): Promise<User[]>;
+  isBlocked(userId: string): Promise<boolean>;
 
   // saved posts (bookmarks) — private to the user
   toggleSave(postId: string): Promise<void>;

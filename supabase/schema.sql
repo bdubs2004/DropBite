@@ -101,6 +101,41 @@ create table public.saved_posts (
 );
 create index saved_posts_user_created_idx on public.saved_posts (user_id, created_at desc);
 
+-- --------------------------------------------------------------- blocks
+-- Blocking. Required alongside reporting for App Store Guideline 1.2.
+--
+-- A block is one-directional in storage but symmetric in effect: neither party
+-- should see the other's content or be able to message them. Policies and
+-- queries below always test both directions.
+create table public.blocks (
+  blocker_id uuid not null references public.users (id) on delete cascade,
+  blocked_id uuid not null references public.users (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (blocker_id, blocked_id),
+  constraint blocks_no_self check (blocker_id <> blocked_id)
+);
+create index blocks_blocked_idx on public.blocks (blocked_id);
+
+-- True if either user has blocked the other. SECURITY DEFINER because the
+-- blocked party cannot read the blocks table, but policies still need the
+-- answer. Pinned empty search_path stops schema shadowing.
+create or replace function public.is_blocked_pair(a uuid, b uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1 from public.blocks x
+    where (x.blocker_id = a and x.blocked_id = b)
+       or (x.blocker_id = b and x.blocked_id = a)
+  );
+$$;
+
+revoke all on function public.is_blocked_pair(uuid, uuid) from public;
+grant execute on function public.is_blocked_pair(uuid, uuid) to authenticated;
+
 -- -------------------------------------------------------- direct messages
 -- 1:1 threads today; the members table means group DMs need no migration.
 create table public.conversations (
@@ -170,6 +205,26 @@ $$;
 revoke all on function public.conversation_is_empty(uuid) from public;
 grant execute on function public.conversation_is_empty(uuid) to authenticated;
 
+-- True if anyone in the conversation has blocked (or been blocked by) `who`.
+-- Stops a blocked user from continuing to message through an old thread.
+create or replace function public.conversation_has_block(conv uuid, who uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1 from public.conversation_members m
+    where m.conversation_id = conv
+      and m.user_id <> who
+      and public.is_blocked_pair(m.user_id, who)
+  );
+$$;
+
+revoke all on function public.conversation_has_block(uuid, uuid) from public;
+grant execute on function public.conversation_has_block(uuid, uuid) to authenticated;
+
 -- ---------------------------------------------------- comment_reactions
 -- Likes on comments. Same shape as post reactions: one row per (comment, user)
 -- so the count is inherently idempotent.
@@ -236,6 +291,7 @@ alter table public.comments enable row level security;
 alter table public.reposts enable row level security;
 alter table public.shares enable row level security;
 alter table public.saved_posts enable row level security;
+alter table public.blocks enable row level security;
 alter table public.conversations enable row level security;
 alter table public.conversation_members enable row level security;
 alter table public.messages enable row level security;
@@ -257,13 +313,18 @@ create policy "delete own profile" on public.users
 create policy "follows readable" on public.follows
   for select to authenticated using (true);
 create policy "follow as self" on public.follows
-  for insert to authenticated with check (follower_id = auth.uid());
+  for insert to authenticated with check (
+    follower_id = auth.uid() and not public.is_blocked_pair(followee_id, auth.uid())
+  );
 create policy "unfollow as self" on public.follows
   for delete to authenticated using (follower_id = auth.uid());
 
 -- posts: MVP = all signed-in users can read (feed filters client/server-side)
+-- Blocking hides content both ways: neither party sees the other's posts.
 create policy "posts readable" on public.posts
-  for select to authenticated using (true);
+  for select to authenticated using (
+    not public.is_blocked_pair(user_id, auth.uid())
+  );
 create policy "create own posts" on public.posts
   for insert to authenticated with check (user_id = auth.uid());
 create policy "update own posts" on public.posts
@@ -297,11 +358,23 @@ create policy "unreact as self" on public.reactions
 
 -- comments: all signed-in users read; you write/delete your own
 create policy "comments readable" on public.comments
-  for select to authenticated using (true);
+  for select to authenticated using (
+    not public.is_blocked_pair(user_id, auth.uid())
+  );
 create policy "comment as self" on public.comments
   for insert to authenticated with check (user_id = auth.uid());
 create policy "delete own comment" on public.comments
   for delete to authenticated using (user_id = auth.uid());
+
+
+-- blocks: you manage your own list and can only see your own. Someone you
+-- blocked must not be able to tell -- reading the table would leak that.
+create policy "read own blocks" on public.blocks
+  for select to authenticated using (blocker_id = auth.uid());
+create policy "block as self" on public.blocks
+  for insert to authenticated with check (blocker_id = auth.uid());
+create policy "unblock as self" on public.blocks
+  for delete to authenticated using (blocker_id = auth.uid());
 
 -- direct messages: strictly members-only. These are the most private rows in
 -- the app — nothing here is readable by anyone outside the thread.
@@ -336,7 +409,9 @@ create policy "read messages in own conversations" on public.messages
   for select to authenticated using (public.is_conversation_member(conversation_id, auth.uid()));
 create policy "send messages as self" on public.messages
   for insert to authenticated with check (
-    sender_id = auth.uid() and public.is_conversation_member(conversation_id, auth.uid())
+    sender_id = auth.uid()
+    and public.is_conversation_member(conversation_id, auth.uid())
+    and not public.conversation_has_block(conversation_id, auth.uid())
   );
 create policy "delete own messages" on public.messages
   for delete to authenticated using (sender_id = auth.uid());

@@ -629,6 +629,54 @@ export class SupabaseService implements DataService {
     return convs.reduce((sum, c) => sum + c.unread_count, 0);
   }
 
+  // ------------------------------------------------------------- blocking
+  //
+  // Reads need no client-side filtering: RLS hides blocked users' posts and
+  // comments in both directions, so a patched app gains nothing.
+
+  async blockUser(userId: string): Promise<void> {
+    const meId = await this.myId();
+    if (userId === meId) throw new Error('You cannot block yourself.');
+    const { error } = await this.sb
+      .from('blocks')
+      .upsert({ blocker_id: meId, blocked_id: userId });
+    if (error) throw error;
+    // Sever the follow both ways. The RLS policy stops new follows; these are
+    // the existing rows.
+    await this.sb.from('follows').delete().match({ follower_id: meId, followee_id: userId });
+    await this.sb.from('follows').delete().match({ follower_id: userId, followee_id: meId });
+  }
+
+  async unblockUser(userId: string): Promise<void> {
+    const meId = await this.myId();
+    const { error } = await this.sb
+      .from('blocks')
+      .delete()
+      .match({ blocker_id: meId, blocked_id: userId });
+    if (error) throw error;
+  }
+
+  async getBlockedUsers(): Promise<User[]> {
+    const meId = await this.myId();
+    const { data } = await this.sb
+      .from('blocks')
+      .select('users!blocks_blocked_id_fkey(*)')
+      .eq('blocker_id', meId);
+    return (data ?? []).map((r: any) => r.users as User).filter(Boolean);
+  }
+
+  async isBlocked(userId: string): Promise<boolean> {
+    const meId = await this.myId();
+    // Only my own blocks are readable; the other direction is invisible by
+    // design, and its effects are already enforced by RLS.
+    const { data } = await this.sb
+      .from('blocks')
+      .select('blocked_id')
+      .match({ blocker_id: meId, blocked_id: userId })
+      .maybeSingle();
+    return Boolean(data);
+  }
+
   async reportPost(postId: string, reason: ReportReason, detail?: string): Promise<void> {
     const meId = await this.myId();
 
