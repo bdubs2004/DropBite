@@ -78,9 +78,9 @@ export function AvatarPicker({
       >
         {/* Amber ring reads as an affordance, not just decoration. */}
         <View style={[styles.ringInner, { width: size, height: size, borderRadius: size / 2 }]}>
-          <Avatar user={user} size={size - 8} />
+          <Avatar user={user} size={size - 18} />
           {busy ? (
-            <View style={[styles.busy, { borderRadius: (size - 8) / 2 }]}>
+            <View style={[styles.busy, { borderRadius: (size - 18) / 2 }]}>
               <ActivityIndicator color={colors.white} />
             </View>
           ) : null}
@@ -126,14 +126,16 @@ const styles = StyleSheet.create({
   ringInner: {
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 4,
+    // Cream gap between the amber ring and the avatar, so the ring still
+    // reads when the avatar fallback is itself amber.
+    borderWidth: 3,
     borderColor: colors.amber,
-    backgroundColor: colors.cream,
+    backgroundColor: colors.white,
     ...(shadow as object),
   },
   busy: {
     ...StyleSheet.absoluteFillObject,
-    margin: 4,
+    margin: 9,
     backgroundColor: colors.overlay,
     alignItems: 'center',
     justifyContent: 'center',
