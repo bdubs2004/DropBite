@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RecipeCardEditor } from '../components/RecipeCardEditor';
 import { Button, Input, Muted } from '../components/ui';
+import { LIMITS } from '../lib/limits';
 import { pickImage } from '../lib/pickImage';
 import { defaultMealSlot } from '../lib/time';
 import { getDataService } from '../services';
@@ -275,6 +276,7 @@ export function ComposeScreen({ navigation }: any) {
             setFormatFailed(null);
           }}
           multiline
+          maxLength={LIMITS.blurb}
         />
 
         {/* 5: AI recipe card (optional, only on demand) */}

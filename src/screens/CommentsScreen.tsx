@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '../components/Avatar';
 import { Muted } from '../components/ui';
+import { LIMITS } from '../lib/limits';
 import { relativeTime } from '../lib/time';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
@@ -146,6 +147,7 @@ export function CommentsScreen({ navigation, route }: any) {
           placeholderTextColor={colors.cocoaFaint}
           style={styles.input}
           multiline
+          maxLength={LIMITS.comment}
           onSubmitEditing={submit}
         />
         <Pressable

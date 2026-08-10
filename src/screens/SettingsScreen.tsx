@@ -15,6 +15,7 @@ import { DEMO_MODE } from '../config';
 import { AvatarPicker } from '../components/AvatarPicker';
 import { TimePickerModal } from '../components/TimePickerModal';
 import { Button, Card, Input, Muted, ScreenTitle } from '../components/ui';
+import { LIMITS } from '../lib/limits';
 import { formatTime, MEAL_REMINDER_SLOTS, timeFor } from '../lib/mealTimes';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
@@ -119,8 +120,13 @@ export function SettingsScreen({ navigation }: any) {
       <Text style={styles.section}>Profile</Text>
       <Card>
         <AvatarPicker user={user} onPick={changeAvatar} />
-        <Input label="Display name" value={displayName} onChangeText={setDisplayName} />
-        <Input label="Bio" value={bio} onChangeText={setBio} multiline />
+        <Input
+          label="Display name"
+          value={displayName}
+          onChangeText={setDisplayName}
+          maxLength={LIMITS.displayName}
+        />
+        <Input label="Bio" value={bio} onChangeText={setBio} multiline maxLength={LIMITS.bio} />
         <Button title="Save profile" onPress={saveProfile} loading={saving} />
       </Card>
 

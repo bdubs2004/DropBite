@@ -43,6 +43,35 @@ Test 3 caught a real hole during development: an earlier policy allowed
 and read the whole history. Membership now requires either already being in
 the thread or the thread being empty.
 
+## blocks_test.sql
+
+| # | Property |
+| --- | --- |
+| 1-2 | **Blocking is symmetric**: neither party sees the other's posts |
+| 3 | The blocked user's comments are hidden too |
+| 4 | A blocked user cannot re-follow |
+| 5-6 | Neither side can message through an existing DM thread |
+| 7 | **A blocked user cannot tell they were blocked** |
+| 8 | ...and cannot delete the block |
+| 9 | The blocker sees their own block |
+| 10 | Nobody can block themselves |
+| 11 | Unblocking restores visibility |
+
+## hardening_test.sql
+
+| # | Property |
+| --- | --- |
+| 1 | **A private follower list cannot be enumerated by a third party** |
+| 2 | ...but counts stay public via `follow_counts()` |
+| 3 | The owner still sees their own full list |
+| 4 | `photo_url` rejects `javascript:` / `data:`, accepts `https:` |
+| 5 | Over-long bio and blurb rejected |
+| 6 | Forged streaks rejected |
+| 7 | The AI quota ledger is unreadable, unwritable, and its function is service-role only |
+| 8 | Post owners can moderate comments on their own posts |
+| 9 | The storage bucket caps size and MIME type |
+| 10 | The AI daily quota actually cuts off at the limit |
+
 ## Running
 
 Needs a local `postgres` + `psql` (verified on 16). Nothing touches Supabase.

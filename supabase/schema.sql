@@ -4,14 +4,24 @@
 create type meal_slot as enum ('breakfast', 'lunch', 'dinner', 'snack');
 
 -- ---------------------------------------------------------------- users
+-- Constraints are named explicitly so this file and the migrations produce
+-- identical databases, and future migrations can reference them by name.
 create table public.users (
   id uuid primary key references auth.users (id) on delete cascade,
-  handle text unique not null check (handle ~ '^[a-z0-9_]{2,30}$'),
-  display_name text not null,
-  avatar_url text,
-  avatar_emoji text,
-  bio text,
-  timezone text not null default 'UTC',
+  handle text unique not null constraint users_handle_format check (handle ~ '^[a-z0-9_]{2,30}$'),
+  display_name text not null
+    constraint users_display_name_len check (char_length(display_name) between 1 and 50),
+  -- Length is tested separately from the pattern on purpose: Postgres caps
+  -- regex repetition counts at 255, so {1,500} inside the pattern is a
+  -- runtime error, not a compile-time one.
+  avatar_url text constraint users_avatar_url_https check (
+    avatar_url is null or (avatar_url ~ '^https://[^\s]+$' and char_length(avatar_url) <= 500)
+  ),
+  avatar_emoji text
+    constraint users_avatar_emoji_len check (avatar_emoji is null or char_length(avatar_emoji) <= 8),
+  bio text constraint users_bio_len check (bio is null or char_length(bio) <= 300),
+  timezone text not null default 'UTC'
+    constraint users_timezone_len check (char_length(timezone) <= 64),
   follows_private boolean not null default false,
   created_at timestamptz not null default now()
 );
@@ -30,12 +40,21 @@ create table public.posts (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.users (id) on delete cascade,
   meal_slot meal_slot not null,
-  photo_url text not null,
-  blurb text not null default '',          -- verbatim user words, source of truth
-  restaurant_place_id text,
-  restaurant_name text,
-  lat double precision,
-  lng double precision,
+  -- Must be an https URL. Blocks javascript:/data:/file: URIs and stops a
+  -- scripted client pointing every viewer's image loader at a host that logs
+  -- their IP.
+  photo_url text not null constraint posts_photo_url_https check (
+    photo_url ~ '^https://[^\s]+$' and char_length(photo_url) <= 1000
+  ),
+  -- verbatim user words, source of truth. Never rewritten by AI.
+  blurb text not null default ''
+    constraint posts_blurb_len check (char_length(blurb) <= 2000),
+  restaurant_place_id text constraint posts_place_id_len
+    check (restaurant_place_id is null or char_length(restaurant_place_id) <= 255),
+  restaurant_name text constraint posts_restaurant_name_len
+    check (restaurant_name is null or char_length(restaurant_name) <= 200),
+  lat double precision constraint posts_lat_range check (lat is null or lat between -90 and 90),
+  lng double precision constraint posts_lng_range check (lng is null or lng between -180 and 180),
   created_at timestamptz not null default now()
 );
 create index posts_user_created_idx on public.posts (user_id, created_at desc);
@@ -46,10 +65,22 @@ create index posts_created_idx on public.posts (created_at desc);
 create table public.recipes (
   id uuid primary key default gen_random_uuid(),
   post_id uuid unique not null references public.posts (id) on delete cascade,
-  title text not null,
-  ingredients jsonb not null default '[]'::jsonb,  -- [{item, quantity, unit}]
-  steps jsonb not null default '[]'::jsonb,        -- [string]
-  cook_time_minutes integer,
+  title text not null
+    constraint recipes_title_len check (char_length(title) between 1 and 120),
+  -- [{item, quantity, unit}] — bounded so a scripted client can't store an
+  -- unbounded blob under the guise of a recipe.
+  ingredients jsonb not null default '[]'::jsonb constraint recipes_ingredients_bounded check (
+    jsonb_typeof(ingredients) = 'array'
+    and jsonb_array_length(ingredients) <= 50
+    and pg_column_size(ingredients) <= 16384
+  ),
+  steps jsonb not null default '[]'::jsonb constraint recipes_steps_bounded check (
+    jsonb_typeof(steps) = 'array'
+    and jsonb_array_length(steps) <= 50
+    and pg_column_size(steps) <= 16384
+  ),
+  cook_time_minutes integer constraint recipes_cook_time_range
+    check (cook_time_minutes is null or cook_time_minutes between 0 and 6000),
   ai_generated boolean not null default false,
   user_edited boolean not null default false,      -- tracks AI accuracy over time
   created_at timestamptz not null default now()
@@ -59,7 +90,8 @@ create table public.recipes (
 create table public.reactions (
   post_id uuid not null references public.posts (id) on delete cascade,
   user_id uuid not null references public.users (id) on delete cascade,
-  type text not null default 'like',
+  -- MVP ships likes only; constrained so clients can't invent values.
+  type text not null default 'like' constraint reactions_type_allowed check (type in ('like')),
   created_at timestamptz not null default now(),
   primary key (post_id, user_id)
 );
@@ -274,11 +306,18 @@ create index reports_status_created_idx on public.reports (status, created_at);
 create index reports_reported_user_idx on public.reports (reported_user_id);
 
 -- -------------------------------------------------------------- streaks
+-- Streaks are client-written, so they are only as trustworthy as the client.
+-- These constraints reject the obviously-forged values. Making them
+-- tamper-proof needs a trigger deriving them from posts; see SECURITY.md.
 create table public.streaks (
   user_id uuid primary key references public.users (id) on delete cascade,
-  current_streak integer not null default 0,
-  longest_streak integer not null default 0,
-  last_post_date date
+  current_streak integer not null default 0
+    constraint streaks_current_range check (current_streak between 0 and 36500),
+  longest_streak integer not null default 0
+    constraint streaks_longest_range check (longest_streak between 0 and 36500),
+  last_post_date date constraint streaks_last_post_not_future
+    check (last_post_date is null or last_post_date <= (now() at time zone 'utc')::date + 1),
+  constraint streaks_longest_gte_current check (longest_streak >= current_streak)
 );
 
 -- ==================================================================== RLS
@@ -305,13 +344,39 @@ create policy "users readable" on public.users
 create policy "insert own profile" on public.users
   for insert to authenticated with check (id = auth.uid());
 create policy "update own profile" on public.users
-  for update to authenticated using (id = auth.uid());
+  for update to authenticated using (id = auth.uid()) with check (id = auth.uid());
 create policy "delete own profile" on public.users
   for delete to authenticated using (id = auth.uid());
 
 -- follows
+-- users.follows_private is a real privacy control, not a UI preference. A
+-- follow row (A follows B) appears in B's follower list and A's following
+-- list, so third parties only see it when NEITHER side is private. Counts stay
+-- public via follow_counts() below, which is SECURITY DEFINER.
 create policy "follows readable" on public.follows
-  for select to authenticated using (true);
+  for select to authenticated using (
+    follower_id = auth.uid()
+    or followee_id = auth.uid()
+    or (
+      not exists (select 1 from public.users u where u.id = follower_id and u.follows_private)
+      and not exists (select 1 from public.users u where u.id = followee_id and u.follows_private)
+    )
+  );
+
+create or replace function public.follow_counts(target uuid)
+returns table (followers bigint, following bigint)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select
+    (select count(*) from public.follows f where f.followee_id = target),
+    (select count(*) from public.follows f where f.follower_id = target);
+$$;
+
+revoke all on function public.follow_counts(uuid) from public;
+grant execute on function public.follow_counts(uuid) to authenticated;
 create policy "follow as self" on public.follows
   for insert to authenticated with check (
     follower_id = auth.uid() and not public.is_blocked_pair(followee_id, auth.uid())
@@ -328,7 +393,7 @@ create policy "posts readable" on public.posts
 create policy "create own posts" on public.posts
   for insert to authenticated with check (user_id = auth.uid());
 create policy "update own posts" on public.posts
-  for update to authenticated using (user_id = auth.uid());
+  for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 create policy "delete own posts" on public.posts
   for delete to authenticated using (user_id = auth.uid());
 
@@ -363,8 +428,13 @@ create policy "comments readable" on public.comments
   );
 create policy "comment as self" on public.comments
   for insert to authenticated with check (user_id = auth.uid());
-create policy "delete own comment" on public.comments
-  for delete to authenticated using (user_id = auth.uid());
+-- Deletable by the author OR the owner of the post, so a user can always
+-- remove abuse from their own post without waiting on support.
+create policy "delete own comment or on own post" on public.comments
+  for delete to authenticated using (
+    user_id = auth.uid()
+    or exists (select 1 from public.posts p where p.id = post_id and p.user_id = auth.uid())
+  );
 
 
 -- blocks: you manage your own list and can only see your own. Someone you
@@ -438,7 +508,7 @@ create policy "shares readable" on public.shares
 create policy "share as self" on public.shares
   for insert to authenticated with check (user_id = auth.uid());
 create policy "update own share" on public.shares
-  for update to authenticated using (user_id = auth.uid());
+  for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- saved_posts: private to the owner (only you read/write your bookmarks)
 create policy "read own saves" on public.saved_posts
@@ -473,11 +543,20 @@ create policy "streaks readable" on public.streaks
 create policy "upsert own streak" on public.streaks
   for insert to authenticated with check (user_id = auth.uid());
 create policy "update own streak" on public.streaks
-  for update to authenticated using (user_id = auth.uid());
+  for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- ================================================================ storage
 -- Photo bucket: public read, users write into their own folder.
-insert into storage.buckets (id, name, public) values ('photos', 'photos', true);
+-- allowed_mime_types + file_size_limit are the important bits. Without them a
+-- signed-in user can upload ANY file to a public CDN origin: an HTML or SVG
+-- file becomes stored XSS served from your own domain, and unbounded sizes are
+-- a straight bandwidth bill. The client's compress step is UX, not a control.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'photos', 'photos', true,
+  10485760,                                        -- 10 MB
+  array['image/jpeg', 'image/png', 'image/webp', 'image/heic']
+);
 
 create policy "photos public read" on storage.objects
   for select using (bucket_id = 'photos');
@@ -489,3 +568,40 @@ create policy "delete own photos" on storage.objects
   for delete to authenticated using (
     bucket_id = 'photos' and (storage.foldername(name))[1] = auth.uid()::text
   );
+
+-- ============================================================== rate limits
+-- Backs the per-user quota in the format-recipe edge function. Each AI format
+-- costs real money, so the call must be attributable and capped. RLS on with
+-- no policies denies the client everything; the explicit revoke is
+-- belt-and-braces because Supabase grants to anon/authenticated by default.
+create table public.ai_usage (
+  user_id uuid not null references public.users (id) on delete cascade,
+  day date not null default (now() at time zone 'utc')::date,
+  count integer not null default 0,
+  primary key (user_id, day)
+);
+alter table public.ai_usage enable row level security;
+revoke all on table public.ai_usage from anon, authenticated;
+
+-- Atomically increment today's counter and report whether the caller is still
+-- under the cap. SECURITY DEFINER with a pinned empty search_path.
+create or replace function public.consume_ai_quota(target uuid, daily_limit integer)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  used integer;
+begin
+  insert into public.ai_usage (user_id, day, count)
+  values (target, (now() at time zone 'utc')::date, 1)
+  on conflict (user_id, day)
+    do update set count = public.ai_usage.count + 1
+  returning count into used;
+
+  return used <= daily_limit;
+end;
+$$;
+
+revoke all on function public.consume_ai_quota(uuid, integer) from public;

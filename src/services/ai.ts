@@ -1,4 +1,5 @@
 import { DEMO_MODE } from '../config';
+import { LIMITS } from '../lib/limits';
 import { Ingredient } from '../types';
 import { getSupabase } from './supabase/client';
 
@@ -29,7 +30,9 @@ export async function formatRecipe(blurb: string): Promise<FormattedRecipe | nul
     }
     const sb = getSupabase();
     const { data, error } = await sb.functions.invoke('format-recipe', {
-      body: { blurb },
+      // Bounded before it leaves the device; the function enforces the same
+      // cap, and sending less keeps a long blurb from being billed as tokens.
+      body: { blurb: blurb.slice(0, LIMITS.blurb) },
     });
     if (error) return null;
     return sanitize(data);
@@ -42,9 +45,10 @@ function sanitize(data: any): FormattedRecipe | null {
   if (!data || typeof data !== 'object') return null;
   return {
     is_recipe: Boolean(data.is_recipe),
-    title: String(data.title ?? 'My Recipe').slice(0, 120),
+    title: String(data.title ?? 'My Recipe').slice(0, LIMITS.recipeTitle),
     ingredients: Array.isArray(data.ingredients)
       ? data.ingredients
+          .slice(0, LIMITS.recipeItems)
           .filter((i: any) => i && typeof i.item === 'string')
           .map((i: any) => ({
             item: String(i.item),
@@ -52,9 +56,13 @@ function sanitize(data: any): FormattedRecipe | null {
             unit: String(i.unit ?? ''),
           }))
       : [],
-    steps: Array.isArray(data.steps) ? data.steps.map((s: any) => String(s)) : [],
+    steps: Array.isArray(data.steps)
+      ? data.steps.slice(0, LIMITS.recipeItems).map((s: any) => String(s).slice(0, 500))
+      : [],
     cook_time_minutes:
-      typeof data.cook_time_minutes === 'number' ? data.cook_time_minutes : null,
+      typeof data.cook_time_minutes === 'number' && Number.isFinite(data.cook_time_minutes)
+        ? Math.min(Math.max(Math.round(data.cook_time_minutes), 0), 6000)
+        : null,
   };
 }
 

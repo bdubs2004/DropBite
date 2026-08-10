@@ -11,9 +11,32 @@ import {
 import { DEMO_MODE } from '../config';
 import { LogoMark } from '../components/Logo';
 import { Button, Input, Muted } from '../components/ui';
+import { LIMITS } from '../lib/limits';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
 import { colors, fonts, radius, spacing } from '../theme';
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * Turn a backend auth failure into something safe to show.
+ *
+ * Providers distinguish "no such user" from "wrong password" and say so.
+ * Surfacing that verbatim turns sign-in into an account-existence oracle, so
+ * sign-in failures always get one message. Sign-up does surface the specific
+ * problems, because the user needs to act on them.
+ */
+function authErrorMessage(e: any, mode: 'signin' | 'signup'): string {
+  const raw = String(e?.message ?? '');
+  if (mode === 'signin') return 'Wrong email or password.';
+  if (/handle/i.test(raw)) return raw;
+  if (/already registered|already exists|user already/i.test(raw)) {
+    return 'That email cannot be used. Try signing in instead.';
+  }
+  if (/password/i.test(raw)) return `Password must be at least ${LIMITS.passwordMin} characters.`;
+  if (/rate|too many/i.test(raw)) return 'Too many attempts. Please wait a minute and try again.';
+  return 'Could not create the account. Please check your details and try again.';
+}
 
 export function AuthScreen() {
   const { setUser } = useApp();
@@ -41,15 +64,15 @@ export function AuthScreen() {
           : await svc.signIn(email, password);
       setUser(user);
     } catch (e: any) {
-      setError(e?.message ?? 'Something went wrong.');
+      setError(authErrorMessage(e, mode));
     } finally {
       setBusy(false);
     }
   };
 
   const valid =
-    email.includes('@') &&
-    password.length >= 6 &&
+    EMAIL_RE.test(email.trim()) &&
+    password.length >= LIMITS.passwordMin &&
     (mode === 'signin' || (handle.trim().length >= 2 && displayName.trim().length >= 1));
 
   return (
@@ -92,6 +115,7 @@ export function AuthScreen() {
                 value={displayName}
                 onChangeText={setDisplayName}
                 autoCapitalize="words"
+                maxLength={LIMITS.displayName}
               />
               <Input
                 label="Handle"
@@ -100,6 +124,7 @@ export function AuthScreen() {
                 onChangeText={setHandle}
                 autoCapitalize="none"
                 autoCorrect={false}
+                maxLength={LIMITS.handle}
               />
             </>
           ) : null}
@@ -112,13 +137,18 @@ export function AuthScreen() {
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="email-address"
+            autoComplete="email"
+            maxLength={254}
           />
           <Input
             label="Password"
-            placeholder="At least 6 characters"
+            placeholder={`At least ${LIMITS.passwordMin} characters`}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
+            autoCapitalize="none"
+            autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+            maxLength={128}
           />
 
           {error ? <Text style={styles.error}>{error}</Text> : null}

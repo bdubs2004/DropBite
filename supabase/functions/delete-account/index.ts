@@ -7,40 +7,61 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+const ALLOWED_ORIGINS = (Deno.env.get('ALLOWED_ORIGINS') ?? '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+function corsHeaders(origin: string | null): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    Vary: 'Origin',
+  };
+  if (ALLOWED_ORIGINS.length === 0) headers['Access-Control-Allow-Origin'] = '*';
+  else if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    headers['Access-Control-Allow-Origin'] = origin;
+  }
+  return headers;
+}
 
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+  const cors = corsHeaders(req.headers.get('Origin'));
+
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
+  // POST only, so this can't be triggered by a top-level navigation.
+  if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405, cors);
+
   try {
     const authHeader = req.headers.get('Authorization') ?? '';
-    const jwt = authHeader.replace('Bearer ', '');
-    if (!jwt) return json({ error: 'unauthorized' }, 401);
+    const jwt = authHeader.replace(/^Bearer\s+/i, '').trim();
+    if (!jwt) return json({ error: 'unauthorized' }, 401, cors);
 
     const admin = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      { auth: { persistSession: false } },
     );
 
     const { data: userData, error: userErr } = await admin.auth.getUser(jwt);
-    if (userErr || !userData.user) return json({ error: 'unauthorized' }, 401);
+    if (userErr || !userData.user) return json({ error: 'unauthorized' }, 401, cors);
 
     const { error } = await admin.auth.admin.deleteUser(userData.user.id);
-    if (error) return json({ error: error.message }, 500);
+    if (error) {
+      console.error('deleteUser failed', error);
+      return json({ error: 'delete_failed' }, 500, cors);
+    }
 
-    return json({ ok: true }, 200);
+    return json({ ok: true }, 200, cors);
   } catch (e) {
-    return json({ error: String(e) }, 500);
+    console.error('delete-account failed', e);
+    return json({ error: 'server_error' }, 500, cors);
   }
 });
 
-function json(body: unknown, status: number): Response {
+function json(body: unknown, status: number, cors: Record<string, string>): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'content-type': 'application/json' },
+    headers: { ...cors, 'content-type': 'application/json' },
   });
 }

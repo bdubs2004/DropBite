@@ -12,8 +12,8 @@ become editable AI recipe cards.
 
 Built with **React Native + Expo (TypeScript)**, **Supabase**, and the **Anthropic
 API**. See `PROJECT_SCOPE.md` for product vision, `CLAUDE.md` for build
-conventions, and **[MODERATION.md](MODERATION.md)** for how to review reported
-posts.
+conventions, **[SECURITY.md](SECURITY.md)** for the threat model, and
+**[MODERATION.md](MODERATION.md)** for how to review reported posts.
 
 > **Location / restaurant tagging is deferred to Phase 2.** The "where you ate" tagging
 > (Google Places-backed) is fully built but turned off behind `LOCATION_TAGGING_ENABLED`

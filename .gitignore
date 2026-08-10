@@ -40,5 +40,7 @@ yarn-error.*
 /ios
 /android
 
-# local env (real keys)
+# local env files: ignore every .env variant, keep the template.
 .env
+.env.*
+!.env.example

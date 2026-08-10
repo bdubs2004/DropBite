@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { hashPassword, verifyPassword } from '../../lib/demoPassword';
 import { uid } from '../../lib/id';
+import { clamp, clampOrNull, LIMITS } from '../../lib/limits';
 import { daysBetween, localDateString } from '../../lib/time';
 import {
   Comment,
@@ -73,7 +75,9 @@ interface Db {
   reports: Report[];
   streaks: Streak[];
   sessionUserId: string | null;
-  credentials: { email: string; password: string; userId: string }[];
+  /** password_hash is a salted digest. `password` is the legacy plaintext
+   *  field, upgraded and erased on the owner's next sign-in. */
+  credentials: { email: string; password_hash?: string; password?: string; userId: string }[];
   notificationPrefs: NotificationPrefs;
 }
 
@@ -161,7 +165,11 @@ export class MockService implements DataService {
   }): Promise<User> {
     const db = await this.load();
     const email = input.email.trim().toLowerCase();
-    const handle = input.handle.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+    const handle = input.handle
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_]/g, '')
+      .slice(0, LIMITS.handle);
     if (!handle) throw new Error('Pick a handle (letters, numbers, underscores).');
     if (db.credentials.some((c) => c.email === email)) {
       throw new Error('That email already has an account. Sign in instead.');
@@ -172,7 +180,7 @@ export class MockService implements DataService {
     const user: User = {
       id: uid('u-'),
       handle,
-      display_name: input.display_name.trim() || handle,
+      display_name: clamp(input.display_name, LIMITS.displayName) || handle,
       avatar_url: null,
       avatar_emoji: input.avatar_emoji ?? null,
       bio: null,
@@ -180,7 +188,11 @@ export class MockService implements DataService {
       created_at: new Date().toISOString(),
     };
     db.users.push(user);
-    db.credentials.push({ email, password: input.password, userId: user.id });
+    db.credentials.push({
+      email,
+      password_hash: await hashPassword(input.password),
+      userId: user.id,
+    });
     db.sessionUserId = user.id;
     // demo account follows the seed users so the feed is alive immediately
     for (const f of SEED_FOLLOWING) db.follows.push({ follower_id: user.id, followee_id: f });
@@ -192,7 +204,20 @@ export class MockService implements DataService {
   async signIn(email: string, password: string): Promise<User> {
     const db = await this.load();
     const cred = db.credentials.find((c) => c.email === email.trim().toLowerCase());
-    if (!cred || cred.password !== password) throw new Error('Wrong email or password.');
+    let ok = false;
+    if (cred?.password_hash) {
+      ok = await verifyPassword(password, cred.password_hash);
+    } else if (cred?.password !== undefined) {
+      // Demo account created before hashing existed: accept once, then
+      // upgrade and drop the plaintext so nobody is locked out.
+      ok = cred.password === password;
+      if (ok) {
+        cred.password_hash = await hashPassword(password);
+        delete cred.password;
+      }
+    }
+    // One message either way, so this is never an account-existence oracle.
+    if (!cred || !ok) throw new Error('Wrong email or password.');
     db.sessionUserId = cred.userId;
     await this.save();
     return (await this.getCurrentUser())!;
@@ -255,7 +280,16 @@ export class MockService implements DataService {
     const me = await this.me();
     // Replace with a NEW object (not an in-place mutation) so React sees a
     // fresh reference and re-renders the profile after a save.
-    const updated: User = { ...me, ...patch };
+    // Only these fields are writable, each bounded to match the DB.
+    const safe: Partial<User> = {};
+    if (patch.display_name !== undefined) {
+      safe.display_name = clamp(patch.display_name, LIMITS.displayName) || me.handle;
+    }
+    if (patch.bio !== undefined) safe.bio = clampOrNull(patch.bio, LIMITS.bio);
+    if (patch.avatar_emoji !== undefined) safe.avatar_emoji = clampOrNull(patch.avatar_emoji, 8);
+    if (patch.avatar_url !== undefined) safe.avatar_url = patch.avatar_url ?? null;
+    if (patch.follows_private !== undefined) safe.follows_private = Boolean(patch.follows_private);
+    const updated: User = { ...me, ...safe };
     const idx = db.users.findIndex((u) => u.id === me.id);
     db.users[idx] = updated;
     await this.save();
@@ -424,7 +458,7 @@ export class MockService implements DataService {
       meal_slot: input.meal_slot,
       photo_url: input.photo_url,
       photo_emoji: input.photo_emoji ?? null,
-      blurb: input.blurb,
+      blurb: clamp(input.blurb, LIMITS.blurb),
       restaurant_place_id: input.restaurant?.place_id ?? null,
       restaurant_name: input.restaurant?.name ?? null,
       lat: input.restaurant?.lat ?? null,
@@ -765,7 +799,7 @@ export class MockService implements DataService {
       id: uid('c-'),
       post_id: postId,
       user_id: me.id,
-      text: text.trim(),
+      text: clamp(text, LIMITS.comment),
       created_at: new Date().toISOString(),
     };
     db.comments.push(comment);

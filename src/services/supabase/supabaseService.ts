@@ -12,6 +12,7 @@ import {
   Streak,
   User,
 } from '../../types';
+import { clamp, clampOrNull, LIMITS } from '../../lib/limits';
 import { sanitizeSearchTerm } from '../../lib/searchTerm';
 import { daysBetween, localDateString } from '../../lib/time';
 import { DataService } from '../types';
@@ -102,8 +103,12 @@ export class SupabaseService implements DataService {
     if (!data.user) throw new Error('Sign-up failed');
     const profile: Partial<User> = {
       id: data.user.id,
-      handle: input.handle.trim().toLowerCase().replace(/[^a-z0-9_]/g, ''),
-      display_name: input.display_name.trim(),
+      handle: input.handle
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9_]/g, '')
+        .slice(0, LIMITS.handle),
+      display_name: clamp(input.display_name, LIMITS.displayName),
       avatar_emoji: input.avatar_emoji ?? null,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC',
     };
@@ -165,9 +170,21 @@ export class SupabaseService implements DataService {
     >,
   ): Promise<User> {
     const meId = await this.myId();
+    // Build the update explicitly so only these fields can ever be written.
+    const safe: Record<string, unknown> = {};
+    if (patch.display_name !== undefined) {
+      safe.display_name = clamp(patch.display_name, LIMITS.displayName);
+    }
+    if (patch.bio !== undefined) safe.bio = clampOrNull(patch.bio, LIMITS.bio);
+    if (patch.avatar_emoji !== undefined) safe.avatar_emoji = clampOrNull(patch.avatar_emoji, 8);
+    if (patch.avatar_url !== undefined) safe.avatar_url = patch.avatar_url ?? null;
+    if (patch.follows_private !== undefined) {
+      safe.follows_private = Boolean(patch.follows_private);
+    }
+
     const { data, error } = await this.sb
       .from('users')
-      .update(patch)
+      .update(safe)
       .eq('id', meId)
       .select()
       .single();
@@ -220,11 +237,12 @@ export class SupabaseService implements DataService {
   }
 
   async getFollowCounts(userId: string): Promise<{ followers: number; following: number }> {
-    const [followers, following] = await Promise.all([
-      this.sb.from('follows').select('*', { count: 'exact', head: true }).eq('followee_id', userId),
-      this.sb.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId),
-    ]);
-    return { followers: followers.count ?? 0, following: following.count ?? 0 };
+    // Via a SECURITY DEFINER function so counts stay accurate for users with a
+    // private follower list, whose follow rows RLS hides from us.
+    const { data, error } = await this.sb.rpc('follow_counts', { target: userId });
+    if (error) throw error;
+    const row = Array.isArray(data) ? data[0] : data;
+    return { followers: Number(row?.followers ?? 0), following: Number(row?.following ?? 0) };
   }
 
   async getFollowers(userId: string): Promise<User[]> {
@@ -416,7 +434,7 @@ export class SupabaseService implements DataService {
         user_id: meId,
         meal_slot: input.meal_slot,
         photo_url: photoUrl,
-        blurb: input.blurb,
+        blurb: clamp(input.blurb, LIMITS.blurb),
         restaurant_place_id: input.restaurant?.place_id ?? null,
         restaurant_name: input.restaurant?.name ?? null,
         lat: input.restaurant?.lat ?? null,
@@ -784,7 +802,7 @@ export class SupabaseService implements DataService {
     const meId = await this.myId();
     const { data, error } = await this.sb
       .from('comments')
-      .insert({ post_id: postId, user_id: meId, text: text.trim() })
+      .insert({ post_id: postId, user_id: meId, text: clamp(text, LIMITS.comment) })
       .select('*, users(*)')
       .single();
     if (error) throw error;
