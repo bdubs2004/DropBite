@@ -22,7 +22,8 @@ import { AuthScreen } from './src/screens/AuthScreen';
 import { CommentsScreen } from './src/screens/CommentsScreen';
 import { ComposeScreen } from './src/screens/ComposeScreen';
 import { FeedScreen } from './src/screens/FeedScreen';
-import { FriendsScreen } from './src/screens/FriendsScreen';
+import { DiscoverScreen } from './src/screens/DiscoverScreen';
+import { PostDetailScreen } from './src/screens/PostDetailScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { ReportScreen } from './src/screens/ReportScreen';
 import { SavedScreen } from './src/screens/SavedScreen';
@@ -100,7 +101,7 @@ function Tabs() {
       tabBar={(props) => <TabBar {...props} />}
     >
       <Tab.Screen name="Feed" component={FeedScreen} />
-      <Tab.Screen name="Discover" component={FriendsScreen} />
+      <Tab.Screen name="Discover" component={DiscoverScreen} />
       <Tab.Screen name="Search" component={SearchScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
@@ -136,6 +137,7 @@ function Root() {
         component={ReportScreen}
         options={{ presentation: 'modal' }}
       />
+      <Stack.Screen name="PostDetail" component={PostDetailScreen} />
       <Stack.Screen name="UserProfile" component={ProfileScreen} />
       <Stack.Screen name="UserList" component={UserListScreen} />
       <Stack.Screen name="Saved" component={SavedScreen} />

@@ -5,6 +5,7 @@ import {
   Comment,
   NewPostInput,
   NotificationPrefs,
+  DiscoverPerson,
   Post,
   Recipe,
   Report,
@@ -294,6 +295,51 @@ export class MockService implements DataService {
       .filter((p) => followed.has(p.user_id))
       .sort((a, b) => b.created_at.localeCompare(a.created_at))
       .map((p) => this.hydrate(db, p, me.id));
+  }
+
+  async getPost(postId: string): Promise<Post | null> {
+    const db = await this.load();
+    const me = await this.me();
+    const post = db.posts.find((p) => p.id === postId);
+    return post ? this.hydrate(db, post, me.id) : null;
+  }
+
+  async getDiscoverPosts(): Promise<Post[]> {
+    const db = await this.load();
+    const me = await this.me();
+    // Everyone's posts, not just people you follow — that's the whole point of
+    // Discover. Your own are excluded; you already know what you cooked.
+    return db.posts
+      .filter((p) => p.user_id !== me.id)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .map((p) => this.hydrate(db, p, me.id));
+  }
+
+  async getDiscoverPeople(): Promise<DiscoverPerson[]> {
+    const db = await this.load();
+    const me = await this.me();
+    const following = new Set(
+      db.follows.filter((f) => f.follower_id === me.id).map((f) => f.followee_id),
+    );
+    return db.users
+      .filter((u) => u.id !== me.id)
+      .map((u) => {
+        const posts = db.posts
+          .filter((p) => p.user_id === u.id)
+          .sort((a, b) => b.created_at.localeCompare(a.created_at));
+        return {
+          user: u,
+          posts: posts.slice(0, 3).map((p) => this.hydrate(db, p, me.id)),
+          post_count: posts.length,
+          is_following: following.has(u.id),
+        };
+      })
+      // People you don't already follow first, then the most active.
+      .sort((a, b) =>
+        a.is_following === b.is_following
+          ? b.post_count - a.post_count
+          : Number(a.is_following) - Number(b.is_following),
+      );
   }
 
   async getUserPosts(userId: string): Promise<Post[]> {

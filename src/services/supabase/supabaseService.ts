@@ -1,5 +1,6 @@
 import {
   Comment,
+  DiscoverPerson,
   NewPostInput,
   NotificationPrefs,
   Post,
@@ -243,6 +244,74 @@ export class SupabaseService implements DataService {
       .limit(100);
     if (error) throw error;
     return (data ?? []).map((row: any) => this.hydrateRow(row, meId));
+  }
+
+  async getPost(postId: string): Promise<Post | null> {
+    const meId = await this.myId();
+    const { data } = await this.sb
+      .from('posts')
+      .select(this.POST_SELECT)
+      .eq('id', postId)
+      .maybeSingle();
+    return data ? this.hydrateRow(data as any, meId) : null;
+  }
+
+  async getDiscoverPosts(): Promise<Post[]> {
+    const meId = await this.myId();
+    // Everyone's posts, not just your feed. Your own are excluded.
+    const { data, error } = await this.sb
+      .from('posts')
+      .select(this.POST_SELECT)
+      .neq('user_id', meId)
+      .order('created_at', { ascending: false })
+      .limit(120);
+    if (error) throw error;
+    return (data ?? []).map((row: any) => this.hydrateRow(row, meId));
+  }
+
+  async getDiscoverPeople(): Promise<DiscoverPerson[]> {
+    const meId = await this.myId();
+    const [{ data: users }, followingIds] = await Promise.all([
+      this.sb.from('users').select('*').neq('id', meId).limit(30),
+      this.getFollowingIds(),
+    ]);
+    const people = (users ?? []) as User[];
+    if (people.length === 0) return [];
+
+    // One query for everyone's posts rather than one per person, then group
+    // in memory — 2 round trips total regardless of how many people we show.
+    const { data: posts } = await this.sb
+      .from('posts')
+      .select(this.POST_SELECT)
+      .in(
+        'user_id',
+        people.map((u) => u.id),
+      )
+      .order('created_at', { ascending: false })
+      .limit(300);
+
+    const byUser = new Map<string, Post[]>();
+    for (const row of (posts ?? []) as any[]) {
+      const list = byUser.get(row.user_id) ?? [];
+      list.push(this.hydrateRow(row, meId));
+      byUser.set(row.user_id, list);
+    }
+    const following = new Set(followingIds);
+    return people
+      .map((u) => {
+        const mine = byUser.get(u.id) ?? [];
+        return {
+          user: u,
+          posts: mine.slice(0, 3),
+          post_count: mine.length,
+          is_following: following.has(u.id),
+        };
+      })
+      .sort((a, b) =>
+        a.is_following === b.is_following
+          ? b.post_count - a.post_count
+          : Number(a.is_following) - Number(b.is_following),
+      );
   }
 
   async getUserPosts(userId: string): Promise<Post[]> {

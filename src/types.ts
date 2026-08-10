@@ -105,6 +105,15 @@ export interface Report {
   reviewer_notes: string | null;
 }
 
+/** A person shown on the Discover page, with a taste of what they post. */
+export interface DiscoverPerson {
+  user: User;
+  /** A few recent photos for the mini-profile strip. */
+  posts: Post[];
+  post_count: number;
+  is_following: boolean;
+}
+
 export interface Streak {
   user_id: string;
   current_streak: number;

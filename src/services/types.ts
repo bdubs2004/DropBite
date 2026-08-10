@@ -1,5 +1,6 @@
 import {
   Comment,
+  DiscoverPerson,
   NewPostInput,
   NotificationPrefs,
   Post,
@@ -52,6 +53,11 @@ export interface DataService {
   // posts
   getFeed(): Promise<Post[]>; // me + people I follow, newest first
   getUserPosts(userId: string): Promise<Post[]>;
+  getPost(postId: string): Promise<Post | null>;
+  /** Everyone's posts, newest first — the Discover grid, not just your feed. */
+  getDiscoverPosts(): Promise<Post[]>;
+  /** People to discover, each with a few recent posts and follow state. */
+  getDiscoverPeople(): Promise<DiscoverPerson[]>;
   createPost(input: NewPostInput): Promise<Post>;
   /** Delete one of your own posts, and everything attached to it. */
   deletePost(postId: string): Promise<void>;
