@@ -60,6 +60,8 @@ export interface DataService {
   // engagement (comments, reposts, shares)
   getComments(postId: string): Promise<Comment[]>;
   addComment(postId: string, text: string): Promise<Comment>;
+  /** Like/unlike a comment. Idempotent per user. */
+  toggleCommentLike(commentId: string): Promise<void>;
   toggleRepost(postId: string): Promise<void>;
   recordShare(postId: string): Promise<void>;
 

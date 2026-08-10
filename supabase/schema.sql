@@ -101,6 +101,17 @@ create table public.saved_posts (
 );
 create index saved_posts_user_created_idx on public.saved_posts (user_id, created_at desc);
 
+-- ---------------------------------------------------- comment_reactions
+-- Likes on comments. Same shape as post reactions: one row per (comment, user)
+-- so the count is inherently idempotent.
+create table public.comment_reactions (
+  comment_id uuid not null references public.comments (id) on delete cascade,
+  user_id uuid not null references public.users (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (comment_id, user_id)
+);
+create index comment_reactions_comment_idx on public.comment_reactions (comment_id);
+
 -- -------------------------------------------------------------- reports
 -- Content reports. This is a legal/compliance record, so it is deliberately
 -- more durable than the content it describes:
@@ -156,6 +167,7 @@ alter table public.comments enable row level security;
 alter table public.reposts enable row level security;
 alter table public.shares enable row level security;
 alter table public.saved_posts enable row level security;
+alter table public.comment_reactions enable row level security;
 alter table public.reports enable row level security;
 alter table public.streaks enable row level security;
 
@@ -217,6 +229,14 @@ create policy "comments readable" on public.comments
 create policy "comment as self" on public.comments
   for insert to authenticated with check (user_id = auth.uid());
 create policy "delete own comment" on public.comments
+  for delete to authenticated using (user_id = auth.uid());
+
+-- comment reactions: readable by all signed-in users, written as yourself
+create policy "comment reactions readable" on public.comment_reactions
+  for select to authenticated using (true);
+create policy "like comment as self" on public.comment_reactions
+  for insert to authenticated with check (user_id = auth.uid());
+create policy "unlike comment as self" on public.comment_reactions
   for delete to authenticated using (user_id = auth.uid());
 
 -- reposts

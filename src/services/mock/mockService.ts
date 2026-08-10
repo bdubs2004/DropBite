@@ -36,6 +36,7 @@ interface Db {
   reposts: { post_id: string; user_id: string }[];
   shares: { post_id: string; user_id: string }[];
   saves: { post_id: string; user_id: string }[];
+  commentReactions: { comment_id: string; user_id: string }[];
   reports: Report[];
   streaks: Streak[];
   sessionUserId: string | null;
@@ -54,6 +55,7 @@ function freshDb(): Db {
     reposts: [...SEED_REPOSTS],
     shares: [...SEED_SHARES],
     saves: [],
+    commentReactions: [],
     reports: [],
     streaks: [
       { user_id: 'u-marge', current_streak: 12, longest_streak: 34, last_post_date: localDateString() },
@@ -384,7 +386,13 @@ export class MockService implements DataService {
     // inflating counts or showing up in someone's saved list.
     db.recipes = db.recipes.filter((r) => r.post_id !== postId);
     db.reactions = db.reactions.filter((r) => r.post_id !== postId);
+    const goneCommentIds = new Set(
+      db.comments.filter((c) => c.post_id === postId).map((c) => c.id),
+    );
     db.comments = db.comments.filter((c) => c.post_id !== postId);
+    db.commentReactions = (db.commentReactions ?? []).filter(
+      (r) => !goneCommentIds.has(r.comment_id),
+    );
     db.reposts = db.reposts.filter((r) => r.post_id !== postId);
     db.shares = db.shares.filter((s) => s.post_id !== postId);
     db.saves = db.saves.filter((s) => s.post_id !== postId);
@@ -406,10 +414,30 @@ export class MockService implements DataService {
 
   async getComments(postId: string): Promise<Comment[]> {
     const db = await this.load();
+    const me = await this.me();
+    // Older saved demo databases predate comment likes.
+    const likes = db.commentReactions ?? [];
     return db.comments
       .filter((c) => c.post_id === postId)
       .sort((a, b) => a.created_at.localeCompare(b.created_at))
-      .map((c) => ({ ...c, user: db.users.find((u) => u.id === c.user_id) }));
+      .map((c) => ({
+        ...c,
+        user: db.users.find((u) => u.id === c.user_id),
+        like_count: likes.filter((r) => r.comment_id === c.id).length,
+        liked_by_me: likes.some((r) => r.comment_id === c.id && r.user_id === me.id),
+      }));
+  }
+
+  async toggleCommentLike(commentId: string): Promise<void> {
+    const db = await this.load();
+    const me = await this.me();
+    if (!db.commentReactions) db.commentReactions = [];
+    const idx = db.commentReactions.findIndex(
+      (r) => r.comment_id === commentId && r.user_id === me.id,
+    );
+    if (idx >= 0) db.commentReactions.splice(idx, 1);
+    else db.commentReactions.push({ comment_id: commentId, user_id: me.id });
+    await this.save();
   }
 
   async addComment(postId: string, text: string): Promise<Comment> {

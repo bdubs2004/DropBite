@@ -391,12 +391,35 @@ export class SupabaseService implements DataService {
   }
 
   async getComments(postId: string): Promise<Comment[]> {
+    const meId = await this.myId();
     const { data } = await this.sb
       .from('comments')
-      .select('*, users(*)')
+      .select('*, users(*), comment_reactions(user_id)')
       .eq('post_id', postId)
       .order('created_at', { ascending: true });
-    return (data ?? []).map((row: any) => ({ ...(row as Comment), user: row.users as User }));
+    return (data ?? []).map((row: any) => ({
+      ...(row as Comment),
+      user: row.users as User,
+      like_count: (row.comment_reactions ?? []).length,
+      liked_by_me: (row.comment_reactions ?? []).some((r: any) => r.user_id === meId),
+    }));
+  }
+
+  async toggleCommentLike(commentId: string): Promise<void> {
+    const meId = await this.myId();
+    const { data } = await this.sb
+      .from('comment_reactions')
+      .select('comment_id')
+      .match({ comment_id: commentId, user_id: meId })
+      .maybeSingle();
+    if (data) {
+      await this.sb
+        .from('comment_reactions')
+        .delete()
+        .match({ comment_id: commentId, user_id: meId });
+    } else {
+      await this.sb.from('comment_reactions').insert({ comment_id: commentId, user_id: meId });
+    }
   }
 
   async addComment(postId: string, text: string): Promise<Comment> {

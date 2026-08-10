@@ -39,6 +39,26 @@ export function CommentsScreen({ navigation, route }: any) {
     load();
   }, [load]);
 
+  /**
+   * Optimistic like: the heart flips instantly, then persists. Waiting on a
+   * round-trip to redraw a heart feels broken.
+   */
+  const toggleLike = async (comment: Comment) => {
+    const liked = !comment.liked_by_me;
+    setComments((prev) =>
+      prev.map((c) =>
+        c.id === comment.id
+          ? { ...c, liked_by_me: liked, like_count: (c.like_count ?? 0) + (liked ? 1 : -1) }
+          : c,
+      ),
+    );
+    try {
+      await svc.toggleCommentLike(comment.id);
+    } catch {
+      load(); // put the truth back if the write failed
+    }
+  };
+
   const submit = async () => {
     const body = text.trim();
     if (!body || posting) return;
@@ -83,6 +103,26 @@ export function CommentsScreen({ navigation, route }: any) {
               <Text style={styles.text}>{item.text}</Text>
               <Text style={styles.time}>{relativeTime(item.created_at)}</Text>
             </View>
+            <Pressable
+              testID={`comment-like-${item.id}`}
+              onPress={() => toggleLike(item)}
+              hitSlop={10}
+              style={styles.likeBtn}
+            >
+              <Ionicons
+                name={item.liked_by_me ? 'heart' : 'heart-outline'}
+                size={17}
+                color={item.liked_by_me ? colors.danger : colors.cocoaFaint}
+              />
+              {item.like_count ? (
+                <Text
+                  testID={`comment-like-count-${item.id}`}
+                  style={[styles.likeCount, item.liked_by_me && { color: colors.danger }]}
+                >
+                  {item.like_count}
+                </Text>
+              ) : null}
+            </Pressable>
           </View>
         )}
         ListEmptyComponent={
@@ -122,6 +162,18 @@ export function CommentsScreen({ navigation, route }: any) {
 }
 
 const styles = StyleSheet.create({
+  likeBtn: {
+    alignItems: 'center',
+    paddingLeft: spacing.sm,
+    paddingTop: 6,
+    minWidth: 28,
+  },
+  likeCount: {
+    fontFamily: fonts.bold,
+    fontSize: 11.5,
+    color: colors.cocoaFaint,
+    marginTop: 2,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

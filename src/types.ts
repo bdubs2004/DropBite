@@ -65,6 +65,8 @@ export interface Comment {
   created_at: string;
   // hydrated client-side
   user?: User;
+  like_count?: number;
+  liked_by_me?: boolean;
 }
 
 /**
