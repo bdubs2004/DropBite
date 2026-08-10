@@ -12,6 +12,7 @@ import {
   Streak,
   User,
 } from '../../types';
+import { sanitizeSearchTerm } from '../../lib/searchTerm';
 import { daysBetween, localDateString } from '../../lib/time';
 import { DataService } from '../types';
 import { getSupabase } from './client';
@@ -193,9 +194,9 @@ export class SupabaseService implements DataService {
   async listUsers(query?: string): Promise<User[]> {
     const meId = await this.myId();
     let q = this.sb.from('users').select('*').neq('id', meId).limit(50);
-    if (query?.trim()) {
-      const like = `%${query.trim()}%`;
-      q = q.or(`handle.ilike.${like},display_name.ilike.${like}`);
+    const term = sanitizeSearchTerm(query ?? '');
+    if (term) {
+      q = q.or(`handle.ilike.%${term}%,display_name.ilike.%${term}%`);
     }
     const { data, error } = await q;
     if (error) throw error;
@@ -294,6 +295,46 @@ export class SupabaseService implements DataService {
       .limit(120);
     if (error) throw error;
     return (data ?? []).map((row: any) => this.hydrateRow(row, meId));
+  }
+
+  async searchPosts(query: string): Promise<Post[]> {
+    const meId = await this.myId();
+    const term = sanitizeSearchTerm(query);
+    if (!term) return [];
+
+    // Two queries rather than one: PostgREST can't OR across a joined table,
+    // so match blurbs directly and recipe titles/ingredients via recipes.
+    const [byBlurb, byRecipe] = await Promise.all([
+      this.sb
+        .from('posts')
+        .select(this.POST_SELECT)
+        .ilike('blurb', `%${term}%`)
+        .order('created_at', { ascending: false })
+        .limit(60),
+      this.sb
+        .from('recipes')
+        .select('post_id')
+        .or(`title.ilike.%${term}%,ingredients.cs.[{"item":"${term}"}]`)
+        .limit(60),
+    ]);
+
+    const rows = new Map<string, any>();
+    for (const r of (byBlurb.data ?? []) as any[]) rows.set(r.id, r);
+
+    const recipePostIds = ((byRecipe.data ?? []) as any[])
+      .map((r) => r.post_id)
+      .filter((id) => !rows.has(id));
+    if (recipePostIds.length > 0) {
+      const { data: extra } = await this.sb
+        .from('posts')
+        .select(this.POST_SELECT)
+        .in('id', recipePostIds);
+      for (const r of (extra ?? []) as any[]) rows.set(r.id, r);
+    }
+
+    return [...rows.values()]
+      .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+      .map((row) => this.hydrateRow(row, meId));
   }
 
   async getDiscoverPeople(): Promise<DiscoverPerson[]> {

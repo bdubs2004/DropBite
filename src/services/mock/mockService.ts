@@ -349,6 +349,25 @@ export class MockService implements DataService {
       .map((p) => this.hydrate(db, p, me.id));
   }
 
+  async searchPosts(query: string): Promise<Post[]> {
+    const db = await this.load();
+    const me = await this.me();
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    return db.posts
+      .filter((p) => {
+        const recipe = db.recipes.find((r) => r.post_id === p.id);
+        return (
+          p.blurb.toLowerCase().includes(q) ||
+          (recipe?.title ?? '').toLowerCase().includes(q) ||
+          // Ingredients are the structured asset; searching them is the point.
+          (recipe?.ingredients ?? []).some((i) => i.item.toLowerCase().includes(q))
+        );
+      })
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .map((p) => this.hydrate(db, p, me.id));
+  }
+
   async getDiscoverPeople(): Promise<DiscoverPerson[]> {
     const db = await this.load();
     const me = await this.me();
