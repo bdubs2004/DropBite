@@ -114,6 +114,30 @@ export interface DiscoverPerson {
   is_following: boolean;
 }
 
+/** A direct-message thread. MVP is 1:1, but the model allows more members. */
+export interface Conversation {
+  id: string;
+  /** The other participant (1:1 threads). */
+  other: User;
+  last_message: Message | null;
+  unread_count: number;
+  updated_at: string;
+}
+
+export interface Message {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  /** Empty when the message is purely a shared post. */
+  text: string;
+  /** Set when this message is a post someone sent you. */
+  shared_post_id: string | null;
+  created_at: string;
+  // hydrated client-side
+  sender?: User;
+  shared_post?: Post | null;
+}
+
 /** One row on the streaks leaderboard. */
 export interface LeaderboardEntry {
   user: User;

@@ -22,6 +22,27 @@ Covers the moderation guarantees documented in `MODERATION.md`:
 | 10 | **Deleting the post does NOT destroy the reports** (snapshot survives) |
 | 11 | A moderator (service role) sees the full triage view |
 
+## dm_test.sql
+
+Direct messages are the most private rows in the app. Asserts:
+
+| # | Property |
+| --- | --- |
+| 1 | A member can read their own thread |
+| 2 | **A non-member sees no messages, conversations, or membership rows** |
+| 3 | **A non-member cannot add themselves to someone else's thread** |
+| 4 | A non-member cannot post into a thread |
+| 5 | You cannot send a message as another user |
+| 6 | You cannot delete someone else's message |
+| 7 | An empty message (no text, no shared post) is rejected |
+| 8 | Starting a brand-new thread still works |
+| 9 | Deleting a shared post clears the attachment but keeps the message |
+
+Test 3 caught a real hole during development: an earlier policy allowed
+`user_id = auth.uid()` on insert, which let anyone join a stranger's thread
+and read the whole history. Membership now requires either already being in
+the thread or the thread being empty.
+
 ## Running
 
 Needs a local `postgres` + `psql` (verified on 16). Nothing touches Supabase.
