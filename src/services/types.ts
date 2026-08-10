@@ -1,6 +1,8 @@
 import {
   Comment,
+  Conversation,
   DiscoverPerson,
+  Message,
   LeaderboardEntry,
   LeaderboardScope,
   NewPostInput,
@@ -72,6 +74,22 @@ export interface DataService {
   toggleCommentLike(commentId: string): Promise<void>;
   toggleRepost(postId: string): Promise<void>;
   recordShare(postId: string): Promise<void>;
+
+  // direct messages
+  /** My threads, most recently active first. */
+  getConversations(): Promise<Conversation[]>;
+  getMessages(conversationId: string): Promise<Message[]>;
+  sendMessage(
+    conversationId: string,
+    input: { text?: string; sharedPostId?: string },
+  ): Promise<Message>;
+  /** Find my existing 1:1 thread with this user, or start one. */
+  startConversation(userId: string): Promise<string>;
+  /** Send one post to several people at once (the share sheet). */
+  sharePostToUsers(postId: string, userIds: string[]): Promise<void>;
+  markConversationRead(conversationId: string): Promise<void>;
+  /** Total unread messages across all threads, for the inbox badge. */
+  getUnreadCount(): Promise<number>;
 
   // moderation
   /**

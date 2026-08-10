@@ -1,6 +1,8 @@
 import {
   Comment,
+  Conversation,
   DiscoverPerson,
+  Message,
   LeaderboardEntry,
   LeaderboardScope,
   NewPostInput,
@@ -411,6 +413,179 @@ export class SupabaseService implements DataService {
       last_post_date: today,
     });
     return post;
+  }
+
+  // ------------------------------------------------------ direct messages
+
+  private hydrateMessageRow(row: any): Message {
+    return {
+      ...(row as Message),
+      sender: row.users as User,
+      shared_post: row.posts ? (row.posts as Post) : null,
+    };
+  }
+
+  async getConversations(): Promise<Conversation[]> {
+    const meId = await this.myId();
+    // My memberships carry last_read_at, which drives the unread count.
+    const { data: memberships, error } = await this.sb
+      .from('conversation_members')
+      .select('conversation_id, last_read_at, conversations(id, updated_at)')
+      .eq('user_id', meId);
+    if (error) throw error;
+
+    const rows = (memberships ?? []) as any[];
+    const ids = rows.map((r) => r.conversation_id);
+    if (ids.length === 0) return [];
+
+    // Two more queries regardless of thread count: the other members, and all
+    // messages in my threads. RLS already limits both to threads I'm in.
+    const [{ data: others }, { data: msgs }] = await Promise.all([
+      this.sb
+        .from('conversation_members')
+        .select('conversation_id, users(*)')
+        .in('conversation_id', ids)
+        .neq('user_id', meId),
+      this.sb
+        .from('messages')
+        .select('*, users(*), posts(*)')
+        .in('conversation_id', ids)
+        .order('created_at', { ascending: true }),
+    ]);
+
+    const otherByConv = new Map<string, User>();
+    for (const o of (others ?? []) as any[]) {
+      if (o.users) otherByConv.set(o.conversation_id, o.users as User);
+    }
+    const msgsByConv = new Map<string, any[]>();
+    for (const m of (msgs ?? []) as any[]) {
+      const list = msgsByConv.get(m.conversation_id) ?? [];
+      list.push(m);
+      msgsByConv.set(m.conversation_id, list);
+    }
+
+    return rows
+      .map((r) => {
+        const other = otherByConv.get(r.conversation_id);
+        if (!other) return null; // other party deleted their account
+        const list = msgsByConv.get(r.conversation_id) ?? [];
+        const last = list.length ? list[list.length - 1] : null;
+        return {
+          id: r.conversation_id,
+          other,
+          last_message: last ? this.hydrateMessageRow(last) : null,
+          unread_count: list.filter(
+            (m) => m.sender_id !== meId && m.created_at > r.last_read_at,
+          ).length,
+          updated_at: r.conversations?.updated_at ?? new Date(0).toISOString(),
+        } as Conversation;
+      })
+      .filter((c): c is Conversation => c !== null)
+      .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+  }
+
+  async getMessages(conversationId: string): Promise<Message[]> {
+    // No membership check needed here: RLS returns nothing for threads I am
+    // not in, which is the same answer and can't be bypassed by a patched app.
+    const { data, error } = await this.sb
+      .from('messages')
+      .select('*, users(*), posts(*)')
+      .eq('conversation_id', conversationId)
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    return (data ?? []).map((row: any) => this.hydrateMessageRow(row));
+  }
+
+  async sendMessage(
+    conversationId: string,
+    input: { text?: string; sharedPostId?: string },
+  ): Promise<Message> {
+    const meId = await this.myId();
+    const text = (input.text ?? '').trim().slice(0, 2000);
+    if (!text && !input.sharedPostId) throw new Error('Nothing to send.');
+
+    const { data, error } = await this.sb
+      .from('messages')
+      .insert({
+        conversation_id: conversationId,
+        sender_id: meId,
+        text,
+        shared_post_id: input.sharedPostId ?? null,
+      })
+      .select('*, users(*), posts(*)')
+      .single();
+    if (error) throw error;
+
+    // Keeps the inbox ordered by recency without joining messages.
+    await this.sb
+      .from('conversations')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', conversationId);
+
+    return this.hydrateMessageRow(data);
+  }
+
+  async startConversation(userId: string): Promise<string> {
+    const meId = await this.myId();
+    if (userId === meId) throw new Error('You cannot message yourself.');
+
+    // Reuse an existing 1:1 rather than stacking duplicate threads. RLS scopes
+    // the first query to my own memberships already.
+    const { data: mine } = await this.sb
+      .from('conversation_members')
+      .select('conversation_id')
+      .eq('user_id', meId);
+    const myIds = (mine ?? []).map((r: any) => r.conversation_id);
+    if (myIds.length > 0) {
+      const { data: shared } = await this.sb
+        .from('conversation_members')
+        .select('conversation_id')
+        .eq('user_id', userId)
+        .in('conversation_id', myIds)
+        .limit(1);
+      if (shared && shared.length > 0) return shared[0].conversation_id as string;
+    }
+
+    const { data: conv, error: cErr } = await this.sb
+      .from('conversations')
+      .insert({})
+      .select('id')
+      .single();
+    if (cErr) throw cErr;
+    const convId = (conv as any).id as string;
+
+    // Order matters: I must join the empty conversation first, because the
+    // RLS policy only lets me add someone else once I am already a member.
+    const { error: meErr } = await this.sb
+      .from('conversation_members')
+      .insert({ conversation_id: convId, user_id: meId, last_read_at: new Date().toISOString() });
+    if (meErr) throw meErr;
+    const { error: themErr } = await this.sb
+      .from('conversation_members')
+      .insert({ conversation_id: convId, user_id: userId });
+    if (themErr) throw themErr;
+
+    return convId;
+  }
+
+  async sharePostToUsers(postId: string, userIds: string[]): Promise<void> {
+    for (const userId of userIds) {
+      const convId = await this.startConversation(userId);
+      await this.sendMessage(convId, { sharedPostId: postId });
+    }
+  }
+
+  async markConversationRead(conversationId: string): Promise<void> {
+    const meId = await this.myId();
+    await this.sb
+      .from('conversation_members')
+      .update({ last_read_at: new Date().toISOString() })
+      .match({ conversation_id: conversationId, user_id: meId });
+  }
+
+  async getUnreadCount(): Promise<number> {
+    const convs = await this.getConversations();
+    return convs.reduce((sum, c) => sum + c.unread_count, 0);
   }
 
   async reportPost(postId: string, reason: ReportReason, detail?: string): Promise<void> {

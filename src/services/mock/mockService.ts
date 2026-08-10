@@ -3,6 +3,8 @@ import { uid } from '../../lib/id';
 import { daysBetween, localDateString } from '../../lib/time';
 import {
   Comment,
+  Conversation,
+  Message,
   NewPostInput,
   NotificationPrefs,
   DiscoverPerson,
@@ -64,6 +66,9 @@ interface Db {
   shares: { post_id: string; user_id: string }[];
   saves: { post_id: string; user_id: string }[];
   commentReactions: { comment_id: string; user_id: string }[];
+  conversations: { id: string; created_at: string; updated_at: string }[];
+  conversationMembers: { conversation_id: string; user_id: string; last_read_at: string }[];
+  messages: Message[];
   reports: Report[];
   streaks: Streak[];
   sessionUserId: string | null;
@@ -83,6 +88,9 @@ function freshDb(): Db {
     shares: [...SEED_SHARES],
     saves: [],
     commentReactions: [],
+    conversations: [],
+    conversationMembers: [],
+    messages: [],
     reports: [],
     streaks: [
       { user_id: 'u-marge', current_streak: 12, longest_streak: 34, last_post_date: localDateString() },
@@ -412,6 +420,151 @@ export class MockService implements DataService {
     }
     await this.save();
     return this.hydrate(db, post, me.id);
+  }
+
+  // ------------------------------------------------------ direct messages
+
+  /** Older saved demo databases predate DMs; treat missing tables as empty. */
+  private dmTables(db: Db) {
+    if (!db.conversations) db.conversations = [];
+    if (!db.conversationMembers) db.conversationMembers = [];
+    if (!db.messages) db.messages = [];
+    return db;
+  }
+
+  private hydrateMessage(db: Db, m: Message, meId: string): Message {
+    return {
+      ...m,
+      sender: db.users.find((u) => u.id === m.sender_id),
+      shared_post: m.shared_post_id
+        ? (() => {
+            const p = db.posts.find((x) => x.id === m.shared_post_id);
+            return p ? this.hydrate(db, p, meId) : null;
+          })()
+        : null,
+    };
+  }
+
+  async getConversations(): Promise<Conversation[]> {
+    const db = this.dmTables(await this.load());
+    const me = await this.me();
+    const mine = db.conversationMembers.filter((m) => m.user_id === me.id);
+
+    return mine
+      .map((membership) => {
+        const conv = db.conversations.find((c) => c.id === membership.conversation_id);
+        if (!conv) return null;
+        const otherId = db.conversationMembers.find(
+          (m) => m.conversation_id === conv.id && m.user_id !== me.id,
+        )?.user_id;
+        const other = db.users.find((u) => u.id === otherId);
+        if (!other) return null; // other party deleted their account
+
+        const msgs = db.messages
+          .filter((m) => m.conversation_id === conv.id)
+          .sort((a, b) => a.created_at.localeCompare(b.created_at));
+        const last = msgs.length ? msgs[msgs.length - 1] : null;
+        return {
+          id: conv.id,
+          other,
+          last_message: last ? this.hydrateMessage(db, last, me.id) : null,
+          // Unread = messages from the other person since I last opened it.
+          unread_count: msgs.filter(
+            (m) => m.sender_id !== me.id && m.created_at > membership.last_read_at,
+          ).length,
+          updated_at: conv.updated_at,
+        } as Conversation;
+      })
+      .filter((c): c is Conversation => c !== null)
+      .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+  }
+
+  async getMessages(conversationId: string): Promise<Message[]> {
+    const db = this.dmTables(await this.load());
+    const me = await this.me();
+    const isMember = db.conversationMembers.some(
+      (m) => m.conversation_id === conversationId && m.user_id === me.id,
+    );
+    if (!isMember) throw new Error('Not part of that conversation.');
+    return db.messages
+      .filter((m) => m.conversation_id === conversationId)
+      .sort((a, b) => a.created_at.localeCompare(b.created_at))
+      .map((m) => this.hydrateMessage(db, m, me.id));
+  }
+
+  async sendMessage(
+    conversationId: string,
+    input: { text?: string; sharedPostId?: string },
+  ): Promise<Message> {
+    const db = this.dmTables(await this.load());
+    const me = await this.me();
+    const isMember = db.conversationMembers.some(
+      (m) => m.conversation_id === conversationId && m.user_id === me.id,
+    );
+    if (!isMember) throw new Error('Not part of that conversation.');
+
+    const text = (input.text ?? '').trim().slice(0, 2000);
+    if (!text && !input.sharedPostId) throw new Error('Nothing to send.');
+
+    const msg: Message = {
+      id: uid('m-'),
+      conversation_id: conversationId,
+      sender_id: me.id,
+      text,
+      shared_post_id: input.sharedPostId ?? null,
+      created_at: new Date().toISOString(),
+    };
+    db.messages.push(msg);
+    const conv = db.conversations.find((c) => c.id === conversationId);
+    if (conv) conv.updated_at = msg.created_at;
+    await this.save();
+    return this.hydrateMessage(db, msg, me.id);
+  }
+
+  async startConversation(userId: string): Promise<string> {
+    const db = this.dmTables(await this.load());
+    const me = await this.me();
+    if (userId === me.id) throw new Error('You cannot message yourself.');
+
+    // Reuse the existing 1:1 thread rather than stacking duplicates.
+    const mine = new Set(
+      db.conversationMembers.filter((m) => m.user_id === me.id).map((m) => m.conversation_id),
+    );
+    const existing = db.conversationMembers.find(
+      (m) => m.user_id === userId && mine.has(m.conversation_id),
+    );
+    if (existing) return existing.conversation_id;
+
+    const now = new Date().toISOString();
+    const id = uid('conv-');
+    db.conversations.push({ id, created_at: now, updated_at: now });
+    db.conversationMembers.push({ conversation_id: id, user_id: me.id, last_read_at: now });
+    db.conversationMembers.push({ conversation_id: id, user_id: userId, last_read_at: '1970-01-01T00:00:00.000Z' });
+    await this.save();
+    return id;
+  }
+
+  async sharePostToUsers(postId: string, userIds: string[]): Promise<void> {
+    for (const userId of userIds) {
+      const convId = await this.startConversation(userId);
+      await this.sendMessage(convId, { sharedPostId: postId });
+    }
+  }
+
+  async markConversationRead(conversationId: string): Promise<void> {
+    const db = this.dmTables(await this.load());
+    const me = await this.me();
+    const membership = db.conversationMembers.find(
+      (m) => m.conversation_id === conversationId && m.user_id === me.id,
+    );
+    if (!membership) return;
+    membership.last_read_at = new Date().toISOString();
+    await this.save();
+  }
+
+  async getUnreadCount(): Promise<number> {
+    const convs = await this.getConversations();
+    return convs.reduce((sum, c) => sum + c.unread_count, 0);
   }
 
   async reportPost(postId: string, reason: ReportReason, detail?: string): Promise<void> {
