@@ -1,6 +1,5 @@
 import { useCallback } from 'react';
 import { getDataService } from '../services';
-import { sharePost } from './share';
 import { Post } from '../types';
 
 /**
@@ -26,15 +25,13 @@ export function usePostActions(navigation: any, refresh: () => void) {
     [navigation],
   );
 
+  // Opens the share sheet, which offers both sending inside nibl and sharing
+  // a deep link out of it. The sheet records the share itself.
   const share = useCallback(
-    async (post: Post) => {
-      const result = await sharePost(post);
-      if (result !== 'failed') {
-        await svc.recordShare(post.id);
-        refresh();
-      }
+    (post: Post) => {
+      navigation.navigate('ShareSheet', { postId: post.id });
     },
-    [svc, refresh],
+    [navigation],
   );
 
   const repost = useCallback(

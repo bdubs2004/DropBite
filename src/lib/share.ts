@@ -8,16 +8,18 @@ export type ShareResult = 'shared' | 'copied' | 'failed';
  * clipboard fallback on web. Returns what actually happened so the UI can
  * confirm it.
  */
-export async function sharePost(post: Post): Promise<ShareResult> {
+export async function sharePost(post: Post, link?: string): Promise<ShareResult> {
   const who = post.user?.display_name ? `${post.user.display_name} on nibl` : 'A meal on nibl';
   const place = post.restaurant_name ? ` (at ${post.restaurant_name})` : '';
-  const message = `${post.blurb}${place}\n\nShared from nibl`;
+  // The link is what makes an external share useful: it deep-links back
+  // into the app rather than dumping plain text.
+  const message = `${post.blurb}${place}\n\n${link ? `${link}\n\n` : ''}Shared from nibl`;
 
   try {
     if (Platform.OS === 'web') {
       const nav: any = typeof navigator !== 'undefined' ? navigator : undefined;
       if (nav?.share) {
-        await nav.share({ title: who, text: message });
+        await nav.share({ title: who, text: message, ...(link ? { url: link } : {}) });
         return 'shared';
       }
       if (nav?.clipboard?.writeText) {

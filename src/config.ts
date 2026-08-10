@@ -14,6 +14,21 @@ export const GOOGLE_PLACES_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_KEY ?? ''
 export const DEMO_MODE = !SUPABASE_URL || !SUPABASE_ANON_KEY;
 
 /**
+ * Base URL used when sharing a link out of the app.
+ *
+ * For a shared link to OPEN THE APP rather than a browser, this domain must
+ * serve the platform association files (Apple App Site Association for iOS,
+ * assetlinks.json for Android) — see SETUP_GUIDE.md. Until that is live, an
+ * https link opens the web build instead, which still resolves to the right
+ * screen because the same linking config drives web routes.
+ *
+ * The custom scheme (nibl://post/<id>) always opens the installed app and
+ * needs no domain setup, so it is what we fall back to.
+ */
+export const APP_LINK_BASE =
+  process.env.EXPO_PUBLIC_APP_LINK_BASE ?? 'https://nibl.app';
+
+/**
  * Location / restaurant tagging ("where you ate", Google Places-backed).
  *
  * DEFERRED to Phase 2. We're launching the core loop (photo → blurb → post →

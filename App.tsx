@@ -10,7 +10,8 @@ import {
   useFonts,
 } from '@expo-google-fonts/nunito';
 import { Ionicons } from '@expo/vector-icons';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, LinkingOptions } from '@react-navigation/native';
+import * as Linking from 'expo-linking';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StatusBar } from 'expo-status-bar';
@@ -23,7 +24,11 @@ import { CommentsScreen } from './src/screens/CommentsScreen';
 import { ComposeScreen } from './src/screens/ComposeScreen';
 import { FeedScreen } from './src/screens/FeedScreen';
 import { DiscoverScreen } from './src/screens/DiscoverScreen';
+import { ChatScreen } from './src/screens/ChatScreen';
+import { InboxScreen } from './src/screens/InboxScreen';
 import { LeaderboardScreen } from './src/screens/LeaderboardScreen';
+import { NewMessageScreen } from './src/screens/NewMessageScreen';
+import { ShareSheetScreen } from './src/screens/ShareSheetScreen';
 import { PostDetailScreen } from './src/screens/PostDetailScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { ReportScreen } from './src/screens/ReportScreen';
@@ -32,7 +37,39 @@ import { SearchScreen } from './src/screens/SearchScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { UserListScreen } from './src/screens/UserListScreen';
 import { AppProvider, useApp } from './src/state/AppContext';
+import { APP_LINK_BASE } from './src/config';
+import { LINK_PATHS } from './src/lib/links';
 import { colors, fonts, radius, shadow } from './src/theme';
+
+/**
+ * Deep links. A shared post URL opens straight to that post.
+ *
+ * Three URL forms all resolve here:
+ *   nibl://post/<id>            custom scheme — works on device today
+ *   https://<domain>/post/<id>  needs the domain's association files hosted
+ *                               (see SETUP_GUIDE.md); until then it opens the
+ *                               web build, which routes the same way
+ *   /post/<id>                  the web build's own route
+ */
+const linking: LinkingOptions<any> = {
+  prefixes: [Linking.createURL('/'), 'nibl://', APP_LINK_BASE],
+  config: {
+    screens: {
+      Tabs: {
+        screens: {
+          Feed: 'feed',
+          Discover: 'discover',
+          Search: 'search',
+          Profile: 'me',
+        },
+      },
+      PostDetail: LINK_PATHS.post,
+      UserProfile: LINK_PATHS.user,
+      Inbox: 'inbox',
+      Leaderboard: 'streaks',
+    },
+  },
+};
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -140,6 +177,18 @@ function Root() {
       />
       <Stack.Screen name="PostDetail" component={PostDetailScreen} />
       <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
+      <Stack.Screen name="Inbox" component={InboxScreen} />
+      <Stack.Screen name="Chat" component={ChatScreen} />
+      <Stack.Screen
+        name="NewMessage"
+        component={NewMessageScreen}
+        options={{ presentation: 'modal' }}
+      />
+      <Stack.Screen
+        name="ShareSheet"
+        component={ShareSheetScreen}
+        options={{ presentation: 'modal' }}
+      />
       <Stack.Screen name="UserProfile" component={ProfileScreen} />
       <Stack.Screen name="UserList" component={UserListScreen} />
       <Stack.Screen name="Saved" component={SavedScreen} />
@@ -163,7 +212,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AppProvider>
-        <NavigationContainer>
+        <NavigationContainer linking={linking}>
           <StatusBar style="dark" />
           <Root />
         </NavigationContainer>

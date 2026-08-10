@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   FlatList,
   Pressable,
@@ -8,17 +8,33 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LogoLockup } from '../components/Logo';
 import { PostCard } from '../components/PostCard';
 import { Muted } from '../components/ui';
 import { usePostActions } from '../lib/usePostActions';
+import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
 import { colors, fonts, radius, spacing } from '../theme';
 
 export function FeedScreen({ navigation }: any) {
   const { feed, feedLoading, refreshFeed, streak, user } = useApp();
   const insets = useSafeAreaInsets();
+  const svc = getDataService();
+  const [unread, setUnread] = useState(0);
+
+  // Refresh the badge whenever the feed comes back into view, so reading a
+  // thread clears it without a manual reload.
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      svc.getUnreadCount().then((n) => alive && setUnread(n));
+      return () => {
+        alive = false;
+      };
+    }, [svc]),
+  );
   const { like, comment, share, repost, save, remove, report } = usePostActions(navigation, refreshFeed);
 
   const listRef = useRef<FlatList<any>>(null);
@@ -41,6 +57,7 @@ export function FeedScreen({ navigation }: any) {
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <LogoLockup height={30} />
+        <View style={styles.headerRight}>
         <Pressable
           testID="streak-pill"
           onPress={() => navigation.navigate('Leaderboard')}
@@ -51,6 +68,20 @@ export function FeedScreen({ navigation }: any) {
           <Text style={styles.streakText}>{streak?.current_streak ?? 0}</Text>
           <Ionicons name="chevron-forward" size={13} color={colors.cocoaFaint} />
         </Pressable>
+        <Pressable
+          testID="inbox-pill"
+          onPress={() => navigation.navigate('Inbox')}
+          style={({ pressed }) => [styles.streakPill, pressed && { opacity: 0.8 }]}
+          accessibilityLabel="Messages"
+        >
+          <Ionicons name="paper-plane" size={15} color={colors.amber} />
+          {unread > 0 ? (
+            <View testID="inbox-badge" style={styles.unreadDot}>
+              <Text style={styles.unreadText}>{unread > 9 ? '9+' : unread}</Text>
+            </View>
+          ) : null}
+        </Pressable>
+        </View>
       </View>
 
       <FlatList
@@ -108,6 +139,25 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  unreadDot: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 5,
+    backgroundColor: colors.danger,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unreadText: {
+    fontFamily: fonts.bold,
+    fontSize: 10.5,
+    color: colors.white,
   },
   streakPill: {
     flexDirection: 'row',
