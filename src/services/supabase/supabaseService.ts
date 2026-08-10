@@ -1,6 +1,8 @@
 import {
   Comment,
   DiscoverPerson,
+  LeaderboardEntry,
+  LeaderboardScope,
   NewPostInput,
   NotificationPrefs,
   Post,
@@ -14,6 +16,29 @@ import { getSupabase } from './client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const PREFS_KEY = 'nibl.notification.prefs';
+
+/**
+ * Sort by current streak (longest streak breaks ties) and assign 1-based
+ * ranks, with equal streaks sharing a rank.
+ */
+function rankEntries(
+  rows: { user: User; current_streak: number; longest_streak: number; is_me: boolean }[],
+): LeaderboardEntry[] {
+  const sorted = [...rows].sort(
+    (a, b) =>
+      b.current_streak - a.current_streak ||
+      b.longest_streak - a.longest_streak ||
+      a.user.display_name.localeCompare(b.user.display_name),
+  );
+  let lastStreak: number | null = null;
+  let lastRank = 0;
+  return sorted.map((row, i) => {
+    const rank = row.current_streak === lastStreak ? lastRank : i + 1;
+    lastStreak = row.current_streak;
+    lastRank = rank;
+    return { ...row, rank };
+  });
+}
 
 /**
  * Recover the storage object path from a photo's public URL.
@@ -561,6 +586,39 @@ export class SupabaseService implements DataService {
       s.current_streak = 0;
     }
     return s;
+  }
+
+  async getLeaderboard(scope: LeaderboardScope): Promise<LeaderboardEntry[]> {
+    const meId = await this.myId();
+    const today = localDateString();
+
+    let ids: string[] | null = null;
+    if (scope === 'friends') {
+      // You're always on your own friends board.
+      ids = [...(await this.getFollowingIds()), meId];
+    }
+
+    let q = this.sb.from('streaks').select('*, users(*)');
+    if (ids) q = q.in('user_id', ids);
+    const { data, error } = await q.limit(200);
+    if (error) throw error;
+
+    return rankEntries(
+      (data ?? [])
+        .filter((row: any) => row.users)
+        .map((row: any) => {
+          // Same lapse rule as getStreak, so the board can't show a stale
+          // streak someone stopped keeping.
+          const lapsed =
+            !row.last_post_date || daysBetween(row.last_post_date, today) > 1;
+          return {
+            user: row.users as User,
+            current_streak: lapsed ? 0 : (row.current_streak as number) ?? 0,
+            longest_streak: (row.longest_streak as number) ?? 0,
+            is_me: row.user_id === meId,
+          };
+        }),
+    );
   }
 
   async getNotificationPrefs(): Promise<NotificationPrefs> {

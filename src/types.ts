@@ -114,6 +114,19 @@ export interface DiscoverPerson {
   is_following: boolean;
 }
 
+/** One row on the streaks leaderboard. */
+export interface LeaderboardEntry {
+  user: User;
+  /** Current streak, already lapsed to 0 if they missed a day. */
+  current_streak: number;
+  longest_streak: number;
+  /** 1-based position; ties share a rank. */
+  rank: number;
+  is_me: boolean;
+}
+
+export type LeaderboardScope = 'everyone' | 'friends';
+
 export interface Streak {
   user_id: string;
   current_streak: number;

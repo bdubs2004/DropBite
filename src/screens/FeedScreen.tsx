@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import {
   FlatList,
+  Pressable,
   RefreshControl,
   StyleSheet,
   Text,
@@ -40,10 +41,16 @@ export function FeedScreen({ navigation }: any) {
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <LogoLockup height={30} />
-        <View style={styles.streakPill}>
+        <Pressable
+          testID="streak-pill"
+          onPress={() => navigation.navigate('Leaderboard')}
+          style={({ pressed }) => [styles.streakPill, pressed && { opacity: 0.8 }]}
+          accessibilityLabel="Streak leaderboard"
+        >
           <Ionicons name="flame" size={15} color={colors.amber} />
           <Text style={styles.streakText}>{streak?.current_streak ?? 0}</Text>
-        </View>
+          <Ionicons name="chevron-forward" size={13} color={colors.cocoaFaint} />
+        </Pressable>
       </View>
 
       <FlatList

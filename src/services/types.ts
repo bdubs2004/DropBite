@@ -1,6 +1,8 @@
 import {
   Comment,
   DiscoverPerson,
+  LeaderboardEntry,
+  LeaderboardScope,
   NewPostInput,
   NotificationPrefs,
   Post,
@@ -85,6 +87,11 @@ export interface DataService {
 
   // streaks
   getStreak(userId: string): Promise<Streak>;
+  /**
+   * Streak rankings, highest first. 'friends' is you plus the people you
+   * follow; 'everyone' is the whole app.
+   */
+  getLeaderboard(scope: LeaderboardScope): Promise<LeaderboardEntry[]>;
 
   // settings
   getNotificationPrefs(): Promise<NotificationPrefs>;

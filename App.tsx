@@ -23,6 +23,7 @@ import { CommentsScreen } from './src/screens/CommentsScreen';
 import { ComposeScreen } from './src/screens/ComposeScreen';
 import { FeedScreen } from './src/screens/FeedScreen';
 import { DiscoverScreen } from './src/screens/DiscoverScreen';
+import { LeaderboardScreen } from './src/screens/LeaderboardScreen';
 import { PostDetailScreen } from './src/screens/PostDetailScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { ReportScreen } from './src/screens/ReportScreen';
@@ -138,6 +139,7 @@ function Root() {
         options={{ presentation: 'modal' }}
       />
       <Stack.Screen name="PostDetail" component={PostDetailScreen} />
+      <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
       <Stack.Screen name="UserProfile" component={ProfileScreen} />
       <Stack.Screen name="UserList" component={UserListScreen} />
       <Stack.Screen name="Saved" component={SavedScreen} />

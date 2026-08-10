@@ -6,6 +6,8 @@ import {
   NewPostInput,
   NotificationPrefs,
   DiscoverPerson,
+  LeaderboardEntry,
+  LeaderboardScope,
   Post,
   Recipe,
   Report,
@@ -26,6 +28,30 @@ import {
 } from './seed';
 
 const KEY = 'nibl.demo.v1';
+
+/**
+ * Sort by current streak (longest streak breaks ties) and assign 1-based
+ * ranks, with equal streaks sharing a rank.
+ */
+function rankEntries(
+  rows: { user: User; current_streak: number; longest_streak: number; is_me: boolean }[],
+): LeaderboardEntry[] {
+  const sorted = [...rows].sort(
+    (a, b) =>
+      b.current_streak - a.current_streak ||
+      b.longest_streak - a.longest_streak ||
+      a.user.display_name.localeCompare(b.user.display_name),
+  );
+  let lastStreak: number | null = null;
+  let lastRank = 0;
+  return sorted.map((row, i) => {
+    const rank = row.current_streak === lastStreak ? lastRank : i + 1;
+    lastStreak = row.current_streak;
+    lastRank = rank;
+    return { ...row, rank };
+  });
+}
+
 
 interface Db {
   users: User[];
@@ -553,6 +579,38 @@ export class MockService implements DataService {
       s.current_streak = 0;
     }
     return s;
+  }
+
+  async getLeaderboard(scope: LeaderboardScope): Promise<LeaderboardEntry[]> {
+    const db = await this.load();
+    const me = await this.me();
+    const today = localDateString();
+
+    let pool = db.users;
+    if (scope === 'friends') {
+      const following = new Set(
+        db.follows.filter((f) => f.follower_id === me.id).map((f) => f.followee_id),
+      );
+      // You're always on your own friends board — a leaderboard you can't
+      // place on is useless.
+      pool = db.users.filter((u) => u.id === me.id || following.has(u.id));
+    }
+
+    return rankEntries(
+      pool.map((u) => {
+        const s = db.streaks.find((x) => x.user_id === u.id);
+        // Apply the same lapse rule getStreak uses, so the board can't show a
+        // stale streak someone stopped keeping.
+        const lapsed =
+          !s?.last_post_date || daysBetween(s.last_post_date, today) > 1;
+        return {
+          user: u,
+          current_streak: lapsed ? 0 : s?.current_streak ?? 0,
+          longest_streak: s?.longest_streak ?? 0,
+          is_me: u.id === me.id,
+        };
+      }),
+    );
   }
 
   async getNotificationPrefs(): Promise<NotificationPrefs> {
