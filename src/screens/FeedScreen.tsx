@@ -16,9 +16,9 @@ import { useApp } from '../state/AppContext';
 import { colors, fonts, radius, spacing } from '../theme';
 
 export function FeedScreen({ navigation }: any) {
-  const { feed, feedLoading, refreshFeed, streak } = useApp();
+  const { feed, feedLoading, refreshFeed, streak, user } = useApp();
   const insets = useSafeAreaInsets();
-  const { like, comment, share, repost, save } = usePostActions(navigation, refreshFeed);
+  const { like, comment, share, repost, save, remove } = usePostActions(navigation, refreshFeed);
 
   const openProfile = (userId: string) => navigation.navigate('UserProfile', { userId });
 
@@ -44,6 +44,8 @@ export function FeedScreen({ navigation }: any) {
             onRepost={repost}
             onToggleSave={save}
             onPressUser={openProfile}
+            onDelete={remove}
+            isMine={item.user_id === user?.id}
           />
         )}
         contentContainerStyle={{ paddingTop: spacing.md, paddingBottom: 120 }}

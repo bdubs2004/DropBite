@@ -18,7 +18,7 @@ import { Post, User } from '../types';
  */
 export function SearchScreen({ navigation }: any) {
   const svc = getDataService();
-  const { feed, refreshFeed } = useApp();
+  const { feed, refreshFeed, user } = useApp();
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
   const [users, setUsers] = useState<User[]>([]);
@@ -51,7 +51,7 @@ export function SearchScreen({ navigation }: any) {
       )
     : [];
 
-  const { like, comment, share, repost, save } = usePostActions(navigation, refreshFeed);
+  const { like, comment, share, repost, save, remove } = usePostActions(navigation, refreshFeed);
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -101,6 +101,8 @@ export function SearchScreen({ navigation }: any) {
             onRepost={repost}
             onToggleSave={save}
             onPressUser={(uid) => navigation.navigate('UserProfile', { userId: uid })}
+            onDelete={remove}
+            isMine={item.user_id === user?.id}
           />
         )}
         ListEmptyComponent={

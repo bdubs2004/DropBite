@@ -45,6 +45,8 @@ export interface DataService {
   getFeed(): Promise<Post[]>; // me + people I follow, newest first
   getUserPosts(userId: string): Promise<Post[]>;
   createPost(input: NewPostInput): Promise<Post>;
+  /** Delete one of your own posts, and everything attached to it. */
+  deletePost(postId: string): Promise<void>;
   toggleReaction(postId: string): Promise<void>;
 
   // engagement (comments, reposts, shares)

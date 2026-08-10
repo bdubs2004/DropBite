@@ -328,6 +328,26 @@ export class MockService implements DataService {
     return this.hydrate(db, post, me.id);
   }
 
+  async deletePost(postId: string): Promise<void> {
+    const db = await this.load();
+    const me = await this.me();
+    const post = db.posts.find((p) => p.id === postId);
+    // Only the author can delete. Silently ignoring a mismatch would hide bugs,
+    // and in production this same check is enforced by RLS.
+    if (!post || post.user_id !== me.id) throw new Error('You can only delete your own posts.');
+
+    db.posts = db.posts.filter((p) => p.id !== postId);
+    // Everything hanging off the post goes with it, so no orphans are left
+    // inflating counts or showing up in someone's saved list.
+    db.recipes = db.recipes.filter((r) => r.post_id !== postId);
+    db.reactions = db.reactions.filter((r) => r.post_id !== postId);
+    db.comments = db.comments.filter((c) => c.post_id !== postId);
+    db.reposts = db.reposts.filter((r) => r.post_id !== postId);
+    db.shares = db.shares.filter((s) => s.post_id !== postId);
+    db.saves = db.saves.filter((s) => s.post_id !== postId);
+    await this.save();
+  }
+
   async toggleReaction(postId: string): Promise<void> {
     const db = await this.load();
     const me = await this.me();

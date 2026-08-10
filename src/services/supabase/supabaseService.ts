@@ -14,6 +14,24 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const PREFS_KEY = 'nibl.notification.prefs';
 
 /**
+ * Recover the storage object path from a photo's public URL.
+ *
+ * Public URLs look like
+ * `https://<ref>.supabase.co/storage/v1/object/public/photos/<uid>/<ts>.jpg`
+ * and `storage.remove()` wants the part after the bucket name. Returns null
+ * for anything that isn't one of our own bucket URLs, so we never try to
+ * delete a path we didn't create.
+ */
+function storagePathFromPublicUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const marker = '/storage/v1/object/public/photos/';
+  const at = url.indexOf(marker);
+  if (at === -1) return null;
+  const path = url.slice(at + marker.length).split('?')[0];
+  return path.length > 0 ? decodeURIComponent(path) : null;
+}
+
+/**
  * Production backend. Requires the schema in supabase/schema.sql and the
  * storage bucket "photos". See SETUP_GUIDE.md for the full wiring steps.
  */
@@ -280,6 +298,32 @@ export class SupabaseService implements DataService {
       last_post_date: today,
     });
     return post;
+  }
+
+  async deletePost(postId: string): Promise<void> {
+    const meId = await this.myId();
+
+    // Read the photo path first: once the row is gone we can't recover it, and
+    // leaving the file behind would keep a public URL alive for a deleted post.
+    const { data: existing } = await this.sb
+      .from('posts')
+      .select('photo_url')
+      .eq('id', postId)
+      .eq('user_id', meId)
+      .maybeSingle();
+
+    // Child rows (recipes, reactions, comments, reposts, shares, saved_posts)
+    // are removed by ON DELETE CASCADE in schema.sql. The user_id filter plus
+    // the "delete own posts" RLS policy both scope this to the author.
+    const { error } = await this.sb.from('posts').delete().eq('id', postId).eq('user_id', meId);
+    if (error) throw error;
+
+    const path = storagePathFromPublicUrl((existing as { photo_url?: string } | null)?.photo_url);
+    if (path) {
+      // Best-effort: the post is already gone, so a failed cleanup shouldn't
+      // surface as a failed delete. Worst case it's an orphaned file.
+      await this.sb.storage.from('photos').remove([path]);
+    }
   }
 
   async toggleReaction(postId: string): Promise<void> {

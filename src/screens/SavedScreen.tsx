@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PostCard } from '../components/PostCard';
 import { Muted } from '../components/ui';
 import { usePostActions } from '../lib/usePostActions';
+import { useApp } from '../state/AppContext';
 import { getDataService } from '../services';
 import { colors, fonts, spacing } from '../theme';
 import { Post } from '../types';
@@ -13,6 +14,7 @@ import { Post } from '../types';
 /** The user's saved (bookmarked) posts. Private to them. */
 export function SavedScreen({ navigation }: any) {
   const svc = getDataService();
+  const { user } = useApp();
   const insets = useSafeAreaInsets();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,7 +31,7 @@ export function SavedScreen({ navigation }: any) {
     }, [load]),
   );
 
-  const { like, comment, share, repost, save } = usePostActions(navigation, load);
+  const { like, comment, share, repost, save, remove } = usePostActions(navigation, load);
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -54,6 +56,8 @@ export function SavedScreen({ navigation }: any) {
             onRepost={repost}
             onToggleSave={save}
             onPressUser={(uid) => navigation.navigate('UserProfile', { userId: uid })}
+            onDelete={remove}
+            isMine={item.user_id === user?.id}
           />
         )}
         contentContainerStyle={{ paddingTop: spacing.md, paddingBottom: 120 }}

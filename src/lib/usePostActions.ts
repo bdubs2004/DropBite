@@ -53,5 +53,13 @@ export function usePostActions(navigation: any, refresh: () => void) {
     [svc, refresh],
   );
 
-  return { like, comment, share, repost, save };
+  const remove = useCallback(
+    async (post: Post) => {
+      await svc.deletePost(post.id);
+      refresh();
+    },
+    [svc, refresh],
+  );
+
+  return { like, comment, share, repost, save, remove };
 }

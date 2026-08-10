@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { LOCATION_TAGGING_ENABLED } from '../config';
 import { relativeTime } from '../lib/time';
 import { colors, fonts, MEAL_SLOT_META, radius, shadow, spacing } from '../theme';
@@ -17,6 +17,8 @@ export function PostCard({
   onRepost,
   onToggleSave,
   onPressUser,
+  onDelete,
+  isMine,
 }: {
   post: Post;
   onToggleLike: (post: Post) => void;
@@ -25,9 +27,44 @@ export function PostCard({
   onRepost?: (post: Post) => void;
   onToggleSave?: (post: Post) => void;
   onPressUser?: (userId: string) => void;
+  /** Omit to hide the delete affordance entirely. */
+  onDelete?: (post: Post) => void;
+  /** True when the signed-in user wrote this post. */
+  isMine?: boolean;
 }) {
   const [showRecipe, setShowRecipe] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const slot = MEAL_SLOT_META[post.meal_slot];
+  const canDelete = Boolean(isMine && onDelete);
+
+  const askDelete = () => {
+    // Alert.alert is a no-op on react-native-web, so web gets an inline
+    // confirmation bar instead (same pattern as Settings > Delete account).
+    if (Platform.OS === 'web') {
+      setConfirmingDelete(true);
+      return;
+    }
+    Alert.alert(
+      'Delete post?',
+      'This removes the photo, recipe card, likes, and comments. There is no undo.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: runDelete },
+      ],
+    );
+  };
+
+  const runDelete = async () => {
+    setDeleting(true);
+    try {
+      await onDelete?.(post);
+      // No need to reset state: the screen refreshes and this card unmounts.
+    } finally {
+      setDeleting(false);
+      setConfirmingDelete(false);
+    }
+  };
 
   return (
     <View style={styles.card}>
@@ -45,7 +82,45 @@ export function PostCard({
         <View style={[styles.slotPill, { backgroundColor: slot.bg }]}>
           <Text style={[styles.slotText, { color: slot.color }]}>{slot.label}</Text>
         </View>
+        {canDelete ? (
+          <Pressable
+            testID="post-menu"
+            onPress={askDelete}
+            hitSlop={10}
+            style={styles.menuBtn}
+            accessibilityLabel="Post options"
+          >
+            <Ionicons name="ellipsis-horizontal" size={19} color={colors.cocoaFaint} />
+          </Pressable>
+        ) : null}
       </View>
+
+      {/* inline delete confirmation (web) */}
+      {confirmingDelete ? (
+        <View style={styles.confirmBar}>
+          <Text style={styles.confirmText}>
+            Delete this post? The photo, recipe, likes, and comments go with it.
+          </Text>
+          <View style={styles.confirmActions}>
+            <Pressable
+              testID="post-delete-cancel"
+              onPress={() => setConfirmingDelete(false)}
+              disabled={deleting}
+              style={[styles.confirmBtn, styles.confirmCancel]}
+            >
+              <Text style={styles.confirmCancelText}>Cancel</Text>
+            </Pressable>
+            <Pressable
+              testID="post-delete-confirm"
+              onPress={runDelete}
+              disabled={deleting}
+              style={[styles.confirmBtn, styles.confirmDelete, deleting && { opacity: 0.6 }]}
+            >
+              <Text style={styles.confirmDeleteText}>{deleting ? 'Deleting' : 'Delete'}</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
 
       {/* photo */}
       <PostPhoto post={post} />
@@ -192,6 +267,51 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
     fontSize: 12,
     letterSpacing: 0.3,
+  },
+  menuBtn: {
+    paddingLeft: spacing.sm,
+    paddingVertical: 4,
+  },
+  confirmBar: {
+    backgroundColor: colors.cream,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: colors.creamDark,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    gap: spacing.sm,
+  },
+  confirmText: {
+    fontFamily: fonts.semi,
+    fontSize: 13.5,
+    lineHeight: 19,
+    color: colors.cocoa,
+  },
+  confirmActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: spacing.sm,
+  },
+  confirmBtn: {
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 8,
+  },
+  confirmCancel: {
+    backgroundColor: colors.creamDark,
+  },
+  confirmCancelText: {
+    fontFamily: fonts.bold,
+    fontSize: 13.5,
+    color: colors.cocoa,
+  },
+  confirmDelete: {
+    backgroundColor: colors.danger,
+  },
+  confirmDeleteText: {
+    fontFamily: fonts.bold,
+    fontSize: 13.5,
+    color: colors.white,
   },
   body: {
     padding: spacing.lg,
