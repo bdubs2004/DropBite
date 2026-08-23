@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { PostSuccessOverlay } from '../components/PostSuccessOverlay';
 import { RecipeCardEditor } from '../components/RecipeCardEditor';
 import { Button, Input, Muted } from '../components/ui';
 import { LIMITS } from '../lib/limits';
@@ -48,6 +49,7 @@ export function ComposeScreen({ navigation }: any) {
 
   const [posting, setPosting] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
+  const [posted, setPosted] = useState(false);
 
   const hasPhoto = Boolean(photoUri || photoEmoji);
   const canPost = hasPhoto && blurb.trim().length > 0 && !posting;
@@ -114,7 +116,8 @@ export function ComposeScreen({ navigation }: any) {
           : null,
       });
       await refreshFeed();
-      navigation.goBack();
+      // Let the celebration play; the overlay closes the screen when it ends.
+      setPosted(true);
     } finally {
       setPosting(false);
     }
@@ -326,6 +329,14 @@ export function ComposeScreen({ navigation }: any) {
           </Muted>
         ) : null}
       </ScrollView>
+
+      <PostSuccessOverlay
+        visible={posted}
+        onDone={() => {
+          setPosted(false);
+          navigation.goBack();
+        }}
+      />
     </KeyboardAvoidingView>
   );
 }
