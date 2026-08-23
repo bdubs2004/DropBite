@@ -1,4 +1,4 @@
--- nibl: likes on comments
+-- NiblGo: likes on comments
 --
 -- Run this if your database predates comment likes. A fresh `schema.sql`
 -- already includes it. Safe to run more than once.

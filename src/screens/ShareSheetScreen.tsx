@@ -19,7 +19,7 @@ import { colors, fonts, radius, spacing } from '../theme';
 import { Post, User } from '../types';
 
 /**
- * Send a post to people inside nibl, or share it out of the app.
+ * Send a post to people inside NiblGo, or share it out of the app.
  *
  * External sharing hands over a deep link (see src/lib/links.ts) so the
  * recipient lands on the post rather than the app's front door.
@@ -162,7 +162,7 @@ export function ShareSheetScreen({ navigation, route }: any) {
             <Pressable testID="share-external" onPress={shareExternally} style={styles.externalBtn}>
               <Ionicons name="share-outline" size={19} color={colors.amberDark} />
               <Text style={styles.externalText}>
-                {Platform.OS === 'web' ? 'Copy link' : 'Share outside nibl'}
+                {Platform.OS === 'web' ? 'Copy link' : 'Share outside NiblGo'}
               </Text>
             </Pressable>
             {externalNote ? (

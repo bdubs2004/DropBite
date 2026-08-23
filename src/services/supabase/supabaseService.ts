@@ -19,6 +19,8 @@ import { DataService } from '../types';
 import { getSupabase } from './client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// Kept as 'nibl.*' through the NiblGo rename: renaming would silently reset
+// everyone's saved notification preferences.
 const PREFS_KEY = 'nibl.notification.prefs';
 
 /**

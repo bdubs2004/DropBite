@@ -1,4 +1,4 @@
--- DropBite MVP schema (run in Supabase SQL editor, or `supabase db push`)
+-- NiblGo MVP schema (run in Supabase SQL editor, or `supabase db push`)
 -- Matches the data model in CLAUDE.md. All timestamps UTC.
 
 create type meal_slot as enum ('breakfast', 'lunch', 'dinner', 'snack');

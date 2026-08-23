@@ -1,12 +1,12 @@
 {
   "expo": {
-    "name": "nibl",
-    "slug": "nibl",
+    "name": "NiblGo",
+    "slug": "niblgo",
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "scheme": "nibl",
+    "scheme": "niblgo",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -14,14 +14,14 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.nibl.app",
+      "bundleIdentifier": "com.niblgo.app",
       "infoPlist": {
-        "NSCameraUsageDescription": "nibl uses your camera so you can snap a photo of your meal.",
-        "NSPhotoLibraryUsageDescription": "nibl lets you pick a meal photo from your library."
+        "NSCameraUsageDescription": "NiblGo uses your camera so you can snap a photo of your meal.",
+        "NSPhotoLibraryUsageDescription": "NiblGo lets you pick a meal photo from your library."
       }
     },
     "android": {
-      "package": "com.nibl.app",
+      "package": "com.niblgo.app",
       "adaptiveIcon": {
         "backgroundColor": "#EE8C28",
         "foregroundImage": "./assets/adaptive-icon.png"
@@ -41,8 +41,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "nibl lets you pick a meal photo from your library.",
-          "cameraPermission": "nibl uses your camera so you can snap a photo of your meal."
+          "photosPermission": "NiblGo lets you pick a meal photo from your library.",
+          "cameraPermission": "NiblGo uses your camera so you can snap a photo of your meal."
         }
       ]
     ]

@@ -1,4 +1,4 @@
--- nibl: direct messages
+-- NiblGo: direct messages
 --
 -- Run this if your database predates DMs. A fresh `schema.sql` already
 -- includes it. Safe to run more than once.

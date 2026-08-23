@@ -9,11 +9,11 @@ export type ShareResult = 'shared' | 'copied' | 'failed';
  * confirm it.
  */
 export async function sharePost(post: Post, link?: string): Promise<ShareResult> {
-  const who = post.user?.display_name ? `${post.user.display_name} on nibl` : 'A meal on nibl';
+  const who = post.user?.display_name ? `${post.user.display_name} on NiblGo` : 'A meal on NiblGo';
   const place = post.restaurant_name ? ` (at ${post.restaurant_name})` : '';
   // The link is what makes an external share useful: it deep-links back
   // into the app rather than dumping plain text.
-  const message = `${post.blurb}${place}\n\n${link ? `${link}\n\n` : ''}Shared from nibl`;
+  const message = `${post.blurb}${place}\n\n${link ? `${link}\n\n` : ''}Shared from NiblGo`;
 
   try {
     if (Platform.OS === 'web') {

@@ -1,4 +1,4 @@
--- nibl: user blocking
+-- NiblGo: user blocking
 --
 -- Required alongside reporting for App Store Guideline 1.2. Run this if your
 -- database predates blocking; a fresh schema.sql already includes it.

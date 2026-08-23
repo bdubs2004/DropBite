@@ -22,11 +22,11 @@ export const DEMO_MODE = !SUPABASE_URL || !SUPABASE_ANON_KEY;
  * https link opens the web build instead, which still resolves to the right
  * screen because the same linking config drives web routes.
  *
- * The custom scheme (nibl://post/<id>) always opens the installed app and
+ * The custom scheme (niblgo://post/<id>) always opens the installed app and
  * needs no domain setup, so it is what we fall back to.
  */
 export const APP_LINK_BASE =
-  process.env.EXPO_PUBLIC_APP_LINK_BASE ?? 'https://nibl.app';
+  process.env.EXPO_PUBLIC_APP_LINK_BASE ?? 'https://niblgo.app';
 
 /**
  * Location / restaurant tagging ("where you ate", Google Places-backed).

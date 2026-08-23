@@ -1,4 +1,4 @@
--- nibl security hardening
+-- NiblGo security hardening
 --
 -- Run this if your database predates it; a fresh schema.sql already includes
 -- everything here. Safe to run more than once.

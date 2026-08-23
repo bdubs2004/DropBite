@@ -46,14 +46,14 @@ import { colors, fonts, radius, shadow } from './src/theme';
  * Deep links. A shared post URL opens straight to that post.
  *
  * Three URL forms all resolve here:
- *   nibl://post/<id>            custom scheme — works on device today
+ *   niblgo://post/<id>            custom scheme — works on device today
  *   https://<domain>/post/<id>  needs the domain's association files hosted
  *                               (see SETUP_GUIDE.md); until then it opens the
  *                               web build, which routes the same way
  *   /post/<id>                  the web build's own route
  */
 const linking: LinkingOptions<any> = {
-  prefixes: [Linking.createURL('/'), 'nibl://', APP_LINK_BASE],
+  prefixes: [Linking.createURL('/'), 'niblgo://', APP_LINK_BASE],
   config: {
     // Cold-opening a shared link puts Tabs underneath the target screen, so
     // the tab bar is there and Back leads into the app instead of nowhere.
@@ -156,7 +156,7 @@ function Root() {
     return (
       <View style={styles.splash}>
         <LogoMark size={96} />
-        <Text style={styles.splashWord}>nibl</Text>
+        <Text style={styles.splashWord}>NiblGo</Text>
       </View>
     );
   }

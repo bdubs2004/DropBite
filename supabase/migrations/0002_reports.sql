@@ -1,4 +1,4 @@
--- nibl: content reporting
+-- NiblGo: content reporting
 --
 -- Run this if your database was created before the reports feature existed.
 -- A fresh `schema.sql` already includes everything here.

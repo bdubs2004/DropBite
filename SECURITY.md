@@ -1,6 +1,6 @@
 # Security
 
-How nibl is secured, what's deliberately deferred, and what to check before
+How NiblGo is secured, what's deliberately deferred, and what to check before
 launch. Read alongside `supabase/schema.sql` (the enforcement layer) and
 `supabase/tests/` (the proof).
 

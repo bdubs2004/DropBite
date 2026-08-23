@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 
-// nibl brand palette (amber/cream/cocoa, see PROJECT_SCOPE.md §7)
+// NiblGo brand palette (amber/cream/cocoa, see PROJECT_SCOPE.md §7)
 export const colors = {
   amber: '#E8862E',
   amberDark: '#C96D1B',

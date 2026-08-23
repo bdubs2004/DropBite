@@ -322,7 +322,7 @@ export function ComposeScreen({ navigation }: any) {
         />
         {!hasPhoto ? (
           <Muted style={{ textAlign: 'center', marginTop: spacing.sm }}>
-            Add a photo to post. nibl is photo-first.
+            Add a photo to post. NiblGo is photo-first.
           </Muted>
         ) : null}
       </ScrollView>

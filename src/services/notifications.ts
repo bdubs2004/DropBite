@@ -13,15 +13,15 @@ import { MealReminderSlot, NotificationPrefs } from '../types';
 
 const SLOT_COPY: Record<MealReminderSlot, { title: string; body: string }> = {
   breakfast: {
-    title: 'Breakfast on nibl',
+    title: 'Breakfast on NiblGo',
     body: "What's on your plate this morning? Share it with your friends.",
   },
   lunch: {
-    title: 'Lunch on nibl',
+    title: 'Lunch on NiblGo',
     body: 'Midday check-in. Show your friends what lunch looks like.',
   },
   dinner: {
-    title: 'Dinner on nibl',
+    title: 'Dinner on NiblGo',
     body: 'Dinner time. Cooked or ordered, share it while it is hot.',
   },
 };

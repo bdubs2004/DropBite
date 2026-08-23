@@ -1,4 +1,4 @@
-# nibl Launch & Wiring Guide (VS Code)
+# NiblGo Launch & Wiring Guide (VS Code)
 
 Everything in this guide happens inside **Visual Studio Code**: you'll clone the
 project, run commands in VS Code's built-in terminal, and edit config files in the
@@ -213,12 +213,12 @@ When you're ready to turn it on:
 
 ### B4. Deep links: make shared links open the app
 
-Sharing a post out of nibl attaches a link. What that link *does* depends on
+Sharing a post out of NiblGo attaches a link. What that link *does* depends on
 how much of this you've set up.
 
 **Working already, no setup:**
 
-- `nibl://post/<id>` — the custom scheme. Opens the installed app straight to
+- `niblgo://post/<id>` — the custom scheme. Opens the installed app straight to
   the post. Already configured (`scheme` in `app.json`).
 - `/post/<id>` and `/u/<id>` on the **web build** — same routes, same screens.
 
@@ -228,7 +228,7 @@ An `https://` link only opens the app instead of a browser once the operating
 system can verify the domain belongs to you. That means:
 
 1. Point `EXPO_PUBLIC_APP_LINK_BASE` at your domain (defaults to
-   `https://nibl.app`):
+   `https://niblgo.app`):
 
    ```
    EXPO_PUBLIC_APP_LINK_BASE=https://yourdomain.com
@@ -239,7 +239,7 @@ system can verify the domain belongs to you. That means:
 
    ```json
    { "applinks": { "details": [
-     { "appID": "TEAMID.com.nibl.app", "paths": ["/post/*", "/u/*"] }
+     { "appID": "TEAMID.com.niblgo.app", "paths": ["/post/*", "/u/*"] }
    ] } }
    ```
 

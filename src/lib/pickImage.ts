@@ -34,7 +34,7 @@ export async function pickImage(opts: {
       if (!granted) {
         return {
           error:
-            'nibl needs camera access to take a photo. Turn it on in your device settings, or pick one from your library.',
+            'NiblGo needs camera access to take a photo. Turn it on in your device settings, or pick one from your library.',
         };
       }
     }
@@ -62,7 +62,7 @@ export async function pickImage(opts: {
     return {
       error: fromCamera
         ? Platform.OS === 'web'
-          ? 'Taking a photo is not supported in this browser. Use Library instead, or open nibl on your phone.'
+          ? 'Taking a photo is not supported in this browser. Use Library instead, or open NiblGo on your phone.'
           : 'Could not open the camera. Try again, or pick a photo from your library.'
         : 'Could not open your photo library. Please try again.',
     };

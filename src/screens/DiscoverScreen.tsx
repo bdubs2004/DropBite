@@ -25,7 +25,7 @@ const GRID_COLUMNS = 3;
 const GRID_GAP = 2;
 
 /**
- * Discover: browse everything on nibl, not just your feed.
+ * Discover: browse everything on NiblGo, not just your feed.
  *
  * Two modes — a photo grid of recent posts (Instagram/TikTok explore) and a
  * list of people with a taste of what they cook. No search box here; Discover

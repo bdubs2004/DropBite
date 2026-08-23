@@ -25,7 +25,7 @@ export function usePostActions(navigation: any, refresh: () => void) {
     [navigation],
   );
 
-  // Opens the share sheet, which offers both sending inside nibl and sharing
+  // Opens the share sheet, which offers both sending inside NiblGo and sharing
   // a deep link out of it. The sheet records the share itself.
   const share = useCallback(
     (post: Post) => {

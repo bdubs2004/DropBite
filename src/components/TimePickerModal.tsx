@@ -8,7 +8,7 @@ import { colors, fonts, radius, spacing } from '../theme';
  * Pick a time of day.
  *
  * Deliberately a plain scrolling list rather than @react-native-community/
- * datetimepicker: that package has no usable web support, and nibl runs on web
+ * datetimepicker: that package has no usable web support, and NiblGo runs on web
  * as well as in Expo Go. A 15-minute list is the right granularity for "remind
  * me around dinner" and behaves identically on every platform.
  */

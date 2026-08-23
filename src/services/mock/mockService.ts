@@ -31,6 +31,8 @@ import {
   SEED_USERS,
 } from './seed';
 
+// Kept as 'nibl.*' through the NiblGo rename on purpose: changing the key
+// would orphan every existing demo account and preference on device.
 const KEY = 'nibl.demo.v1';
 
 /**

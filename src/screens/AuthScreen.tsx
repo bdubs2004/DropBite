@@ -83,7 +83,7 @@ export function AuthScreen() {
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.hero}>
           <LogoMark size={76} />
-          <Text style={styles.wordmark}>nibl</Text>
+          <Text style={styles.wordmark}>NiblGo</Text>
           <Text style={styles.tagline}>Share bites. Discover favorites. Connect over food.</Text>
         </View>
 

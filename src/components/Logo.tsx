@@ -2,7 +2,7 @@ import React from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts } from '../theme';
 
-/** The nibl fork-bubble mark. */
+/** The NiblGo fork-bubble mark. */
 export function LogoMark({ size = 72 }: { size?: number }) {
   return (
     <Image
@@ -18,7 +18,7 @@ export function LogoLockup({ height = 34 }: { height?: number }) {
   return (
     <View style={styles.row}>
       <LogoMark size={height} />
-      <Text style={[styles.word, { fontSize: height * 0.72, marginLeft: 8 }]}>nibl</Text>
+      <Text style={[styles.word, { fontSize: height * 0.72, marginLeft: 8 }]}>NiblGo</Text>
     </View>
   );
 }
@@ -26,7 +26,7 @@ export function LogoLockup({ height = 34 }: { height?: number }) {
 export function Wordmark({ size = 30, color = colors.cocoa }: { size?: number; color?: string }) {
   return (
     <View style={styles.row}>
-      <Text style={[styles.word, { fontSize: size, color }]}>nibl</Text>
+      <Text style={[styles.word, { fontSize: size, color }]}>NiblGo</Text>
     </View>
   );
 }

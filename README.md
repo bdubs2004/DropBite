@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="assets/nibl-mark.png" alt="nibl" width="140" />
+  <img src="assets/nibl-mark.png" alt="NiblGo" width="140" />
 </p>
 
-# nibl
+# NiblGo
 
 **Share bites. Discover favorites. Connect over food.**
 
@@ -102,6 +102,11 @@ MODERATION.md               how to review reported posts (report queue runbook)
 
 ## Brand
 
-Name: **nibl** (one b). Mark: a fork in a speech bubble with a bite taken out of the
+Name: **NiblGo**. Mark: a fork in a speech bubble with a bite taken out of the
 corner and crumbs. Amber `#E8862E` · Cream `#FFF4DE` · Cocoa `#4A2E12` · Baloo 2
-ExtraBold wordmark (lowercase) · recipe cards carry the bitten-corner motif.
+ExtraBold wordmark · recipe cards carry the bitten-corner motif.
+
+> Renamed from "nibl". Two internal identifiers deliberately kept the old
+> string: the AsyncStorage keys `nibl.demo.v1` and `nibl.notification.prefs`,
+> and the asset filename `nibl-mark.png`. Renaming the storage keys would wipe
+> every existing demo account and saved preference for no user-visible gain.
