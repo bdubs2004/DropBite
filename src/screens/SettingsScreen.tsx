@@ -20,7 +20,7 @@ import { formatTime, MEAL_REMINDER_SLOTS, timeFor } from '../lib/mealTimes';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
 import { colors, fonts, radius, spacing } from '../theme';
-import { MealReminderSlot, NotificationPrefs } from '../types';
+import { MealReminderSlot } from '../types';
 
 const MEAL_LABELS: Record<MealReminderSlot, string> = {
   breakfast: 'Breakfast',
