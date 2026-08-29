@@ -200,7 +200,7 @@ export function ProfileScreen({ navigation, route }: any) {
             <Button
               title="Edit profile"
               variant="secondary"
-              onPress={() => navigation.navigate('Settings')}
+              onPress={() => navigation.navigate('Settings', { section: 'profile' })}
               style={{ flex: 1 }}
             />
             <Button
@@ -403,21 +403,21 @@ export function ProfileScreen({ navigation, route }: any) {
                 label: 'Edit profile',
                 hint: 'Photo, name, and bio',
                 icon: 'person-outline',
-                onPress: () => navigation.navigate('Settings'),
+                onPress: () => navigation.navigate('Settings', { section: 'profile' }),
               },
               {
                 key: 'notifications',
                 label: 'Notifications',
                 hint: 'Mealtime reminder times',
                 icon: 'notifications-outline',
-                onPress: () => navigation.navigate('Settings'),
+                onPress: () => navigation.navigate('Settings', { section: 'notifications' }),
               },
               {
                 key: 'privacy',
                 label: 'Privacy',
                 hint: 'Who can see your follower list',
                 icon: 'lock-closed-outline',
-                onPress: () => navigation.navigate('Settings'),
+                onPress: () => navigation.navigate('Settings', { section: 'privacy' }),
               },
               {
                 key: 'blocked',
@@ -432,7 +432,7 @@ export function ProfileScreen({ navigation, route }: any) {
                 hint: 'Sign out or delete your account',
                 icon: 'log-out-outline',
                 danger: true,
-                onPress: () => navigation.navigate('Settings'),
+                onPress: () => navigation.navigate('Settings', { section: 'account' }),
               },
             ],
           },

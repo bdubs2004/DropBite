@@ -268,9 +268,6 @@ export function ComposeScreen({ navigation }: any) {
 
         {/* 4: blurb */}
         <Text style={styles.stepLabel}>Description</Text>
-        <Muted style={{ marginBottom: spacing.sm }}>
-          Your own words, shown on the post exactly as written.
-        </Muted>
         <Input
           placeholder="Seared chicken thighs with garlic and a splash of cream..."
           value={blurb}

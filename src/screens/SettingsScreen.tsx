@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  LayoutChangeEvent,
   Platform,
   Pressable,
   ScrollView,
@@ -28,7 +29,9 @@ const MEAL_LABELS: Record<MealReminderSlot, string> = {
   dinner: 'Dinner',
 };
 
-export function SettingsScreen({ navigation }: any) {
+export type SettingsSection = 'profile' | 'notifications' | 'privacy' | 'account';
+
+export function SettingsScreen({ navigation, route }: any) {
   const { user, setUser, prefs, setPrefs, refreshMe } = useApp();
   const svc = getDataService();
   const insets = useSafeAreaInsets();
@@ -39,6 +42,28 @@ export function SettingsScreen({ navigation }: any) {
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editingSlot, setEditingSlot] = useState<MealReminderSlot | null>(null);
+
+  // Section anchors: the drawer can deep-link to a section, so remember where
+  // each one lands and scroll there once the layout is known.
+  const scrollRef = useRef<ScrollView>(null);
+  const offsets = useRef<Partial<Record<SettingsSection, number>>>({});
+  const target: SettingsSection | undefined = route?.params?.section;
+
+  const rememberOffset = (key: SettingsSection) => (e: LayoutChangeEvent) => {
+    offsets.current[key] = e.nativeEvent.layout.y;
+  };
+
+  useEffect(() => {
+    if (!target) return;
+    // One frame after layout, so the measured offsets exist.
+    const t = setTimeout(() => {
+      const y = offsets.current[target];
+      if (y !== undefined) {
+        scrollRef.current?.scrollTo({ y: Math.max(y - 12, 0), animated: true });
+      }
+    }, 250);
+    return () => clearTimeout(t);
+  }, [target]);
 
   const toggleFollowsPrivate = async () => {
     const next = !followsPrivate;
@@ -100,6 +125,7 @@ export function SettingsScreen({ navigation }: any) {
 
   return (
     <ScrollView
+      ref={scrollRef}
       style={{ flex: 1, backgroundColor: colors.cream }}
       contentContainerStyle={[styles.scroll, { paddingTop: insets.top + spacing.md }]}
     >
@@ -117,7 +143,9 @@ export function SettingsScreen({ navigation }: any) {
         </Muted>
       ) : null}
 
-      <Text style={styles.section}>Profile</Text>
+      <Text style={styles.section} onLayout={rememberOffset('profile')}>
+        Profile
+      </Text>
       <Card>
         <AvatarPicker user={user} onPick={changeAvatar} />
         <Input
@@ -130,7 +158,9 @@ export function SettingsScreen({ navigation }: any) {
         <Button title="Save profile" onPress={saveProfile} loading={saving} />
       </Card>
 
-      <Text style={styles.section}>Mealtime notifications</Text>
+      <Text style={styles.section} onLayout={rememberOffset('notifications')}>
+        Mealtime notifications
+      </Text>
       <Card>
         {MEAL_REMINDER_SLOTS.map((slot, i) => (
           <PrefRow
@@ -159,7 +189,9 @@ export function SettingsScreen({ navigation }: any) {
         onClose={() => setEditingSlot(null)}
       />
 
-      <Text style={styles.section}>Privacy</Text>
+      <Text style={styles.section} onLayout={rememberOffset('privacy')}>
+        Privacy
+      </Text>
       <Card>
         <PrefRow
           label="Private follower list"
@@ -173,7 +205,9 @@ export function SettingsScreen({ navigation }: any) {
         </Muted>
       </Card>
 
-      <Text style={styles.section}>Account</Text>
+      <Text style={styles.section} onLayout={rememberOffset('account')}>
+        Account
+      </Text>
       <Card>
         {confirmDelete ? (
           <View>
