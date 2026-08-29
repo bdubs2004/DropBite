@@ -1,4 +1,5 @@
 import {
+  AppNotification,
   Comment,
   Conversation,
   DiscoverPerson,
@@ -130,6 +131,16 @@ export interface DataService {
   getLikedPosts(): Promise<Post[]>;
   /** Posts I've commented on, most recent comment first. Private to me. */
   getCommentedPosts(): Promise<Post[]>;
+
+  // notifications — someone interacted with your post
+  /** Newest first. Only ever your own; the database enforces that. */
+  getNotifications(): Promise<AppNotification[]>;
+  /** How many you haven't seen. Drives the badge on the bell. */
+  getUnreadNotificationCount(): Promise<number>;
+  /** Mark everything read. Called when you open the list. */
+  markNotificationsRead(): Promise<void>;
+  /** Clear the list. */
+  clearNotifications(): Promise<void>;
 
   // streaks
   getStreak(userId: string): Promise<Streak>;

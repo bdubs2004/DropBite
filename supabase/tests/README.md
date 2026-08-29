@@ -80,6 +80,31 @@ starting a conversation.
 | 10 | Nobody can block themselves |
 | 11 | Unblocking restores visibility |
 
+## notifications_test.sql
+
+Notifications are the one table the app can never write to: rows come from
+`AFTER INSERT` triggers on reactions, comments, reposts and shares, and there
+is deliberately no insert policy at all. Asserts:
+
+| # | Property |
+| --- | --- |
+| 1 | Liking a post notifies its owner |
+| 2 | Unliking and re-liking does **not** stack a duplicate |
+| 3 | Every comment is its own notification |
+| 4 | Reposts and shares notify too |
+| 5 | Your own activity never notifies you |
+| 6 | **Nobody can read anyone else's notifications** |
+| 7 | **Nobody can forge one** — there is no insert policy |
+| 8 | Nobody can mark someone else's as read |
+| 9 | You can mark yours read, but cannot readdress them to someone else |
+| 10 | **Blocking hides notifications the blocked user already caused**, and new ones never land |
+| 11 | Deleting a post takes its notifications with it |
+| 12 | You can clear your own |
+
+Test 10 is why the block test lives in the RLS policy rather than in the app:
+put it in the client and blocking someone would leave their old notifications
+sitting in your list, and the badge count would disagree with the list.
+
 ## hardening_test.sql
 
 | # | Property |

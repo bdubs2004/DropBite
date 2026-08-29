@@ -44,6 +44,22 @@ being a member or the thread being empty — an earlier version allowed
 `user_id = auth.uid()`, which let anyone add themselves to a stranger's thread
 and read its history.
 
+**Direct messages are opt-in.** You can only *start* a thread with someone you
+follow — checked in the `join conversations` policy via `is_following()`, a
+`SECURITY DEFINER` function (a plain subquery would fail for private accounts,
+whose follow rows RLS hides). Replying is not gated, so the person you messaged
+can answer without following you back, and unfollowing later doesn't lock
+either of you out of a thread you already have.
+
+**Notifications cannot be forged.** `public.notifications` has select, update
+and delete policies for the recipient, and deliberately **no insert policy at
+all**. Rows are written only by `AFTER INSERT` triggers on reactions, comments,
+reposts and shares, which are `SECURITY DEFINER` with a pinned empty
+`search_path`. So a patched client can neither spam someone else's bell nor
+quietly skip writing a notification for an interaction it made. The block test
+lives in the select policy rather than the app, so blocking someone
+retroactively hides the notifications they already caused.
+
 **Blocking** is symmetric in effect though stored one-directionally: neither
 party sees the other's posts or comments, follows are severed, new follows are
 refused, and an existing DM thread stops accepting messages from both sides. A

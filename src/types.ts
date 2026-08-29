@@ -111,6 +111,30 @@ export interface Report {
   reviewer_notes: string | null;
 }
 
+export type NotificationType = 'like' | 'comment' | 'repost' | 'share';
+
+/**
+ * "Marge liked your post." Written by database triggers, never by the client,
+ * so these can't be forged — see supabase/schema.sql.
+ */
+export interface AppNotification {
+  id: string;
+  /** Recipient. Always me: RLS never returns anyone else's. */
+  user_id: string;
+  actor_id: string;
+  type: NotificationType;
+  post_id: string | null;
+  comment_id: string | null;
+  read_at: string | null;
+  created_at: string;
+  /** Hydrated for display. */
+  actor?: User;
+  /** The post that was interacted with, for the thumbnail. */
+  post?: Post | null;
+  /** The comment's text, when this is a comment notification. */
+  comment_text?: string | null;
+}
+
 /** A person shown on the Discover page, with a taste of what they post. */
 export interface DiscoverPerson {
   user: User;

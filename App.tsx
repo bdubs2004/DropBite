@@ -32,6 +32,7 @@ import { NewMessageScreen } from './src/screens/NewMessageScreen';
 import { ShareSheetScreen } from './src/screens/ShareSheetScreen';
 import { PostDetailScreen } from './src/screens/PostDetailScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
+import { NotificationsScreen } from './src/screens/NotificationsScreen';
 import { ReportScreen } from './src/screens/ReportScreen';
 import { ActivityScreen } from './src/screens/ActivityScreen';
 import { SearchScreen } from './src/screens/SearchScreen';
@@ -181,6 +182,7 @@ function Root() {
       />
       <Stack.Screen name="PostDetail" component={PostDetailScreen} />
       <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} />
       <Stack.Screen name="Inbox" component={InboxScreen} />
       <Stack.Screen name="Chat" component={ChatScreen} />
       <Stack.Screen

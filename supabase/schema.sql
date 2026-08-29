@@ -337,6 +337,98 @@ create unique index reports_one_per_reporter_idx on public.reports (reporter_id,
 create index reports_status_created_idx on public.reports (status, created_at);
 create index reports_reported_user_idx on public.reports (reported_user_id);
 
+-- ------------------------------------------------------- notifications
+-- "Marge liked your post." One row per interaction, addressed to the person
+-- who owns the content.
+--
+-- These rows are written by triggers, never by the app: there is no insert
+-- policy below, so a patched client cannot forge a notification, spam someone
+-- else's bell, or quietly skip writing one. The triggers are SECURITY DEFINER
+-- for the same reason the DM helpers are.
+create table public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  -- Who receives it.
+  user_id uuid not null references public.users (id) on delete cascade,
+  -- Who caused it.
+  actor_id uuid not null references public.users (id) on delete cascade,
+  type text not null constraint notifications_type_allowed
+    check (type in ('like', 'comment', 'repost', 'share')),
+  post_id uuid references public.posts (id) on delete cascade,
+  comment_id uuid references public.comments (id) on delete cascade,
+  read_at timestamptz,
+  created_at timestamptz not null default now(),
+  -- You are never notified about your own activity.
+  constraint notifications_no_self check (user_id <> actor_id)
+);
+create index notifications_user_created_idx
+  on public.notifications (user_id, created_at desc);
+
+-- Likes, reposts and shares are one-per-person-per-post, so unliking and
+-- re-liking must not stack up a second notification. Comments are excluded
+-- (comment_id is set) because each comment is its own event.
+create unique index notifications_one_per_interaction
+  on public.notifications (user_id, actor_id, type, post_id)
+  where comment_id is null;
+
+-- Shared by the like/repost/share triggers, which all fire on a table with
+-- (post_id, user_id). The interaction type comes in as a trigger argument.
+create or replace function public.notify_post_interaction()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  owner uuid;
+begin
+  select p.user_id into owner from public.posts p where p.id = new.post_id;
+  -- No post, your own post, or someone you have blocked: nothing to send.
+  if owner is null or owner = new.user_id then
+    return new;
+  end if;
+  if public.is_blocked_pair(owner, new.user_id) then
+    return new;
+  end if;
+
+  insert into public.notifications (user_id, actor_id, type, post_id)
+  values (owner, new.user_id, tg_argv[0], new.post_id)
+  on conflict do nothing;
+  return new;
+end;
+$$;
+
+create or replace function public.notify_comment()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  owner uuid;
+begin
+  select p.user_id into owner from public.posts p where p.id = new.post_id;
+  if owner is null or owner = new.user_id then
+    return new;
+  end if;
+  if public.is_blocked_pair(owner, new.user_id) then
+    return new;
+  end if;
+
+  insert into public.notifications (user_id, actor_id, type, post_id, comment_id)
+  values (owner, new.user_id, 'comment', new.post_id, new.id);
+  return new;
+end;
+$$;
+
+create trigger reactions_notify after insert on public.reactions
+  for each row execute function public.notify_post_interaction('like');
+create trigger reposts_notify after insert on public.reposts
+  for each row execute function public.notify_post_interaction('repost');
+create trigger shares_notify after insert on public.shares
+  for each row execute function public.notify_post_interaction('share');
+create trigger comments_notify after insert on public.comments
+  for each row execute function public.notify_comment();
+
 -- -------------------------------------------------------------- streaks
 -- Streaks are client-written, so they are only as trustworthy as the client.
 -- These constraints reject the obviously-forged values. Making them
@@ -369,6 +461,7 @@ alter table public.messages enable row level security;
 alter table public.comment_reactions enable row level security;
 alter table public.reports enable row level security;
 alter table public.streaks enable row level security;
+alter table public.notifications enable row level security;
 
 -- users: everyone signed-in can read profiles; you manage your own row
 create policy "users readable" on public.users
@@ -586,6 +679,22 @@ create policy "upsert own streak" on public.streaks
   for insert to authenticated with check (user_id = auth.uid());
 create policy "update own streak" on public.streaks
   for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+-- notifications
+-- Yours only, and even you cannot write one: there is deliberately no insert
+-- policy, so the only thing that can create a notification is the SECURITY
+-- DEFINER trigger above. You can mark yours read, and clear them.
+-- The block test is here rather than in the app so that blocking someone
+-- retroactively hides the notifications they already caused, and so the
+-- unread count and the list can never disagree.
+create policy "read own notifications" on public.notifications
+  for select to authenticated using (
+    user_id = auth.uid() and not public.is_blocked_pair(user_id, actor_id)
+  );
+create policy "mark own notifications read" on public.notifications
+  for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+create policy "delete own notifications" on public.notifications
+  for delete to authenticated using (user_id = auth.uid());
 
 -- ================================================================ storage
 -- Photo bucket: public read, users write into their own folder.

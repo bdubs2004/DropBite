@@ -26,13 +26,15 @@ export function FeedScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
   const svc = getDataService();
   const [unread, setUnread] = useState(0);
+  const [unseen, setUnseen] = useState(0);
 
-  // Refresh the badge whenever the feed comes back into view, so reading a
-  // thread clears it without a manual reload.
+  // Refresh both badges whenever the feed comes back into view, so reading a
+  // thread or opening Activity clears them without a manual reload.
   useFocusEffect(
     useCallback(() => {
       let alive = true;
       svc.getUnreadCount().then((n) => alive && setUnread(n));
+      svc.getUnreadNotificationCount().then((n) => alive && setUnseen(n));
       return () => {
         alive = false;
       };
@@ -121,6 +123,19 @@ export function FeedScreen({ navigation }: any) {
           <Ionicons name="flame" size={15} color={colors.amber} />
           <Text style={styles.streakText}>{streak?.current_streak ?? 0}</Text>
           <Ionicons name="chevron-forward" size={13} color={colors.cocoaFaint} />
+        </Pressable>
+        <Pressable
+          testID="bell-pill"
+          onPress={() => navigation.navigate('Notifications')}
+          style={({ pressed }) => [styles.streakPill, pressed && { opacity: 0.8 }]}
+          accessibilityLabel="Activity"
+        >
+          <Ionicons name="notifications" size={15} color={colors.amber} />
+          {unseen > 0 ? (
+            <View testID="bell-badge" style={styles.unreadDot}>
+              <Text style={styles.unreadText}>{unseen > 9 ? '9+' : unseen}</Text>
+            </View>
+          ) : null}
         </Pressable>
         <Pressable
           testID="inbox-pill"

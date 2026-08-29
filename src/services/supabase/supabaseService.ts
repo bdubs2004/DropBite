@@ -1,4 +1,5 @@
 import {
+  AppNotification,
   Comment,
   Conversation,
   DiscoverPerson,
@@ -972,6 +973,54 @@ export class SupabaseService implements DataService {
       out.push(this.hydrateRow(row.posts, meId));
     }
     return out;
+  }
+
+  // ------------------------------------------------------- notifications
+  // Written by database triggers, never from here: there is no insert policy
+  // on the table, so the app couldn't forge one even if it tried.
+
+  async getNotifications(): Promise<AppNotification[]> {
+    // RLS already scopes this to me; the filter is belt and braces.
+    const meId = await this.myId();
+    const { data, error } = await this.sb
+      .from('notifications')
+      .select('*, actor:users!notifications_actor_id_fkey(*), posts(*), comments(text)')
+      .eq('user_id', meId)
+      .order('created_at', { ascending: false })
+      .limit(100);
+    if (error) throw error;
+
+    // Blocked actors are filtered by the RLS policy, not here.
+    return (data ?? []).map((row: any) => ({
+      ...(row as AppNotification),
+      actor: row.actor as User,
+      post: (row.posts as Post) ?? null,
+      comment_text: row.comments?.text ?? null,
+    }));
+  }
+
+  async getUnreadNotificationCount(): Promise<number> {
+    const meId = await this.myId();
+    const { count } = await this.sb
+      .from('notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', meId)
+      .is('read_at', null);
+    return count ?? 0;
+  }
+
+  async markNotificationsRead(): Promise<void> {
+    const meId = await this.myId();
+    await this.sb
+      .from('notifications')
+      .update({ read_at: new Date().toISOString() })
+      .eq('user_id', meId)
+      .is('read_at', null);
+  }
+
+  async clearNotifications(): Promise<void> {
+    const meId = await this.myId();
+    await this.sb.from('notifications').delete().eq('user_id', meId);
   }
 
   async getStreak(userId: string): Promise<Streak> {

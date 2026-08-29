@@ -354,6 +354,13 @@ export function ProfileScreen({ navigation, route }: any) {
             title: 'Your activity',
             items: [
               {
+                key: 'interactions',
+                label: 'Activity',
+                hint: 'Likes and comments on your posts',
+                icon: 'notifications-outline',
+                onPress: () => navigation.navigate('Notifications'),
+              },
+              {
                 key: 'liked',
                 label: 'Liked',
                 hint: 'Posts you have hearted',

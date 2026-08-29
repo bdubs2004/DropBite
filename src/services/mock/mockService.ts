@@ -4,6 +4,7 @@ import { uid } from '../../lib/id';
 import { clamp, clampOrNull, LIMITS } from '../../lib/limits';
 import { daysBetween, localDateString } from '../../lib/time';
 import {
+  AppNotification,
   Comment,
   Conversation,
   Message,
@@ -75,6 +76,7 @@ interface Db {
   messages: Message[];
   blocks: { blocker_id: string; blocked_id: string }[];
   reports: Report[];
+  notifications: AppNotification[];
   streaks: Streak[];
   sessionUserId: string | null;
   /** password_hash is a salted digest. `password` is the legacy plaintext
@@ -100,6 +102,7 @@ function freshDb(): Db {
     messages: [],
     blocks: [],
     reports: [],
+    notifications: [],
     streaks: [
       { user_id: 'u-marge', current_streak: 12, longest_streak: 34, last_post_date: localDateString() },
       { user_id: 'u-dan', current_streak: 5, longest_streak: 21, last_post_date: localDateString() },
@@ -827,12 +830,100 @@ export class MockService implements DataService {
     await this.save();
   }
 
+  /**
+   * Record "someone interacted with your post".
+   *
+   * Production writes these with a database trigger so a patched client can't
+   * forge them (see supabase/schema.sql). Demo mode has no database, so this
+   * mirrors the same rules: never notify yourself, never notify across a
+   * block, and one row per person per post for like/repost/share so unliking
+   * and re-liking doesn't stack duplicates.
+   */
+  private notify(
+    db: Db,
+    actorId: string,
+    type: AppNotification['type'],
+    postId: string,
+    commentId?: string,
+  ): void {
+    if (!db.notifications) db.notifications = [];
+    const owner = db.posts.find((p) => p.id === postId)?.user_id;
+    if (!owner || owner === actorId) return;
+    if (this.blockedIds(db, owner).has(actorId)) return;
+
+    if (!commentId) {
+      const already = db.notifications.some(
+        (n) => n.user_id === owner && n.actor_id === actorId && n.type === type && n.post_id === postId,
+      );
+      if (already) return;
+    }
+
+    db.notifications.push({
+      id: uid('n-'),
+      user_id: owner,
+      actor_id: actorId,
+      type,
+      post_id: postId,
+      comment_id: commentId ?? null,
+      read_at: null,
+      created_at: new Date().toISOString(),
+    });
+  }
+
+  async getNotifications(): Promise<AppNotification[]> {
+    const db = await this.load();
+    const me = await this.me();
+    const blocked = this.blockedIds(db, me.id);
+    return (db.notifications ?? [])
+      .filter((n) => n.user_id === me.id && !blocked.has(n.actor_id))
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .map((n) => ({
+        ...n,
+        actor: db.users.find((u) => u.id === n.actor_id),
+        post: db.posts.find((p) => p.id === n.post_id) ?? null,
+        comment_text: db.comments.find((c) => c.id === n.comment_id)?.text ?? null,
+      }));
+  }
+
+  async getUnreadNotificationCount(): Promise<number> {
+    const db = await this.load();
+    const me = await this.me();
+    const blocked = this.blockedIds(db, me.id);
+    return (db.notifications ?? []).filter(
+      (n) => n.user_id === me.id && !n.read_at && !blocked.has(n.actor_id),
+    ).length;
+  }
+
+  async markNotificationsRead(): Promise<void> {
+    const db = await this.load();
+    const me = await this.me();
+    const now = new Date().toISOString();
+    let changed = false;
+    for (const n of db.notifications ?? []) {
+      if (n.user_id === me.id && !n.read_at) {
+        n.read_at = now;
+        changed = true;
+      }
+    }
+    if (changed) await this.save();
+  }
+
+  async clearNotifications(): Promise<void> {
+    const db = await this.load();
+    const me = await this.me();
+    db.notifications = (db.notifications ?? []).filter((n) => n.user_id !== me.id);
+    await this.save();
+  }
+
   async toggleReaction(postId: string): Promise<void> {
     const db = await this.load();
     const me = await this.me();
     const idx = db.reactions.findIndex((r) => r.post_id === postId && r.user_id === me.id);
     if (idx >= 0) db.reactions.splice(idx, 1);
-    else db.reactions.push({ post_id: postId, user_id: me.id });
+    else {
+      db.reactions.push({ post_id: postId, user_id: me.id });
+      this.notify(db, me.id, 'like', postId);
+    }
     await this.save();
   }
 
@@ -896,6 +987,7 @@ export class MockService implements DataService {
       created_at: new Date().toISOString(),
     };
     db.comments.push(comment);
+    this.notify(db, me.id, 'comment', postId, comment.id);
     await this.save();
     return { ...comment, user: me };
   }
@@ -905,7 +997,10 @@ export class MockService implements DataService {
     const me = await this.me();
     const idx = db.reposts.findIndex((r) => r.post_id === postId && r.user_id === me.id);
     if (idx >= 0) db.reposts.splice(idx, 1);
-    else db.reposts.push({ post_id: postId, user_id: me.id });
+    else {
+      db.reposts.push({ post_id: postId, user_id: me.id });
+      this.notify(db, me.id, 'repost', postId);
+    }
     await this.save();
   }
 
@@ -915,6 +1010,7 @@ export class MockService implements DataService {
     // one share record per user per post keeps the count honest and idempotent
     if (!db.shares.some((s) => s.post_id === postId && s.user_id === me.id)) {
       db.shares.push({ post_id: postId, user_id: me.id });
+      this.notify(db, me.id, 'share', postId);
       await this.save();
     }
   }
