@@ -5,6 +5,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  RefreshControl,
   StyleSheet,
   Text,
   TextInput,
@@ -33,6 +34,7 @@ export function ChatScreen({ navigation, route }: any) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     setMessages(await svc.getMessages(conversationId));
@@ -43,6 +45,15 @@ export function ChatScreen({ navigation, route }: any) {
   useEffect(() => {
     load();
   }, [load]);
+
+  const pullRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await load();
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const send = async () => {
     const body = text.trim();
@@ -82,6 +93,14 @@ export function ChatScreen({ navigation, route }: any) {
         keyExtractor={(m) => m.id}
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.lg }}
         onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={pullRefresh}
+            tintColor={colors.amber}
+            colors={[colors.amber]}
+          />
+        }
         renderItem={({ item }) => {
           const mine = item.sender_id === user?.id;
           return (

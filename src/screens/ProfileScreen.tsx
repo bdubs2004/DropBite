@@ -4,6 +4,7 @@ import {
   FlatList,
   Platform,
   Pressable,
+  RefreshControl,
   StyleSheet,
   Text,
   View,
@@ -105,6 +106,16 @@ export function ProfileScreen({ navigation, route }: any) {
   const [blocked, setBlocked] = useState(false);
   const [confirmingBlock, setConfirmingBlock] = useState(false);
   const [otherMenuOpen, setOtherMenuOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const pullRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await load();
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const doBlock = async () => {
     await svc.blockUser(userId);
@@ -281,6 +292,14 @@ export function ProfileScreen({ navigation, route }: any) {
         onScrollToIndexFailed={() => {}}
         ListHeaderComponent={header}
         columnWrapperStyle={{ gap: GRID_GAP }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={pullRefresh}
+            tintColor={colors.amber}
+            colors={[colors.amber]}
+          />
+        }
         contentContainerStyle={{ gap: GRID_GAP, paddingBottom: 120 }}
         renderItem={({ item }) =>
           item ? (

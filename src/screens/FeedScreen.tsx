@@ -42,21 +42,33 @@ export function FeedScreen({ navigation }: any) {
   // Tapping Home while already on Home jumps to the top and pulls fresh posts,
   // the way Instagram behaves. The event comes from the custom TabBar in
   // App.tsx, which emits `tabPress` itself.
+  const jumpToTopAndRefresh = useCallback(() => {
+    listRef.current?.scrollToOffset({ offset: 0, animated: true });
+    refreshFeed();
+  }, [refreshFeed]);
+
   useEffect(() => {
     const unsub = navigation.addListener('tabPress', () => {
       if (!navigation.isFocused()) return;
-      listRef.current?.scrollToOffset({ offset: 0, animated: true });
-      refreshFeed();
+      jumpToTopAndRefresh();
     });
     return unsub;
-  }, [navigation, refreshFeed]);
+  }, [navigation, jumpToTopAndRefresh]);
 
   const openProfile = (userId: string) => navigation.navigate('UserProfile', { userId });
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <LogoLockup height={30} />
+        <Pressable
+          testID="feed-logo"
+          onPress={jumpToTopAndRefresh}
+          hitSlop={10}
+          accessibilityLabel="Refresh feed"
+          style={({ pressed }) => (pressed ? { opacity: 0.7 } : null)}
+        >
+          <LogoLockup height={30} />
+        </Pressable>
         <View style={styles.headerRight}>
         <Pressable
           testID="streak-pill"

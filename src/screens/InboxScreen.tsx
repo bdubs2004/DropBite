@@ -1,7 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '../components/Avatar';
 import { Muted } from '../components/ui';
@@ -16,11 +24,21 @@ export function InboxScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     setConversations(await svc.getConversations());
     setLoading(false);
   }, [svc]);
+
+  const pullRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await load();
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   // Reload on focus so unread counts settle after reading a thread.
   useFocusEffect(
@@ -61,6 +79,14 @@ export function InboxScreen({ navigation }: any) {
           data={conversations}
           keyExtractor={(c) => c.id}
           contentContainerStyle={{ padding: spacing.lg, paddingBottom: 120 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={pullRefresh}
+              tintColor={colors.amber}
+              colors={[colors.amber]}
+            />
+          }
           renderItem={({ item }) => (
             <Pressable
               testID={`conversation-${item.other.id}`}
