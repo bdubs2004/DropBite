@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Animated,
   FlatList,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -39,13 +42,46 @@ export function FeedScreen({ navigation }: any) {
 
   const listRef = useRef<FlatList<any>>(null);
 
+  // Auto-hiding header: slides out of the way as you scroll down and comes
+  // straight back the moment you scroll up, so the feed gets the full screen
+  // without the header being hard to reach.
+  const headerY = useRef(new Animated.Value(0)).current;
+  const lastY = useRef(0);
+  const hidden = useRef(false);
+
+  const setHeaderHidden = useCallback(
+    (next: boolean) => {
+      if (hidden.current === next) return;
+      hidden.current = next;
+      Animated.timing(headerY, {
+        toValue: next ? -HEADER_HEIGHT : 0,
+        duration: 180,
+        useNativeDriver: true,
+      }).start();
+    },
+    [headerY],
+  );
+
+  const onScroll = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const y = e.nativeEvent.contentOffset.y;
+      const dy = y - lastY.current;
+      // Ignore rubber-banding at the top and sub-pixel jitter.
+      if (y <= 0) setHeaderHidden(false);
+      else if (Math.abs(dy) > 6) setHeaderHidden(dy > 0);
+      lastY.current = y;
+    },
+    [setHeaderHidden],
+  );
+
   // Tapping Home while already on Home jumps to the top and pulls fresh posts,
   // the way Instagram behaves. The event comes from the custom TabBar in
   // App.tsx, which emits `tabPress` itself.
   const jumpToTopAndRefresh = useCallback(() => {
     listRef.current?.scrollToOffset({ offset: 0, animated: true });
+    setHeaderHidden(false);
     refreshFeed();
-  }, [refreshFeed]);
+  }, [refreshFeed, setHeaderHidden]);
 
   useEffect(() => {
     const unsub = navigation.addListener('tabPress', () => {
@@ -58,8 +94,14 @@ export function FeedScreen({ navigation }: any) {
   const openProfile = (userId: string) => navigation.navigate('UserProfile', { userId });
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
+    <View style={styles.root}>
+      <Animated.View
+        testID="feed-header"
+        style={[
+          styles.header,
+          { paddingTop: insets.top, transform: [{ translateY: headerY }] },
+        ]}
+      >
         <Pressable
           testID="feed-logo"
           onPress={jumpToTopAndRefresh}
@@ -94,10 +136,12 @@ export function FeedScreen({ navigation }: any) {
           ) : null}
         </Pressable>
         </View>
-      </View>
+      </Animated.View>
 
       <FlatList
         ref={listRef}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
         testID="feed-list"
         data={feed}
         keyExtractor={(p) => p.id}
@@ -115,7 +159,11 @@ export function FeedScreen({ navigation }: any) {
             isMine={item.user_id === user?.id}
           />
         )}
-        contentContainerStyle={{ paddingTop: spacing.md, paddingBottom: 120 }}
+        contentContainerStyle={{
+          paddingTop: insets.top + HEADER_HEIGHT + spacing.md,
+          paddingBottom: 120,
+        }}
+        progressViewOffset={insets.top + HEADER_HEIGHT}
         refreshControl={
           <RefreshControl
             refreshing={feedLoading}
@@ -140,17 +188,27 @@ export function FeedScreen({ navigation }: any) {
   );
 }
 
+/** Height of the header bar below the safe-area inset. */
+const HEADER_HEIGHT = 58;
+
 const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.cream,
   },
   header: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 2,
+    height: undefined,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingBottom: spacing.md,
+    backgroundColor: colors.cream,
   },
   headerRight: {
     flexDirection: 'row',
