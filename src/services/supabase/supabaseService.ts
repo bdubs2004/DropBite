@@ -770,17 +770,30 @@ export class SupabaseService implements DataService {
 
   async getComments(postId: string): Promise<Comment[]> {
     const meId = await this.myId();
-    const { data } = await this.sb
-      .from('comments')
-      .select('*, users(*), comment_reactions(user_id)')
-      .eq('post_id', postId)
-      .order('created_at', { ascending: true });
+    const [{ data }, { data: post }] = await Promise.all([
+      this.sb
+        .from('comments')
+        .select('*, users(*), comment_reactions(user_id)')
+        .eq('post_id', postId)
+        .order('created_at', { ascending: true }),
+      this.sb.from('posts').select('user_id').eq('id', postId).maybeSingle(),
+    ]);
+    // Mirrors the "delete own comment or on own post" RLS policy, so the UI
+    // only offers what the database would actually allow.
+    const postOwnerId = (post as { user_id?: string } | null)?.user_id;
     return (data ?? []).map((row: any) => ({
       ...(row as Comment),
       user: row.users as User,
       like_count: (row.comment_reactions ?? []).length,
       liked_by_me: (row.comment_reactions ?? []).some((r: any) => r.user_id === meId),
+      can_delete: row.user_id === meId || postOwnerId === meId,
     }));
+  }
+
+  async deleteComment(commentId: string): Promise<void> {
+    // RLS decides whether this is allowed; no client-side check to bypass.
+    const { error } = await this.sb.from('comments').delete().eq('id', commentId);
+    if (error) throw error;
   }
 
   async toggleCommentLike(commentId: string): Promise<void> {

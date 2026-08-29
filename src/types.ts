@@ -67,6 +67,8 @@ export interface Comment {
   user?: User;
   like_count?: number;
   liked_by_me?: boolean;
+  /** True when the viewer wrote it, or owns the post it sits on. */
+  can_delete?: boolean;
 }
 
 /**

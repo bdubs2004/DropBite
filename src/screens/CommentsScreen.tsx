@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
+  Alert,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -11,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ActionSheet } from '../components/ActionSheet';
 import { Avatar } from '../components/Avatar';
 import { Muted } from '../components/ui';
 import { LIMITS } from '../lib/limits';
@@ -30,6 +32,8 @@ export function CommentsScreen({ navigation, route }: any) {
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
+  const [menuFor, setMenuFor] = useState<Comment | null>(null);
+  const [confirming, setConfirming] = useState<Comment | null>(null);
 
   const load = useCallback(async () => {
     setComments(await svc.getComments(postId));
@@ -39,6 +43,17 @@ export function CommentsScreen({ navigation, route }: any) {
   useEffect(() => {
     load();
   }, [load]);
+
+  const removeComment = async (c: Comment) => {
+    // Drop it locally first so the row disappears immediately.
+    setComments((prev) => prev.filter((x) => x.id !== c.id));
+    try {
+      await svc.deleteComment(c.id);
+      refreshFeed(); // keep the post's comment count honest
+    } catch {
+      load(); // put it back if the write failed
+    }
+  };
 
   /**
    * Optimistic like: the heart flips instantly, then persists. Waiting on a
@@ -94,15 +109,36 @@ export function CommentsScreen({ navigation, route }: any) {
         keyExtractor={(c) => c.id}
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.lg }}
         renderItem={({ item }) => (
-          <View style={styles.row}>
-            <Avatar user={item.user} size={38} />
-            <View style={styles.bubble}>
-              <Text style={styles.name}>
-                {item.user?.display_name ?? 'Someone'}{' '}
-                <Text style={styles.handle}>@{item.user?.handle ?? 'unknown'}</Text>
+          <Pressable
+            testID={`comment-${item.id}`}
+            style={styles.row}
+            onLongPress={() => item.can_delete && setMenuFor(item)}
+            delayLongPress={350}
+          >
+            <Avatar user={item.user} size={34} />
+            <View style={styles.body}>
+              {/* Handle inline ahead of the text, the way the feed reads. */}
+              <Text style={styles.text}>
+                <Text style={styles.handle}>{item.user?.handle ?? 'unknown'} </Text>
+                {item.text}
               </Text>
-              <Text style={styles.text}>{item.text}</Text>
-              <Text style={styles.time}>{relativeTime(item.created_at)}</Text>
+              <View style={styles.metaRow}>
+                <Text style={styles.time}>{relativeTime(item.created_at)}</Text>
+                {item.like_count ? (
+                  <Text testID={`comment-like-count-${item.id}`} style={styles.metaCount}>
+                    {item.like_count} {item.like_count === 1 ? 'like' : 'likes'}
+                  </Text>
+                ) : null}
+                {item.can_delete ? (
+                  <Pressable
+                    testID={`comment-menu-${item.id}`}
+                    onPress={() => setMenuFor(item)}
+                    hitSlop={8}
+                  >
+                    <Text style={styles.metaAction}>Delete</Text>
+                  </Pressable>
+                ) : null}
+              </View>
             </View>
             <Pressable
               testID={`comment-like-${item.id}`}
@@ -112,19 +148,11 @@ export function CommentsScreen({ navigation, route }: any) {
             >
               <Ionicons
                 name={item.liked_by_me ? 'heart' : 'heart-outline'}
-                size={17}
+                size={15}
                 color={item.liked_by_me ? colors.danger : colors.cocoaFaint}
               />
-              {item.like_count ? (
-                <Text
-                  testID={`comment-like-count-${item.id}`}
-                  style={[styles.likeCount, item.liked_by_me && { color: colors.danger }]}
-                >
-                  {item.like_count}
-                </Text>
-              ) : null}
             </Pressable>
-          </View>
+          </Pressable>
         )}
         ListEmptyComponent={
           loading ? null : (
@@ -137,6 +165,66 @@ export function CommentsScreen({ navigation, route }: any) {
           )
         }
       />
+
+      <ActionSheet
+        visible={menuFor !== null}
+        title="Comment"
+        onClose={() => setMenuFor(null)}
+        actions={[
+          {
+            key: 'delete-comment',
+            label: 'Delete comment',
+            hint:
+              menuFor && menuFor.user_id !== user?.id
+                ? 'You can remove comments on your own post'
+                : undefined,
+            icon: 'trash-outline',
+            destructive: true,
+            onPress: () => {
+              const target = menuFor;
+              if (!target) return;
+              if (Platform.OS === 'web') {
+                setConfirming(target);
+                return;
+              }
+              Alert.alert('Delete comment?', 'This cannot be undone.', [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Delete',
+                  style: 'destructive',
+                  onPress: () => removeComment(target),
+                },
+              ]);
+            },
+          },
+        ]}
+      />
+
+      {confirming ? (
+        <View style={styles.confirmBar}>
+          <Text style={styles.confirmText}>Delete this comment?</Text>
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            <Pressable
+              testID="comment-delete-cancel"
+              onPress={() => setConfirming(null)}
+              style={[styles.confirmBtn, styles.confirmCancel]}
+            >
+              <Text style={styles.confirmCancelText}>Cancel</Text>
+            </Pressable>
+            <Pressable
+              testID="comment-delete-confirm"
+              onPress={() => {
+                const target = confirming;
+                setConfirming(null);
+                if (target) removeComment(target);
+              }}
+              style={[styles.confirmBtn, styles.confirmDelete]}
+            >
+              <Text style={styles.confirmDeleteText}>Delete</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
 
       <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
         <Avatar user={user} size={34} />
@@ -166,15 +254,10 @@ export function CommentsScreen({ navigation, route }: any) {
 const styles = StyleSheet.create({
   likeBtn: {
     alignItems: 'center',
+    justifyContent: 'center',
     paddingLeft: spacing.sm,
-    paddingTop: 6,
-    minWidth: 28,
-  },
-  likeCount: {
-    fontFamily: fonts.bold,
-    fontSize: 11.5,
-    color: colors.cocoaFaint,
-    marginTop: 2,
+    paddingTop: 2,
+    minWidth: 26,
   },
   header: {
     flexDirection: 'row',
@@ -196,38 +279,67 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
     marginBottom: spacing.lg,
   },
-  bubble: {
-    flex: 1,
-    marginLeft: spacing.md,
-    backgroundColor: colors.white,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-  },
-  name: {
-    fontFamily: fonts.bold,
-    fontSize: 14,
-    color: colors.cocoa,
-  },
+  body: { flex: 1, marginLeft: spacing.md },
   handle: {
-    fontFamily: fonts.semi,
-    fontSize: 12.5,
-    color: colors.cocoaFaint,
+    fontFamily: fonts.bold,
+    color: colors.cocoa,
   },
   text: {
     fontFamily: fonts.semi,
-    fontSize: 15,
-    lineHeight: 21,
+    fontSize: 14.5,
+    lineHeight: 20,
     color: colors.cocoa,
-    marginTop: 3,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginTop: 4,
   },
   time: {
     fontFamily: fonts.semi,
     fontSize: 11.5,
     color: colors.cocoaFaint,
-    marginTop: 5,
   },
+  metaCount: {
+    fontFamily: fonts.bold,
+    fontSize: 11.5,
+    color: colors.cocoaFaint,
+  },
+  metaAction: {
+    fontFamily: fonts.bold,
+    fontSize: 11.5,
+    color: colors.cocoaFaint,
+  },
+  confirmBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    backgroundColor: colors.cream,
+    borderTopWidth: 1,
+    borderColor: colors.creamDark,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  confirmText: {
+    flex: 1,
+    fontFamily: fonts.bold,
+    fontSize: 14,
+    color: colors.cocoa,
+  },
+  confirmBtn: {
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 8,
+  },
+  confirmCancel: { backgroundColor: colors.creamDark },
+  confirmCancelText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.cocoa },
+  confirmDelete: { backgroundColor: colors.danger },
+  confirmDeleteText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.white },
   empty: {
     alignItems: 'center',
     marginTop: 60,

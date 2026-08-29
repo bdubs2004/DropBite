@@ -74,6 +74,8 @@ export interface DataService {
   addComment(postId: string, text: string): Promise<Comment>;
   /** Like/unlike a comment. Idempotent per user. */
   toggleCommentLike(commentId: string): Promise<void>;
+  /** Delete a comment you wrote, or any comment on a post you own. */
+  deleteComment(commentId: string): Promise<void>;
   toggleRepost(postId: string): Promise<void>;
   recordShare(postId: string): Promise<void>;
 

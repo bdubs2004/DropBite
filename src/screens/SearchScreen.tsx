@@ -12,6 +12,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '../components/Avatar';
 import { PostThumb } from '../components/PostThumb';
 import { Input, Muted, ScreenTitle } from '../components/ui';
+import {
+  addRecentSearch,
+  clearRecentSearches,
+  getRecentSearches,
+  removeRecentSearch,
+} from '../lib/recentSearches';
 import { getDataService } from '../services';
 import { colors, fonts, radius, shadowSoft, spacing } from '../theme';
 import { Post, User } from '../types';
@@ -38,6 +44,22 @@ export function SearchScreen({ navigation }: any) {
   const [people, setPeople] = useState<User[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
   const [searching, setSearching] = useState(false);
+  const [recents, setRecents] = useState<Awaited<ReturnType<typeof getRecentSearches>>>([]);
+
+  // Recents are what the screen shows before you have typed anything.
+  const loadRecents = useCallback(async () => {
+    setRecents(await getRecentSearches());
+  }, []);
+
+  useEffect(() => {
+    loadRecents();
+  }, [loadRecents]);
+
+  const openProfile = async (u: { id: string } & Record<string, any>) => {
+    await addRecentSearch(u as any);
+    loadRecents();
+    navigation.navigate('UserProfile', { userId: u.id });
+  };
   // Guards against a slow early request landing after a later one.
   const seq = useRef(0);
 
@@ -81,14 +103,28 @@ export function SearchScreen({ navigation }: any) {
       <ScreenTitle>Search</ScreenTitle>
       <Muted>Find people and dishes.</Muted>
       <View style={{ marginTop: spacing.md }}>
-        <Input
-          testID="search-input"
-          placeholder="Try chicken, pancakes, or a name"
-          value={query}
-          onChangeText={setQuery}
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
+        <View>
+          <Input
+            testID="search-input"
+            placeholder="Try chicken, pancakes, or a name"
+            value={query}
+            onChangeText={setQuery}
+            autoCapitalize="none"
+            autoCorrect={false}
+            style={{ paddingRight: 42 }}
+          />
+          {query.length > 0 ? (
+            <Pressable
+              testID="search-clear"
+              onPress={() => setQuery('')}
+              hitSlop={10}
+              style={styles.clearBtn}
+              accessibilityLabel="Clear search"
+            >
+              <Ionicons name="close-circle" size={19} color={colors.cocoaFaint} />
+            </Pressable>
+          ) : null}
+        </View>
       </View>
       <View style={styles.tabs}>
         <TabButton label="Dishes" active={tab === 'dishes'} onPress={() => setTab('dishes')} />
@@ -104,12 +140,54 @@ export function SearchScreen({ navigation }: any) {
   );
 
   const empty = !hasQuery ? (
-    <View style={styles.empty}>
-      <Ionicons name="search" size={40} color={colors.cocoaFaint} />
-      <Muted style={styles.emptyText}>
-        Search for a dish, an ingredient, or someone by name or handle.
-      </Muted>
-    </View>
+    recents.length > 0 ? (
+      <View testID="search-recents" style={styles.recents}>
+        <View style={styles.recentsHead}>
+          <Text style={styles.recentsTitle}>Recent</Text>
+          <Pressable
+            testID="recents-clear-all"
+            onPress={async () => {
+              await clearRecentSearches();
+              loadRecents();
+            }}
+            hitSlop={8}
+          >
+            <Text style={styles.recentsClear}>Clear all</Text>
+          </Pressable>
+        </View>
+        {recents.map((u) => (
+          <Pressable
+            key={u.id}
+            testID={`recent-${u.id}`}
+            style={styles.userRow}
+            onPress={() => openProfile(u)}
+          >
+            <Avatar user={u as any} size={40} />
+            <View style={{ flex: 1, marginLeft: spacing.md }}>
+              <Text style={styles.name}>{u.display_name}</Text>
+              <Muted>@{u.handle}</Muted>
+            </View>
+            <Pressable
+              testID={`recent-remove-${u.id}`}
+              onPress={async () => {
+                await removeRecentSearch(u.id);
+                loadRecents();
+              }}
+              hitSlop={10}
+            >
+              <Ionicons name="close" size={17} color={colors.cocoaFaint} />
+            </Pressable>
+          </Pressable>
+        ))}
+      </View>
+    ) : (
+      <View style={styles.empty}>
+        <Ionicons name="search" size={40} color={colors.cocoaFaint} />
+        <Muted style={styles.emptyText}>
+          Search for a dish, an ingredient, or someone by name or handle.
+        </Muted>
+      </View>
+    )
   ) : searching ? (
     <ActivityIndicator color={colors.amber} style={{ marginTop: spacing.xl }} />
   ) : (
@@ -159,7 +237,7 @@ export function SearchScreen({ navigation }: any) {
             <Pressable
               testID={`search-person-${item.id}`}
               style={styles.userRow}
-              onPress={() => navigation.navigate('UserProfile', { userId: item.id })}
+              onPress={() => openProfile(item)}
             >
               <Avatar user={item} size={44} />
               <View style={{ flex: 1, marginLeft: spacing.md }}>
@@ -225,6 +303,26 @@ const styles = StyleSheet.create({
   },
   name: { fontFamily: fonts.bold, fontSize: 15.5, color: colors.cocoa },
   bio: { fontFamily: fonts.semi, fontSize: 12.5, color: colors.cocoaFaint, marginTop: 2 },
+  clearBtn: {
+    position: 'absolute',
+    right: 12,
+    top: 14,
+  },
+  recents: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
+  recentsHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
+  recentsTitle: {
+    fontFamily: fonts.bold,
+    fontSize: 13,
+    color: colors.cocoaSoft,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  recentsClear: { fontFamily: fonts.bold, fontSize: 13, color: colors.amberDark },
   empty: { alignItems: 'center', gap: spacing.sm, marginTop: 60 },
   emptyText: { textAlign: 'center', paddingHorizontal: spacing.xl },
 });

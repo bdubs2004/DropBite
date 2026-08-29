@@ -771,6 +771,9 @@ export class MockService implements DataService {
     // Older saved demo databases predate comment likes.
     const likes = db.commentReactions ?? [];
     const blockedC = this.blockedIds(db, me.id);
+    // You may delete your own comment, or any comment on your own post. Mirrors
+    // the "delete own comment or on own post" RLS policy.
+    const postOwnerId = db.posts.find((p) => p.id === postId)?.user_id;
     return db.comments
       .filter((c) => c.post_id === postId && !blockedC.has(c.user_id))
       .sort((a, b) => a.created_at.localeCompare(b.created_at))
@@ -779,7 +782,24 @@ export class MockService implements DataService {
         user: db.users.find((u) => u.id === c.user_id),
         like_count: likes.filter((r) => r.comment_id === c.id).length,
         liked_by_me: likes.some((r) => r.comment_id === c.id && r.user_id === me.id),
+        can_delete: c.user_id === me.id || postOwnerId === me.id,
       }));
+  }
+
+  async deleteComment(commentId: string): Promise<void> {
+    const db = await this.load();
+    const me = await this.me();
+    const comment = db.comments.find((c) => c.id === commentId);
+    if (!comment) return;
+    const postOwnerId = db.posts.find((p) => p.id === comment.post_id)?.user_id;
+    if (comment.user_id !== me.id && postOwnerId !== me.id) {
+      throw new Error('You cannot delete that comment.');
+    }
+    db.comments = db.comments.filter((c) => c.id !== commentId);
+    db.commentReactions = (db.commentReactions ?? []).filter(
+      (r) => r.comment_id !== commentId,
+    );
+    await this.save();
   }
 
   async toggleCommentLike(commentId: string): Promise<void> {
