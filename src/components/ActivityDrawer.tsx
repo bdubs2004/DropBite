@@ -34,11 +34,19 @@ const DISMISS_VELOCITY = 0.5;
 /**
  * The side panel behind the profile's menu button.
  *
- * Slides in from the right and can be dragged back out with a finger — the
- * panel follows the drag, snapping open or closed on release depending on how
- * far and how fast you moved. Built on a Modal plus PanResponder rather than a
- * drawer navigator, which would mean restructuring the whole tab tree for a
- * panel that only one screen opens.
+ * Slides in from the right, and the grab handle on its left edge drags it back
+ * out — the panel follows your finger and snaps open or closed on release
+ * depending on distance and flick speed.
+ *
+ * The gesture lives on the handle rather than the whole panel on purpose. When
+ * the whole panel was draggable, starting a drag on top of a menu row also
+ * fired that row (react-native-web does not cancel a child Pressable when the
+ * responder is claimed), so you would get dragged somewhere you never tapped.
+ * A dedicated handle makes that impossible.
+ *
+ * Built on a Modal plus PanResponder rather than a drawer navigator, which
+ * would mean restructuring the whole tab tree for a panel one screen opens.
+ * Tapping the backdrop or the X closes it on every platform.
  */
 export function ActivityDrawer({
   visible,
@@ -81,12 +89,25 @@ export function ActivityDrawer({
 
   const dismiss = () => closePanel(onClose);
 
+  /**
+   * True while a drag is in flight and briefly after it ends.
+   *
+   * Claiming the pan responder does not reliably cancel a child Pressable's
+   * press state on web, so without this, dragging the panel closed from on top
+   * of a row also fires that row's onPress and navigates you somewhere you
+   * never tapped.
+   */
+  const dragging = useRef(false);
+
   const pan = useRef(
     PanResponder.create({
       // Only claim the gesture for clear horizontal drags, so vertical
       // scrolling inside the panel still works.
       onMoveShouldSetPanResponder: (_e, g) =>
         Math.abs(g.dx) > 8 && Math.abs(g.dx) > Math.abs(g.dy),
+      onPanResponderGrant: () => {
+        dragging.current = true;
+      },
       onPanResponderMove: (_e, g) => {
         // Rightward only; resist leftward pulls past the open position.
         slide.setValue(Math.max(0, g.dx));
@@ -94,6 +115,16 @@ export function ActivityDrawer({
       onPanResponderRelease: (_e, g) => {
         if (g.dx > DISMISS_DISTANCE || g.vx > DISMISS_VELOCITY) dismiss();
         else openPanel();
+        // Outlast the click event the browser synthesises on release.
+        setTimeout(() => {
+          dragging.current = false;
+        }, 120);
+      },
+      onPanResponderTerminate: () => {
+        openPanel();
+        setTimeout(() => {
+          dragging.current = false;
+        }, 120);
       },
     }),
   ).current;
@@ -117,8 +148,12 @@ export function ActivityDrawer({
             styles.panel,
             { paddingTop: insets.top + spacing.md, transform: [{ translateX: slide }] },
           ]}
-          {...pan.panHandlers}
         >
+          {/* Drag handle: the only surface that owns the pan gesture. */}
+          <View style={styles.grabZone} {...pan.panHandlers}>
+            <View style={styles.grabBar} />
+          </View>
+
           <View style={styles.head}>
             <Text style={styles.title}>Your stuff</Text>
             <Pressable testID="drawer-close" onPress={dismiss} hitSlop={10}>
@@ -134,10 +169,14 @@ export function ActivityDrawer({
                   <Pressable
                     key={item.key}
                     testID={`drawer-${item.key}`}
-                    onPress={() => closePanel(() => {
-                      onClose();
-                      item.onPress();
-                    })}
+                    onPress={() => {
+                      // Swallow the press if this was the end of a drag.
+                      if (dragging.current) return;
+                      closePanel(() => {
+                        onClose();
+                        item.onPress();
+                      });
+                    }}
                     style={({ pressed }) => [styles.row, pressed && { opacity: 0.7 }]}
                   >
                     <View style={[styles.iconWrap, item.danger && styles.iconWrapDanger]}>
@@ -168,13 +207,30 @@ export function ActivityDrawer({
 const styles = StyleSheet.create({
   root: { flex: 1, flexDirection: 'row', justifyContent: 'flex-end' },
   backdropFill: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.overlay },
+  grabZone: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 3,
+  },
+  grabBar: {
+    width: 4,
+    height: 56,
+    borderRadius: 2,
+    backgroundColor: colors.creamDark,
+  },
   panel: {
     width: PANEL_WIDTH,
     height: '100%',
     backgroundColor: colors.cream,
     borderTopLeftRadius: radius.xl,
     borderBottomLeftRadius: radius.xl,
-    paddingHorizontal: spacing.lg,
+    paddingLeft: spacing.lg + 14,
+    paddingRight: spacing.lg,
     ...(shadow as object),
   },
   head: {
