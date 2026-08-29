@@ -88,6 +88,10 @@ export interface DataService {
     input: { text?: string; sharedPostId?: string; imageUri?: string },
   ): Promise<Message>;
   /** Find my existing 1:1 thread with this user, or start one. */
+  /**
+   * Open (or reuse) a 1:1 thread. You can only start one with someone you
+   * follow — enforced in RLS, mirrored here for a readable error.
+   */
   startConversation(userId: string): Promise<string>;
   /** Send one post to several people at once (the share sheet). */
   sharePostToUsers(postId: string, userIds: string[]): Promise<void>;
@@ -107,6 +111,8 @@ export interface DataService {
    * Reporting the same post twice is a no-op rather than an error.
    */
   reportPost(postId: string, reason: ReportReason, detail?: string): Promise<void>;
+  /** Report a direct message. Snapshots its content so the report survives a delete. */
+  reportMessage(messageId: string, reason: ReportReason, detail?: string): Promise<void>;
   /**
    * Block a user. Symmetric in effect: neither of you sees the other's posts
    * or comments, follows are severed, and neither can message the other.

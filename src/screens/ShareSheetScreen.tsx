@@ -38,7 +38,13 @@ export function ShareSheetScreen({ navigation, route }: any) {
   const [externalNote, setExternalNote] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const [p, list] = await Promise.all([svc.getPost(postId), svc.listUsers()]);
+    // Only people you follow: sending a post opens a DM thread, and DMs are
+    // opt-in, so listing anyone else would just fail at send time.
+    const me = await svc.getCurrentUser();
+    const [p, list] = await Promise.all([
+      svc.getPost(postId),
+      me ? svc.getFollowingUsers(me.id) : Promise.resolve([]),
+    ]);
     setPost(p);
     setPeople(list);
     setLoading(false);
@@ -64,6 +70,8 @@ export function ShareSheetScreen({ navigation, route }: any) {
       await svc.recordShare(postId);
       setSent(true);
       setTimeout(() => navigation.goBack(), 900);
+    } catch (e: any) {
+      setExternalNote(e?.message ?? 'Could not send that post.');
     } finally {
       setSending(false);
     }
@@ -135,7 +143,11 @@ export function ShareSheetScreen({ navigation, route }: any) {
                 </Pressable>
               );
             }}
-            ListEmptyComponent={<Muted>Nobody to send to yet.</Muted>}
+            ListEmptyComponent={
+              <Muted>
+                Follow someone to send them a post. You can still share it out of the app below.
+              </Muted>
+            }
           />
 
           <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>

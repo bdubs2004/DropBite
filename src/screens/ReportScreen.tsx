@@ -16,7 +16,7 @@ import { colors, fonts, radius, spacing } from '../theme';
 import { ReportReason } from '../types';
 
 /**
- * Report a post.
+ * Report a post, or a direct message.
  *
  * Reasons are stored as stable keys (see ReportReason) so the copy here can be
  * reworded without invalidating past moderation records. The reporter is never
@@ -39,7 +39,10 @@ const REASONS: { key: ReportReason; label: string; hint: string }[] = [
 ];
 
 export function ReportScreen({ navigation, route }: any) {
-  const { postId } = route.params as { postId: string };
+  // Exactly one of these is set. Same reasons and same queue either way; only
+  // the wording and the service call differ.
+  const { postId, messageId } = route.params as { postId?: string; messageId?: string };
+  const isMessage = !!messageId;
   const svc = getDataService();
   const insets = useSafeAreaInsets();
 
@@ -59,7 +62,8 @@ export function ReportScreen({ navigation, route }: any) {
     setSubmitting(true);
     setError(null);
     try {
-      await svc.reportPost(postId, reason, detail);
+      if (isMessage) await svc.reportMessage(messageId!, reason, detail);
+      else await svc.reportPost(postId!, reason, detail);
       setDone(true);
     } catch (e: any) {
       setError(e?.message ?? 'Could not send that report. Please try again.');
@@ -76,8 +80,9 @@ export function ReportScreen({ navigation, route }: any) {
         </View>
         <Text style={styles.doneTitle}>Thanks for telling us</Text>
         <Muted style={{ textAlign: 'center', paddingHorizontal: spacing.xl }}>
-          Our team will review this post. We do not tell the person who reported
-          them, and we will not share the outcome of the review.
+          Our team will review this {isMessage ? 'message' : 'post'}. We do not
+          tell the person who reported them, and we will not share the outcome
+          of the review.
         </Muted>
         <Button
           title="Done"
@@ -101,7 +106,7 @@ export function ReportScreen({ navigation, route }: any) {
           <Pressable onPress={() => navigation.goBack()} hitSlop={10}>
             <Text style={styles.cancel}>Cancel</Text>
           </Pressable>
-          <Text style={styles.title}>Report post</Text>
+          <Text style={styles.title}>{isMessage ? 'Report message' : 'Report post'}</Text>
           <View style={{ width: 50 }} />
         </View>
 

@@ -43,6 +43,29 @@ Test 3 caught a real hole during development: an earlier policy allowed
 and read the whole history. Membership now requires either already being in
 the thread or the thread being empty.
 
+## dm_follow_test.sql
+
+DMs are opt-in: you can only *start* a thread with someone you follow, but
+once a thread exists both sides can talk. Asserts:
+
+| # | Property |
+| --- | --- |
+| 1 | You can open a thread with someone you follow |
+| 2 | A private account can still start threads (`is_following` is SECURITY DEFINER) |
+| 3 | **A stranger cannot open a thread with you** |
+| 4 | The person you messaged can reply without following you back |
+| 5 | Unfollowing does not lock you out of a thread you already have |
+| 6 | A stranger still cannot add themselves to an existing thread |
+| 7 | You can report a message from a thread |
+| 8 | **Deleting the message does NOT destroy the report** (snapshot survives) |
+| 9 | Nobody can read anyone else's reports |
+| 10 | Nobody can report themselves |
+
+Test 2 is the one worth keeping: the follow check has to be SECURITY DEFINER,
+because the RLS policy on `follows` hides rows belonging to private accounts —
+a plain subquery would have silently stopped private accounts from ever
+starting a conversation.
+
 ## blocks_test.sql
 
 | # | Property |

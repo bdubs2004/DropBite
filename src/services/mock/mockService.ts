@@ -608,6 +608,8 @@ export class MockService implements DataService {
     if (userId === me.id) throw new Error('You cannot message yourself.');
 
     // Reuse the existing 1:1 thread rather than stacking duplicates.
+    // (Checked before the follow rule so an existing thread keeps working
+    //  even after you unfollow, which is how RLS behaves too.)
     const mine = new Set(
       db.conversationMembers.filter((m) => m.user_id === me.id).map((m) => m.conversation_id),
     );
@@ -616,6 +618,16 @@ export class MockService implements DataService {
     );
     if (existing) return existing.conversation_id;
 
+    // DMs are opt-in: you can only open a thread with someone you follow.
+    // The database enforces this in RLS; this mirrors it so demo mode behaves
+    // the same and the user gets a sentence instead of a policy violation.
+    const follows = db.follows.some(
+      (f) => f.follower_id === me.id && f.followee_id === userId,
+    );
+    if (!follows) {
+      throw new Error('You can only message people you follow. Follow them first.');
+    }
+
     const now = new Date().toISOString();
     const id = uid('conv-');
     db.conversations.push({ id, created_at: now, updated_at: now });
@@ -623,6 +635,39 @@ export class MockService implements DataService {
     db.conversationMembers.push({ conversation_id: id, user_id: userId, last_read_at: '1970-01-01T00:00:00.000Z' });
     await this.save();
     return id;
+  }
+
+  async reportMessage(messageId: string, reason: ReportReason, detail?: string): Promise<void> {
+    const db = await this.load();
+    const me = await this.me();
+    const dm = this.dmTables(db);
+    const msg = dm.messages.find((m) => m.id === messageId);
+    if (!msg) throw new Error('That message no longer exists.');
+    if (msg.sender_id === me.id) throw new Error('You cannot report your own message.');
+
+    // Filing twice is a no-op, same as post reports.
+    if (db.reports.some((r) => r.message_id === messageId && r.reporter_id === me.id)) return;
+
+    db.reports.push({
+      id: uid('rep-'),
+      post_id: null,
+      message_id: messageId,
+      reporter_id: me.id,
+      reported_user_id: msg.sender_id,
+      reason,
+      detail: detail?.trim() ? detail.trim().slice(0, 1000) : null,
+      post_blurb_snapshot: null,
+      post_photo_url_snapshot: null,
+      // Snapshot the message: the sender can delete it, and the report has to
+      // still show a reviewer what was actually reported.
+      message_text_snapshot: msg.text || null,
+      message_image_url_snapshot: msg.image_url ?? null,
+      status: 'open',
+      created_at: new Date().toISOString(),
+      reviewed_at: null,
+      reviewer_notes: null,
+    } as any);
+    await this.save();
   }
 
   async sharePostToUsers(postId: string, userIds: string[]): Promise<void> {

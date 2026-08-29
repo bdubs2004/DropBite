@@ -101,6 +101,10 @@ export interface Report {
   /** Copy of the post at report time, so deleting it can't destroy the record. */
   post_blurb_snapshot: string | null;
   post_photo_url_snapshot: string | null;
+  /** Set instead of post_id when a direct message is what was reported. */
+  message_id?: string | null;
+  message_text_snapshot?: string | null;
+  message_image_url_snapshot?: string | null;
   status: ReportStatus;
   created_at: string;
   reviewed_at: string | null;

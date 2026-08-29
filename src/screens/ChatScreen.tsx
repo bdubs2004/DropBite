@@ -46,6 +46,8 @@ export function ChatScreen({ navigation, route }: any) {
   const [photo, setPhoto] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  // Long-pressed message, for the report menu.
+  const [menuFor, setMenuFor] = useState<Message | null>(null);
 
   const load = useCallback(async () => {
     setMessages(await svc.getMessages(conversationId));
@@ -136,7 +138,14 @@ export function ChatScreen({ navigation, route }: any) {
           // inside a thick coloured frame — so drop the bubble around it.
           const photoOnly = !!item.image_url && !item.text && !item.shared_post_id;
           return (
-            <View style={[styles.bubbleWrap, mine ? styles.wrapMine : styles.wrapTheirs]}>
+            <Pressable
+              testID={`chat-message-${item.id}`}
+              // Reporting is the reason this is pressable; you can't report
+              // your own message, so leave your own bubbles inert.
+              onLongPress={() => !mine && setMenuFor(item)}
+              delayLongPress={350}
+              style={[styles.bubbleWrap, mine ? styles.wrapMine : styles.wrapTheirs]}
+            >
               <View
                 style={[
                   styles.bubble,
@@ -176,7 +185,7 @@ export function ChatScreen({ navigation, route }: any) {
                 ) : null}
               </View>
               <Muted style={styles.time}>{relativeTime(item.created_at)}</Muted>
-            </View>
+            </Pressable>
           );
         }}
         ListEmptyComponent={
@@ -184,6 +193,26 @@ export function ChatScreen({ navigation, route }: any) {
             No messages yet. Say something.
           </Muted>
         }
+      />
+
+      <ActionSheet
+        visible={menuFor !== null}
+        title="Message"
+        onClose={() => setMenuFor(null)}
+        actions={[
+          {
+            key: 'report-message',
+            label: 'Report message',
+            hint: 'Reports are confidential',
+            icon: 'flag-outline',
+            destructive: true,
+            onPress: () => {
+              const target = menuFor;
+              setMenuFor(null);
+              if (target) navigation.navigate('Report', { messageId: target.id });
+            },
+          },
+        ]}
       />
 
       <ActionSheet

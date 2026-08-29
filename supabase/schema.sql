@@ -243,6 +243,25 @@ $$;
 revoke all on function public.conversation_is_empty(uuid) from public;
 grant execute on function public.conversation_is_empty(uuid) to authenticated;
 
+-- True if `who` follows `target`. SECURITY DEFINER because the policy on
+-- public.follows hides rows belonging to private accounts, and a private
+-- account must still be able to start a conversation.
+create or replace function public.is_following(who uuid, target uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1 from public.follows f
+    where f.follower_id = who and f.followee_id = target
+  );
+$$;
+
+revoke all on function public.is_following(uuid, uuid) from public;
+grant execute on function public.is_following(uuid, uuid) to authenticated;
+
 -- True if anyone in the conversation has blocked (or been blocked by) `who`.
 -- Stops a blocked user from continuing to message through an old thread.
 create or replace function public.conversation_has_block(conv uuid, who uuid)
@@ -299,6 +318,13 @@ create table public.reports (
   detail text check (detail is null or char_length(detail) <= 1000),
   post_blurb_snapshot text check (post_blurb_snapshot is null or char_length(post_blurb_snapshot) <= 2000),
   post_photo_url_snapshot text check (post_photo_url_snapshot is null or char_length(post_photo_url_snapshot) <= 1000),
+  -- Reported DM. SET NULL like post_id so the sender deleting the message
+  -- doesn't erase the report, which is the whole point of keeping snapshots.
+  message_id uuid references public.messages (id) on delete set null,
+  message_text_snapshot text check (message_text_snapshot is null or char_length(message_text_snapshot) <= 2000),
+  message_image_url_snapshot text check (
+    message_image_url_snapshot is null or char_length(message_image_url_snapshot) <= 1000
+  ),
   status text not null default 'open' check (status in ('open', 'reviewing', 'actioned', 'dismissed')),
   created_at timestamptz not null default now(),
   reviewed_at timestamptz,
@@ -471,10 +497,20 @@ create policy "read members of own conversations" on public.conversation_members
 --   * the conversation is brand new and empty, so you may add yourself.
 -- A bare `user_id = auth.uid()` is NOT enough: that would let anyone add
 -- themselves to a stranger's existing thread and read the whole history.
+-- You may add yourself to a brand-new thread, and you may add someone else to
+-- a thread you are already in — but only someone you follow. That is what
+-- makes DMs opt-in: a stranger cannot open a thread with you.
+--
+-- Note this gates *starting* a conversation, not replying in one. Once a
+-- thread exists both members can send, so the person you messaged can answer
+-- without having to follow you back.
 create policy "join conversations" on public.conversation_members
   for insert to authenticated with check (
-    public.is_conversation_member(conversation_id, auth.uid())
-    or (user_id = auth.uid() and public.conversation_is_empty(conversation_id))
+    (user_id = auth.uid() and public.conversation_is_empty(conversation_id))
+    or (
+      public.is_conversation_member(conversation_id, auth.uid())
+      and (user_id = auth.uid() or public.is_following(auth.uid(), user_id))
+    )
   );
 create policy "update own membership" on public.conversation_members
   for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());

@@ -629,6 +629,18 @@ export class SupabaseService implements DataService {
       if (shared && shared.length > 0) return shared[0].conversation_id as string;
     }
 
+    // DMs are opt-in: you can only open a thread with someone you follow.
+    // RLS is the authority (the "join conversations" policy); this check is
+    // here so the user gets a sentence instead of a policy violation, and so
+    // we don't leave an orphan conversation row behind when it fails.
+    const { count } = await this.sb
+      .from('follows')
+      .select('*', { count: 'exact', head: true })
+      .match({ follower_id: meId, followee_id: userId });
+    if (!count) {
+      throw new Error('You can only message people you follow. Follow them first.');
+    }
+
     const { data: conv, error: cErr } = await this.sb
       .from('conversations')
       .insert({})
@@ -649,6 +661,33 @@ export class SupabaseService implements DataService {
     if (themErr) throw themErr;
 
     return convId;
+  }
+
+  async reportMessage(messageId: string, reason: ReportReason, detail?: string): Promise<void> {
+    const meId = await this.myId();
+
+    // Snapshot the message now: message_id is ON DELETE SET NULL, so without
+    // this the sender could delete the message and empty out the report.
+    const { data: msg } = await this.sb
+      .from('messages')
+      .select('sender_id, text, image_url')
+      .eq('id', messageId)
+      .maybeSingle();
+    if (!msg) throw new Error('That message no longer exists.');
+
+    const target = msg as { sender_id: string; text: string | null; image_url: string | null };
+    if (target.sender_id === meId) throw new Error('You cannot report your own message.');
+
+    const { error } = await this.sb.from('reports').insert({
+      message_id: messageId,
+      reporter_id: meId,
+      reported_user_id: target.sender_id,
+      reason,
+      detail: detail?.trim() ? detail.trim().slice(0, 1000) : null,
+      message_text_snapshot: target.text || null,
+      message_image_url_snapshot: target.image_url,
+    });
+    if (error) throw error;
   }
 
   async sharePostToUsers(postId: string, userIds: string[]): Promise<void> {

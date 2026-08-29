@@ -11,7 +11,9 @@ over user data, and it isn't worth building until report volume justifies it.
 
 ## Where reports live
 
-Table: **`public.reports`**. One row per person per post.
+Table: **`public.reports`**. One row per person per reported thing — a post,
+or a direct message. Exactly one of `post_id` / `message_id` is set; everything
+else in the row works the same either way.
 
 | Column | What it's for |
 | --- | --- |
@@ -23,6 +25,9 @@ Table: **`public.reports`**. One row per person per post.
 | `detail` | Optional free text from the reporter |
 | `post_blurb_snapshot` | The post's words, copied at report time |
 | `post_photo_url_snapshot` | The post's photo URL, copied at report time |
+| `message_id` | The reported DM. **Goes null if the sender deletes it** |
+| `message_text_snapshot` | The message's words, copied at report time |
+| `message_image_url_snapshot` | The message's attached photo, copied at report time |
 | `status` | `open` → `reviewing` → `actioned` \| `dismissed` |
 | `created_at` | When it was filed |
 | `reviewed_at`, `reviewer_notes` | Your audit trail |
@@ -36,6 +41,12 @@ against you — which is exactly what a bad actor would do.
 
 So: a report with `post_id IS NULL` means *the author already deleted it*. That
 is useful signal, not a broken row.
+
+`message_id` works exactly the same way, for the same reason. **You cannot read
+the rest of the thread** — the snapshot is all the context there is, by design:
+a moderator shouldn't be able to open anyone's private conversations. Judge the
+reported message on its own, and if it isn't judgeable alone, dismiss it and
+watch for repeat reports against the same sender.
 
 ---
 
@@ -60,9 +71,11 @@ select
   r.created_at,
   r.reason,
   r.detail,
-  coalesce(r.post_blurb_snapshot, '(no text)') as reported_text,
-  r.post_photo_url_snapshot as photo,
-  r.post_id is null as author_already_deleted_it,
+  case when r.message_id is not null or r.message_text_snapshot is not null
+       then 'direct message' else 'post' end as kind,
+  coalesce(r.post_blurb_snapshot, r.message_text_snapshot, '(no text)') as reported_text,
+  coalesce(r.post_photo_url_snapshot, r.message_image_url_snapshot) as photo,
+  coalesce(r.post_id, r.message_id) is null as author_already_deleted_it,
   u.handle    as reported_user,
   u.id        as reported_user_id
 from public.reports r
@@ -89,6 +102,44 @@ where status = 'open' and post_id is not null
 group by post_id
 having count(*) > 1
 order by report_count desc;
+```
+
+### DM reports only
+
+Harassment usually shows up in DMs before it shows up in a feed, so it's worth
+a separate pass.
+
+```sql
+select
+  r.id,
+  r.created_at,
+  r.reason,
+  r.detail,
+  coalesce(r.message_text_snapshot, '(photo only)') as message,
+  r.message_image_url_snapshot as photo,
+  r.message_id is null as sender_already_deleted_it,
+  u.handle as reported_user
+from public.reports r
+left join public.users u on u.id = r.reported_user_id
+where r.status = 'open' and (r.message_id is not null or r.message_text_snapshot is not null)
+order by r.created_at;
+```
+
+Someone with several DM reports from **different** reporters is the pattern to
+act on — one person reporting one message is often a falling-out, not abuse.
+
+```sql
+select
+  u.handle,
+  count(*)                          as dm_reports,
+  count(distinct r.reporter_id)     as distinct_reporters
+from public.reports r
+join public.users u on u.id = r.reported_user_id
+where r.status in ('open', 'reviewing')
+  and (r.message_id is not null or r.message_text_snapshot is not null)
+group by u.handle
+having count(distinct r.reporter_id) > 1
+order by distinct_reporters desc;
 ```
 
 ### Repeat offenders
