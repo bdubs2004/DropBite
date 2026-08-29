@@ -134,6 +134,8 @@ export interface Message {
   text: string;
   /** Set when this message is a post someone sent you. */
   shared_post_id: string | null;
+  /** An attached photo. */
+  image_url?: string | null;
   created_at: string;
   // hydrated client-side
   sender?: User;

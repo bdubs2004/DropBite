@@ -194,9 +194,15 @@ create table public.messages (
   -- A shared post. SET NULL so deleting the post doesn't delete the message;
   -- the thread still reads sensibly, the attachment just goes away.
   shared_post_id uuid references public.posts (id) on delete set null,
+  -- An attached photo, stored in the same per-user folder as post photos.
+  image_url text constraint messages_image_url_https check (
+    image_url is null or (image_url ~ '^https://[^\s]+$' and char_length(image_url) <= 1000)
+  ),
   created_at timestamptz not null default now(),
   -- A message must carry something.
-  check (char_length(text) > 0 or shared_post_id is not null)
+  constraint messages_not_empty check (
+    char_length(text) > 0 or shared_post_id is not null or image_url is not null
+  )
 );
 create index messages_conversation_created_idx on public.messages (conversation_id, created_at);
 

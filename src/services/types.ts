@@ -85,7 +85,7 @@ export interface DataService {
   getMessages(conversationId: string): Promise<Message[]>;
   sendMessage(
     conversationId: string,
-    input: { text?: string; sharedPostId?: string },
+    input: { text?: string; sharedPostId?: string; imageUri?: string },
   ): Promise<Message>;
   /** Find my existing 1:1 thread with this user, or start one. */
   startConversation(userId: string): Promise<string>;

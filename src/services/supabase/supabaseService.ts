@@ -571,11 +571,20 @@ export class SupabaseService implements DataService {
 
   async sendMessage(
     conversationId: string,
-    input: { text?: string; sharedPostId?: string },
+    input: { text?: string; sharedPostId?: string; imageUri?: string },
   ): Promise<Message> {
     const meId = await this.myId();
     const text = (input.text ?? '').trim().slice(0, 2000);
-    if (!text && !input.sharedPostId) throw new Error('Nothing to send.');
+    if (!text && !input.sharedPostId && !input.imageUri) throw new Error('Nothing to send.');
+
+    // Attachments go in the same per-user folder as post photos, so the
+    // existing storage policy and its size/MIME limits already cover them.
+    let imageUrl: string | null = null;
+    if (input.imageUri) {
+      imageUrl = input.imageUri.startsWith('http')
+        ? input.imageUri
+        : await this.uploadPhoto(input.imageUri, meId);
+    }
 
     const { data, error } = await this.sb
       .from('messages')
@@ -584,6 +593,7 @@ export class SupabaseService implements DataService {
         sender_id: meId,
         text,
         shared_post_id: input.sharedPostId ?? null,
+        image_url: imageUrl,
       })
       .select('*, users(*), posts(*)')
       .single();

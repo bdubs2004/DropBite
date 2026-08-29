@@ -572,7 +572,7 @@ export class MockService implements DataService {
 
   async sendMessage(
     conversationId: string,
-    input: { text?: string; sharedPostId?: string },
+    input: { text?: string; sharedPostId?: string; imageUri?: string },
   ): Promise<Message> {
     const db = this.dmTables(await this.load());
     const me = await this.me();
@@ -582,7 +582,7 @@ export class MockService implements DataService {
     if (!isMember) throw new Error('Not part of that conversation.');
 
     const text = (input.text ?? '').trim().slice(0, 2000);
-    if (!text && !input.sharedPostId) throw new Error('Nothing to send.');
+    if (!text && !input.sharedPostId && !input.imageUri) throw new Error('Nothing to send.');
 
     const msg: Message = {
       id: uid('m-'),
@@ -590,6 +590,9 @@ export class MockService implements DataService {
       sender_id: me.id,
       text,
       shared_post_id: input.sharedPostId ?? null,
+      // Demo mode has no bucket: keep the URI as-is. pickImage already turned
+      // web blob: URLs into data URLs so it survives a reload.
+      image_url: input.imageUri ?? null,
       created_at: new Date().toISOString(),
     };
     db.messages.push(msg);
