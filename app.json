@@ -23,7 +23,7 @@
     "android": {
       "package": "com.niblgo.app",
       "adaptiveIcon": {
-        "backgroundColor": "#EE8C28",
+        "backgroundColor": "#FEF7ED",
         "foregroundImage": "./assets/adaptive-icon.png"
       },
       "predictiveBackGestureEnabled": false
