@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '../components/Avatar';
+import { ActionSheet } from '../components/ActionSheet';
 import { ActivityDrawer } from '../components/ActivityDrawer';
 import { PostThumb } from '../components/PostThumb';
 import { Button, Muted } from '../components/ui';
@@ -103,6 +104,7 @@ export function ProfileScreen({ navigation, route }: any) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [confirmingBlock, setConfirmingBlock] = useState(false);
+  const [otherMenuOpen, setOtherMenuOpen] = useState(false);
 
   const doBlock = async () => {
     await svc.blockUser(userId);
@@ -217,11 +219,23 @@ export function ProfileScreen({ navigation, route }: any) {
           </View>
         ) : (
           <View style={{ marginTop: spacing.lg, gap: spacing.sm }}>
-            <Button
-              title={following ? 'Following ✓' : 'Follow'}
-              variant={following ? 'secondary' : 'primary'}
-              onPress={toggleFollow}
-            />
+            <View style={{ flexDirection: 'row', gap: spacing.sm, alignItems: 'center' }}>
+              <Button
+                title={following ? 'Following ✓' : 'Follow'}
+                variant={following ? 'secondary' : 'primary'}
+                onPress={toggleFollow}
+                style={{ flex: 1 }}
+              />
+              <Pressable
+                testID="profile-more"
+                onPress={() => setOtherMenuOpen(true)}
+                hitSlop={10}
+                style={styles.moreBtn}
+                accessibilityLabel="More options"
+              >
+                <Ionicons name="ellipsis-horizontal" size={20} color={colors.cocoaSoft} />
+              </Pressable>
+            </View>
             {confirmingBlock ? (
               <View style={styles.confirmBlock}>
                 <Text style={styles.confirmBlockText}>
@@ -248,14 +262,7 @@ export function ProfileScreen({ navigation, route }: any) {
                   />
                 </View>
               </View>
-            ) : (
-              <Button
-                testID="block-user"
-                title="Block"
-                variant="ghost"
-                onPress={confirmBlock}
-              />
-            )}
+            ) : null}
           </View>
         )}
       </View>
@@ -293,6 +300,31 @@ export function ProfileScreen({ navigation, route }: any) {
             </Muted>
           )
         }
+      />
+
+      <ActionSheet
+        visible={otherMenuOpen}
+        title={profile ? `@${profile.handle}` : undefined}
+        onClose={() => setOtherMenuOpen(false)}
+        actions={[
+          {
+            key: 'block',
+            label: blocked ? 'Unblock' : 'Block',
+            hint: blocked
+              ? 'You will see each other again'
+              : 'Hides you from each other and stops messages',
+            icon: blocked ? 'lock-open-outline' : 'ban-outline',
+            destructive: !blocked,
+            onPress: blocked
+              ? async () => {
+                  await svc.unblockUser(userId);
+                  setBlocked(false);
+                  load();
+                  refreshFeed();
+                }
+              : confirmBlock,
+          },
+        ]}
       />
 
       <ActivityDrawer
@@ -429,6 +461,14 @@ const styles = StyleSheet.create({
     borderRadius: radius.xl,
     padding: spacing.xl,
     ...(shadowSoft as object),
+  },
+  moreBtn: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.creamDark,
   },
   confirmBlock: {
     backgroundColor: colors.cream,

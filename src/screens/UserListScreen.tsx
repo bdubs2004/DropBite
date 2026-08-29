@@ -60,7 +60,7 @@ export function UserListScreen({ navigation, route }: any) {
       </View>
 
       {gated ? (
-        <View style={styles.empty}>
+        <View style={styles.gate}>
           <Ionicons name="lock-closed-outline" size={44} color={colors.cocoaFaint} />
           <Text style={styles.privateTitle}>{title} are private</Text>
           <Muted style={{ textAlign: 'center', paddingHorizontal: spacing.xl }}>
@@ -92,11 +92,43 @@ export function UserListScreen({ navigation, route }: any) {
           )}
           ListEmptyComponent={
             loading ? null : (
-              <Muted style={{ textAlign: 'center', marginTop: spacing.xxl }}>
-                {mode === 'followers'
-                  ? 'No followers yet.'
-                  : `${isMe ? 'You are' : displayName + ' is'} not following anyone yet.`}
-              </Muted>
+              // Give the empty case the same weight as the private one: an
+              // icon, a headline, and a line telling you what to do next.
+              <View style={styles.empty}>
+                <Ionicons
+                  name={mode === 'followers' ? 'people-outline' : 'person-add-outline'}
+                  size={44}
+                  color={colors.cocoaFaint}
+                />
+                <Text style={styles.emptyTitle}>
+                  {mode === 'followers'
+                    ? isMe
+                      ? 'No followers yet'
+                      : 'No followers yet'
+                    : isMe
+                      ? "You're not following anyone"
+                      : 'Not following anyone'}
+                </Text>
+                <Muted style={styles.emptyBody}>
+                  {mode === 'followers'
+                    ? isMe
+                      ? 'Share a meal or two and people will start following you.'
+                      : `When someone follows ${displayName}, they'll show up here.`
+                    : isMe
+                      ? 'Find people in Discover and their meals will fill your feed.'
+                      : `${displayName} hasn't followed anyone yet.`}
+                </Muted>
+                {isMe ? (
+                  <Pressable
+                    testID="empty-discover"
+                    style={styles.emptyCta}
+                    onPress={() => navigation.navigate('Tabs', { screen: 'Discover' })}
+                  >
+                    <Ionicons name="compass-outline" size={17} color={colors.white} />
+                    <Text style={styles.emptyCtaText}>Find people</Text>
+                  </Pressable>
+                ) : null}
+              </View>
             )
           }
         />
@@ -146,12 +178,45 @@ const styles = StyleSheet.create({
     color: colors.cocoaFaint,
     marginTop: 2,
   },
-  empty: {
+  gate: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
     paddingBottom: 80,
+    paddingHorizontal: spacing.xl,
+  },
+  empty: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    marginTop: 70,
+    paddingHorizontal: spacing.xl,
+  },
+  emptyTitle: {
+    fontFamily: fonts.display,
+    fontSize: 19,
+    color: colors.cocoa,
+    textAlign: 'center',
+  },
+  emptyBody: {
+    textAlign: 'center',
+    lineHeight: 19,
+  },
+  emptyCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    backgroundColor: colors.amber,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 11,
+    marginTop: spacing.sm,
+  },
+  emptyCtaText: {
+    fontFamily: fonts.bold,
+    fontSize: 14.5,
+    color: colors.white,
   },
   privateTitle: {
     fontFamily: fonts.display,
