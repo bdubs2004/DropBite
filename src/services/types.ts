@@ -92,6 +92,11 @@ export interface DataService {
   /** Send one post to several people at once (the share sheet). */
   sharePostToUsers(postId: string, userIds: string[]): Promise<void>;
   markConversationRead(conversationId: string): Promise<void>;
+  /**
+   * Remove a thread from YOUR inbox by leaving it. The other person keeps
+   * their copy — one side cannot destroy the other's history.
+   */
+  deleteConversation(conversationId: string): Promise<void>;
   /** Total unread messages across all threads, for the inbox badge. */
   getUnreadCount(): Promise<number>;
 

@@ -3,7 +3,9 @@ import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
+  Platform,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -11,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ActionSheet } from '../components/ActionSheet';
 import { Avatar } from '../components/Avatar';
 import { Muted } from '../components/ui';
 import { relativeTime } from '../lib/time';
@@ -25,6 +28,8 @@ export function InboxScreen({ navigation }: any) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [menuFor, setMenuFor] = useState<Conversation | null>(null);
+  const [confirming, setConfirming] = useState<Conversation | null>(null);
 
   const load = useCallback(async () => {
     setConversations(await svc.getConversations());
@@ -46,6 +51,30 @@ export function InboxScreen({ navigation }: any) {
       load();
     }, [load]),
   );
+
+  const removeConversation = async (c: Conversation) => {
+    setConversations((prev) => prev.filter((x) => x.id !== c.id));
+    try {
+      await svc.deleteConversation(c.id);
+    } catch {
+      load(); // restore if the write failed
+    }
+  };
+
+  const askDelete = (c: Conversation) => {
+    if (Platform.OS === 'web') {
+      setConfirming(c);
+      return;
+    }
+    Alert.alert(
+      `Delete conversation with ${c.other.display_name}?`,
+      'It disappears from your inbox. They keep their copy of the thread.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => removeConversation(c) },
+      ],
+    );
+  };
 
   const preview = (c: Conversation) => {
     if (!c.last_message) return 'Say hello';
@@ -91,6 +120,8 @@ export function InboxScreen({ navigation }: any) {
             <Pressable
               testID={`conversation-${item.other.id}`}
               style={styles.row}
+              onLongPress={() => setMenuFor(item)}
+              delayLongPress={350}
               onPress={() =>
                 navigation.navigate('Chat', {
                   conversationId: item.id,
@@ -133,6 +164,50 @@ export function InboxScreen({ navigation }: any) {
           }
         />
       )}
+
+      <ActionSheet
+        visible={menuFor !== null}
+        title={menuFor ? menuFor.other.display_name : undefined}
+        onClose={() => setMenuFor(null)}
+        actions={[
+          {
+            key: 'delete-conversation',
+            label: 'Delete conversation',
+            hint: 'Removes it from your inbox only',
+            icon: 'trash-outline',
+            destructive: true,
+            onPress: () => menuFor && askDelete(menuFor),
+          },
+        ]}
+      />
+
+      {confirming ? (
+        <View style={styles.confirmBar}>
+          <Text style={styles.confirmText}>
+            Delete this conversation? It leaves your inbox; they keep theirs.
+          </Text>
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            <Pressable
+              testID="conversation-delete-cancel"
+              onPress={() => setConfirming(null)}
+              style={[styles.confirmBtn, styles.confirmCancel]}
+            >
+              <Text style={styles.confirmCancelText}>Cancel</Text>
+            </Pressable>
+            <Pressable
+              testID="conversation-delete-confirm"
+              onPress={() => {
+                const t = confirming;
+                setConfirming(null);
+                if (t) removeConversation(t);
+              }}
+              style={[styles.confirmBtn, styles.confirmDelete]}
+            >
+              <Text style={styles.confirmDeleteText}>Delete</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -183,6 +258,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   badgeText: { fontFamily: fonts.bold, fontSize: 12, color: colors.white },
+  confirmBar: {
+    backgroundColor: colors.cream,
+    borderTopWidth: 1,
+    borderColor: colors.creamDark,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    gap: spacing.sm,
+  },
+  confirmText: { fontFamily: fonts.semi, fontSize: 13.5, lineHeight: 19, color: colors.cocoa },
+  confirmBtn: { borderRadius: radius.pill, paddingHorizontal: spacing.lg, paddingVertical: 8 },
+  confirmCancel: { backgroundColor: colors.creamDark },
+  confirmCancelText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.cocoa },
+  confirmDelete: { backgroundColor: colors.danger },
+  confirmDeleteText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.white },
   empty: { alignItems: 'center', gap: spacing.sm, marginTop: 80 },
   emptyTitle: { fontFamily: fonts.display, fontSize: 19, color: colors.cocoa },
 });

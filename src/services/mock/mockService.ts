@@ -523,8 +523,20 @@ export class MockService implements DataService {
         const otherId = db.conversationMembers.find(
           (m) => m.conversation_id === conv.id && m.user_id !== me.id,
         )?.user_id;
-        const other = db.users.find((u) => u.id === otherId);
-        if (!other) return null; // other party deleted their account
+        // If the other side left or deleted their account, keep the thread
+        // visible with a placeholder rather than silently losing the history.
+        const other =
+          db.users.find((u) => u.id === otherId) ??
+          ({
+            id: otherId ?? `gone-${conv.id}`,
+            handle: 'unavailable',
+            display_name: 'Someone',
+            avatar_url: null,
+            avatar_emoji: null,
+            bio: null,
+            timezone: 'UTC',
+            created_at: conv.created_at,
+          } as User);
 
         const msgs = db.messages
           .filter((m) => m.conversation_id === conv.id)
@@ -615,6 +627,17 @@ export class MockService implements DataService {
       const convId = await this.startConversation(userId);
       await this.sendMessage(convId, { sharedPostId: postId });
     }
+  }
+
+  async deleteConversation(conversationId: string): Promise<void> {
+    const db = this.dmTables(await this.load());
+    const me = await this.me();
+    // Leave, don't destroy: drop only my membership so the thread disappears
+    // from my inbox while the other person keeps theirs.
+    db.conversationMembers = db.conversationMembers.filter(
+      (m) => !(m.conversation_id === conversationId && m.user_id === me.id),
+    );
+    await this.save();
   }
 
   async markConversationRead(conversationId: string): Promise<void> {

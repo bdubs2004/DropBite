@@ -527,8 +527,20 @@ export class SupabaseService implements DataService {
 
     return rows
       .map((r) => {
-        const other = otherByConv.get(r.conversation_id);
-        if (!other) return null; // other party deleted their account
+        // Keep the thread visible even if the other side left or deleted
+        // their account, rather than silently losing the history.
+        const other =
+          otherByConv.get(r.conversation_id) ??
+          ({
+            id: `gone-${r.conversation_id}`,
+            handle: 'unavailable',
+            display_name: 'Someone',
+            avatar_url: null,
+            avatar_emoji: null,
+            bio: null,
+            timezone: 'UTC',
+            created_at: new Date(0).toISOString(),
+          } as User);
         const list = msgsByConv.get(r.conversation_id) ?? [];
         const last = list.length ? list[list.length - 1] : null;
         return {
@@ -634,6 +646,17 @@ export class SupabaseService implements DataService {
       const convId = await this.startConversation(userId);
       await this.sendMessage(convId, { sharedPostId: postId });
     }
+  }
+
+  async deleteConversation(conversationId: string): Promise<void> {
+    const meId = await this.myId();
+    // "leave conversations" RLS lets you delete only your own membership, so
+    // this removes the thread from your inbox without touching theirs.
+    const { error } = await this.sb
+      .from('conversation_members')
+      .delete()
+      .match({ conversation_id: conversationId, user_id: meId });
+    if (error) throw error;
   }
 
   async markConversationRead(conversationId: string): Promise<void> {

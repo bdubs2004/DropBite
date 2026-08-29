@@ -5,6 +5,7 @@ import { LOCATION_TAGGING_ENABLED } from '../config';
 import { relativeTime } from '../lib/time';
 import { colors, fonts, MEAL_SLOT_META, radius, shadow, spacing } from '../theme';
 import { Post } from '../types';
+import { ActionSheet } from './ActionSheet';
 import { Avatar } from './Avatar';
 import { PostPhoto } from './PostPhoto';
 import { RecipeCardView } from './RecipeCardView';
@@ -38,6 +39,7 @@ export function PostCard({
   const [showRecipe, setShowRecipe] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const slot = MEAL_SLOT_META[post.meal_slot];
 
   // One menu, two outcomes: your own post can be deleted, anyone else's can be
@@ -45,15 +47,7 @@ export function PostCard({
   // two never appear together.
   const canDelete = Boolean(isMine && onDelete);
   const canReport = Boolean(!isMine && onReport);
-  const hasMenu = canDelete || canReport;
 
-  const openMenu = () => {
-    if (canReport) {
-      onReport?.(post);
-      return;
-    }
-    askDelete();
-  };
 
   const askDelete = () => {
     // Alert.alert is a no-op on react-native-web, so web gets an inline
@@ -83,8 +77,58 @@ export function PostCard({
     }
   };
 
+  /**
+   * One menu for both entry points: the ··· button and a long-press anywhere
+   * on the card. Your own post offers Share + Delete, anyone else's offers
+   * Share + Report.
+   */
+  const menuActions = [
+    ...(onShare
+      ? [
+          {
+            key: 'share',
+            label: 'Share',
+            hint: 'Send inside NiblGo or copy a link',
+            icon: 'paper-plane-outline' as const,
+            onPress: () => onShare(post),
+          },
+        ]
+      : []),
+    ...(canDelete
+      ? [
+          {
+            key: 'delete',
+            label: 'Delete post',
+            hint: 'Removes the photo, recipe, likes and comments',
+            icon: 'trash-outline' as const,
+            destructive: true,
+            onPress: askDelete,
+          },
+        ]
+      : []),
+    ...(canReport
+      ? [
+          {
+            key: 'report',
+            label: 'Report post',
+            hint: 'Send it to us for review, confidentially',
+            icon: 'flag-outline' as const,
+            destructive: true,
+            onPress: () => onReport?.(post),
+          },
+        ]
+      : []),
+  ];
+
+  const openMenu = () => setMenuOpen(true);
+
   return (
-    <View style={styles.card}>
+    <Pressable
+      testID={`post-card-${post.id}`}
+      style={styles.card}
+      onLongPress={() => menuActions.length > 0 && setMenuOpen(true)}
+      delayLongPress={350}
+    >
       {/* header */}
       <View style={styles.header}>
         <Pressable style={styles.userRow} onPress={() => onPressUser?.(post.user_id)}>
@@ -99,7 +143,7 @@ export function PostCard({
         <View style={[styles.slotPill, { backgroundColor: slot.bg }]}>
           <Text style={[styles.slotText, { color: slot.color }]}>{slot.label}</Text>
         </View>
-        {hasMenu ? (
+        {menuActions.length > 0 ? (
           <Pressable
             testID={canDelete ? 'post-menu-delete' : 'post-menu-report'}
             onPress={openMenu}
@@ -252,7 +296,14 @@ export function PostCard({
           </View>
         ) : null}
       </View>
-    </View>
+
+      <ActionSheet
+        visible={menuOpen}
+        title={post.user?.handle ? `@${post.user.handle}` : undefined}
+        onClose={() => setMenuOpen(false)}
+        actions={menuActions}
+      />
+    </Pressable>
   );
 }
 
