@@ -107,42 +107,82 @@ are for, and what `verify.sql` checks for you.
 
 ## 2. Anthropic — AI recipe cards
 
-Skip this and the app works fine; the recipe card just doesn't appear, and posts
-show the blurb alone.
+Skip this and the app still works; the recipe card just never appears and posts
+show the blurb alone. Nothing else depends on it.
 
-**The key never goes in the app.** It lives as a Supabase Edge Function secret,
-because anything in `.env` ships inside the app bundle where anyone can read it.
+**The key never goes in the app.** Anything in `.env` ships inside the app
+bundle where anyone can read it. The key lives as a Supabase Edge Function
+secret, and the app calls the function — `supabase/functions/format-recipe`,
+which is already written and already wired to `src/services/ai.ts`. All you are
+doing here is supplying the key and pushing the function up.
 
-1. Get a key at <https://console.anthropic.com> and add ~$5 of credit. Formatting
-   a recipe on Haiku costs a fraction of a cent.
-2. Install the [Supabase CLI](https://supabase.com/docs/guides/cli), then:
+### Get the key
 
-   ```bash
-   supabase login
-   supabase link --project-ref YOUR_PROJECT_REF
-   supabase secrets set ANTHROPIC_API_KEY=sk-ant-your-key
-   supabase functions deploy format-recipe
-   supabase functions deploy delete-account
-   ```
+1. <https://console.anthropic.com> → **API keys** → create one. It starts
+   `sk-ant-`. Copy it now; the console will not show it again.
+2. **Billing** → add credit. $5 goes a long way: recipe formatting runs on
+   Claude Haiku 4.5 at $1 per million input tokens and $5 per million output,
+   and one recipe card is roughly 250 tokens in and 300 out — under a fifth of
+   a cent, so a few thousand cards for $5.
 
-`delete-account` is separate but deploy it too — Settings → Delete account needs
-it, and account deletion has to actually work.
+### Set the secret and deploy
 
-**Optional secrets, both worth setting before launch:**
+Install the [Supabase CLI](https://supabase.com/docs/guides/cli), then, from the
+project folder:
 
 ```bash
-supabase secrets set AI_DAILY_LIMIT=40                 # AI calls per user per day (default 40)
-supabase secrets set ALLOWED_ORIGINS=https://yourdomain.com
+supabase login
+supabase link --project-ref lmmuevnvshcqaqxjosbe
+supabase secrets set ANTHROPIC_API_KEY=sk-ant-your-key-here
+supabase functions deploy format-recipe
+supabase functions deploy delete-account
 ```
 
-**Verify:** write a post with a real recipe blurb ("chicken thighs with garlic,
-20 min") and tap format. You should get an editable card. Supabase → Edge
-Functions → format-recipe → Logs shows the call.
+`delete-account` is a separate function and unrelated to the AI, but deploy it
+in the same pass: Settings → Delete account calls it, and without it account
+deletion silently fails.
 
-Model and prompt live in `src/config.ts` (`AI_CONFIG`), mirrored in
-`supabase/functions/format-recipe/index.ts`. Change them in both.
+Prefer not to install anything? Both halves can be done in the dashboard
+instead — Edge Functions has an in-browser editor you can paste
+`supabase/functions/format-recipe/index.ts` into, and a Secrets screen for
+`ANTHROPIC_API_KEY`. Supabase has moved that screen between the Edge Functions
+tab and Project Settings, so search the dashboard for "secrets" if it is not
+where you expect.
 
----
+### Two more secrets worth setting
+
+```bash
+supabase secrets set AI_DAILY_LIMIT=40                      # AI calls per user per day
+supabase secrets set ALLOWED_ORIGINS=https://yourdomain.com  # who may call the function
+```
+
+Neither is required to work, but both are cheap insurance. The function already
+requires a signed-in user and meters per-user usage through `consume_ai_quota`;
+`AI_DAILY_LIMIT` sets where that meter trips (default 40). `ALLOWED_ORIGINS`
+restricts the browser origins allowed to call it — native builds send no Origin
+header and are unaffected.
+
+### Verify
+
+Write a post with a real cooking blurb — "chicken thighs with garlic and
+paprika, roasted 25 min" — and tap format. You should get an editable card.
+
+If nothing appears, the app is doing what it is designed to do: any failure
+falls back to blurb-only rather than blocking your post, which does mean
+failures are quiet. The detail is in the function logs — Supabase dashboard →
+Edge Functions → format-recipe → Logs:
+
+| Log / response | Meaning |
+| --- | --- |
+| `ANTHROPIC_API_KEY not configured` | The secret did not get set, or the function was deployed before you set it — redeploy |
+| `anthropic error 401` | Bad or revoked key |
+| `anthropic error 400` with a model message | Model id not available to your account |
+| `anthropic error 429` | Out of credit, or rate limited |
+| `rate_limited` (429 from the function) | Your own `AI_DAILY_LIMIT` tripped, not Anthropic |
+| No log line at all | The call never reached the function — check it deployed, and that you are signed in |
+
+The model and prompt live in `src/config.ts` (`AI_CONFIG`) and are mirrored in
+the function. Change both together — the function is the one that actually runs.
 
 ## 3. A real build — needed for mealtime notifications
 

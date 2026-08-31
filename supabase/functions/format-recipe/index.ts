@@ -10,7 +10,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 // Keep model + prompt aligned with src/config.ts AI_CONFIG.
-const MODEL = 'claude-haiku-4-5-20251001';
+const MODEL = 'claude-haiku-4-5';
 const MAX_TOKENS = 1024;
 const SYSTEM_PROMPT = [
   'You turn a casual home-cook blurb into a structured recipe.',

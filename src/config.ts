@@ -48,7 +48,7 @@ export const LOCATION_TAGGING_ENABLED: boolean = false;
  * (supabase/functions/format-recipe). Never put an Anthropic key in the app.
  */
 export const AI_CONFIG = {
-  model: 'claude-haiku-4-5-20251001',
+  model: 'claude-haiku-4-5',
   maxTokens: 1024,
   systemPrompt: [
     'You turn a casual home-cook blurb into a structured recipe.',
