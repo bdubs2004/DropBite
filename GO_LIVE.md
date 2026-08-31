@@ -47,8 +47,14 @@ security rules. Without it the app can only run in demo mode.
 
    ```
    EXPO_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
-   EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+   EXPO_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_...
    ```
+
+   **Mind the prefix.** Supabase labels these `NEXT_PUBLIC_*` in its dashboard
+   because it assumes Next.js. Expo only exposes `EXPO_PUBLIC_*` to the app, so
+   pasting the dashboard's names verbatim leaves you in demo mode with nothing
+   explaining why. Either key format works: the legacy JWT (`eyJ...`) or the
+   newer `sb_publishable_...`.
 
 5. Restart with `npx expo start --clear`.
 
@@ -70,8 +76,11 @@ device." Create an account, post a photo, and confirm the row in **Table Editor
 > real protection is in the RLS policies. Never put the `service_role` key in
 > `.env` or anywhere in the app. See [SECURITY.md](SECURITY.md).
 
-> **Turn email confirmation off while testing** (Authentication → Providers →
-> Email), and back on before you let real people in.
+> **Turn email confirmation off while testing** — Authentication → Providers →
+> Email → disable "Confirm email". With it on, `signUp` returns a user but no
+> session, so the profile row the app writes immediately afterwards is rejected
+> by RLS (`auth.uid()` is null) and sign-up fails. Turning it back on for launch
+> needs the app to handle the confirm-then-create flow, which is not built yet.
 
 ### If your database already exists
 
