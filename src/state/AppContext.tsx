@@ -71,7 +71,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (user) {
       refreshFeed();
-      syncMealtimeNotifications(prefs);
     } else {
       setFeed([]);
       setStreak(null);
@@ -79,11 +78,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
+  /**
+   * Reminders follow the saved prefs — and must wait for them to load.
+   *
+   * `booted` is the gate that matters: the boot effect sets the user before it
+   * sets prefs, so syncing on the user alone scheduled the DEFAULT times over
+   * whatever the user had chosen. Depending on prefs here also means the
+   * settings toggles need no sync call of their own; changing prefs re-runs
+   * this. Overlapping runs are safe — syncMealtimeNotifications queues them.
+   */
+  useEffect(() => {
+    if (!booted || !user) return;
+    syncMealtimeNotifications(prefs);
+  }, [booted, user?.id, prefs]);
+
   const setPrefs = useCallback(
     async (p: NotificationPrefs) => {
       setPrefsState(p);
       await svc.setNotificationPrefs(p);
-      await syncMealtimeNotifications(p);
     },
     [svc],
   );

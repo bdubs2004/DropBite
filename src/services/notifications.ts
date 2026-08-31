@@ -1,5 +1,10 @@
 import { Platform } from 'react-native';
-import { MEAL_REMINDER_SLOTS, parseTime, timeFor } from '../lib/mealTimes';
+import {
+  MEAL_REMINDER_KIND,
+  planMealReminders,
+  ScheduledReminder,
+} from '../lib/mealReminderPlan';
+import { serialQueue } from '../lib/serialQueue';
 import { MealReminderSlot, NotificationPrefs } from '../types';
 
 /**
@@ -8,7 +13,8 @@ import { MealReminderSlot, NotificationPrefs } from '../types';
  * Web: gracefully no-ops.
  *
  * The hour/minute for each slot comes from the user's saved prefs, so someone
- * who eats dinner at 8pm gets reminded at 8pm. See src/lib/mealTimes.ts.
+ * who eats dinner at 8pm gets reminded at 8pm. See src/lib/mealTimes.ts, and
+ * src/lib/mealReminderPlan.ts for what gets cancelled and scheduled.
  */
 
 const SLOT_COPY: Record<MealReminderSlot, { title: string; body: string }> = {
@@ -26,7 +32,18 @@ const SLOT_COPY: Record<MealReminderSlot, { title: string; body: string }> = {
   },
 };
 
-export async function syncMealtimeNotifications(prefs: NotificationPrefs): Promise<boolean> {
+/**
+ * Runs are queued, never concurrent.
+ *
+ * This is the other half of the duplicate fix. Sync is called whenever prefs
+ * change, and it is a read-cancel-schedule sequence. Two overlapping runs could
+ * both read the same pending state and both schedule, leaving two reminders per
+ * meal. Queueing means the second run always sees the first one's finished
+ * state. See src/lib/serialQueue.ts.
+ */
+export const syncMealtimeNotifications = serialQueue(applyMealtimeNotifications, false);
+
+async function applyMealtimeNotifications(prefs: NotificationPrefs): Promise<boolean> {
   if (Platform.OS === 'web') return false;
   try {
     const Notifications = await import('expo-notifications');
@@ -42,20 +59,39 @@ export async function syncMealtimeNotifications(prefs: NotificationPrefs): Promi
       }),
     });
 
-    // Clear and re-schedule wholesale: simpler than diffing, and this runs
-    // only when prefs change.
-    await Notifications.cancelAllScheduledNotificationsAsync();
-    for (const slot of MEAL_REMINDER_SLOTS) {
-      if (!prefs[slot]) continue;
-      const at = parseTime(timeFor(prefs, slot));
-      if (!at) continue; // timeFor already falls back, so this is belt-and-braces
-      const copy = SLOT_COPY[slot];
+    // Read what is actually pending on the device rather than assuming, so
+    // duplicates left by an earlier version get swept up too.
+    let existing: ScheduledReminder[] = [];
+    try {
+      const pending = await Notifications.getAllScheduledNotificationsAsync();
+      existing = pending.map((n) => ({
+        identifier: n.identifier,
+        data: (n.content?.data ?? null) as ScheduledReminder['data'],
+      }));
+    } catch {
+      // Fall through with an empty list: the plan still cancels our own ids.
+    }
+
+    const plan = planMealReminders(prefs, existing);
+
+    for (const identifier of plan.cancel) {
+      // Cancelling something already gone is not an error worth failing on.
+      await Notifications.cancelScheduledNotificationAsync(identifier).catch(() => {});
+    }
+
+    for (const item of plan.schedule) {
+      const copy = SLOT_COPY[item.slot];
       await Notifications.scheduleNotificationAsync({
-        content: { title: copy.title, body: copy.body, data: { slot } },
+        identifier: item.identifier,
+        content: {
+          title: copy.title,
+          body: copy.body,
+          data: { slot: item.slot, kind: MEAL_REMINDER_KIND },
+        },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DAILY,
-          hour: at.hour,
-          minute: at.minute,
+          hour: item.hour,
+          minute: item.minute,
         },
       });
     }
