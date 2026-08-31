@@ -160,8 +160,8 @@ editor.
 
 > **Already have a database from before?** Run the files in
 > `supabase/migrations/` in order (SQL Editor → New query → paste → Run). A
-> fresh `schema.sql` already includes them. `0002_reports.sql` adds the content
-> report queue — see [MODERATION.md](MODERATION.md) for how to work it.
+> fresh `schema.sql` already includes all of them, and every one is safe to run
+> twice. [GO_LIVE.md](GO_LIVE.md) lists what each migration adds.
 
 ### B2. Anthropic: real AI recipe cards (about 10 min)
 

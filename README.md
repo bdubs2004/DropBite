@@ -27,7 +27,8 @@ locally on-device (AsyncStorage) with a seeded feed of fake users and posts and 
 heuristic recipe formatter. The full product loop (sign up, follow, post, AI recipe
 card, streak) is testable immediately.
 
-When you're ready to go live, plug in the real services: **[SETUP_GUIDE.md](SETUP_GUIDE.md)**
+When you're ready to go live, start with the checklist in
+**[GO_LIVE.md](GO_LIVE.md)**; the click-by-click version is **[SETUP_GUIDE.md](SETUP_GUIDE.md)**
 has the step-by-step for running it on your phone and wiring up Supabase, Anthropic,
 and push notifications.
 
