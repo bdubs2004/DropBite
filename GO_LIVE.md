@@ -52,9 +52,19 @@ security rules. Without it the app can only run in demo mode.
 
 5. Restart with `npx expo start --clear`.
 
-**Verify:** the sign-in screen no longer says "Demo mode: everything is stored on
-this device." Create an account, post a photo, and check Supabase **Table
-Editor → posts** and **Storage → photos** — your row and your image are there.
+**Verify:** paste `supabase/verify.sql` into the SQL Editor and run it. Every
+row should say OK; anything else names the file that fixes it. Then check the
+app: the sign-in screen no longer says "Demo mode: everything is stored on this
+device." Create an account, post a photo, and confirm the row in **Table Editor
+→ posts** and the image in **Storage → photos**.
+
+> **`ERROR: 42710: type "meal_slot" already exists`?** You already ran some of
+> the schema. Nothing is broken — `schema.sql` is safe to run repeatedly, so
+> just run it again and it will fill in what is missing and leave your data
+> alone. (If you are on a copy of the file from before this was fixed, pull the
+> latest first.) Then run `verify.sql`. To start genuinely clean instead, run
+> `supabase/reset.sql` — it deletes every account, post and photo, so only use
+> it on a project you are still setting up.
 
 > The anon key is *meant* to be public; it is baked into the app bundle. All the
 > real protection is in the RLS policies. Never put the `service_role` key in
@@ -79,8 +89,10 @@ from `supabase/migrations/`:
 | `0008_dm_follow_and_reports.sql` | Follow-gated DMs, reportable messages |
 | `0009_notifications.sql` | In-app notifications for post interactions |
 
-They are all safe to run twice. A fresh `schema.sql` already contains every one
-of them.
+They are all safe to run twice, and so is `schema.sql` itself. What re-running
+`schema.sql` will **not** do is add a column to a table that already exists —
+`create table if not exists` skips the whole table. That is what the migrations
+are for, and what `verify.sql` checks for you.
 
 ---
 
@@ -182,6 +194,7 @@ Cloud, and set `EXPO_PUBLIC_GOOGLE_PLACES_KEY`. No other code changes.
 - [ ] Account deletion works end to end (Settings → Delete account, with `delete-account` deployed)
 - [ ] **Wire up data export** — see Known gaps below
 - [ ] Run the checks: `npm run typecheck` and `npm run test:reminders`
+- [ ] `supabase/verify.sql` reports OK on every row
 - [ ] Run the RLS tests against a scratch database: `supabase/tests/README.md`
 
 ## Known gaps
@@ -202,6 +215,13 @@ before you take real users.
 ```bash
 npm run typecheck        # TypeScript, strict mode
 npm run test:reminders   # mealtime reminder scheduling
+```
+
+And against your database, in the Supabase SQL Editor:
+
+```
+supabase/verify.sql      # 40 checks: tables, RLS, policy counts, functions,
+                         # triggers, columns, and the photo bucket's limits
 ```
 
 The database security tests in `supabase/tests/` need a throwaway Postgres; the

@@ -135,7 +135,10 @@ editor.
    everything (`Ctrl+A`), and copy it. Then in the Supabase dashboard go to
    **SQL Editor → New query**, paste, and click **Run**. This creates all tables
    (users, follows, posts, recipes, reactions, streaks), row-level security, and
-   the public `photos` storage bucket.
+   the public `photos` storage bucket. It is safe to run more than once — if you
+   see `ERROR: 42710: type "meal_slot" already exists`, you have simply run part
+   of it before; run it again and it will fill in the rest.
+   Then paste `supabase/verify.sql` and run that: every row should say OK.
 3. **Turn off email confirmation for testing** (optional): Authentication → Providers
    → Email → disable "Confirm email". Re-enable before public launch.
 4. **Get your keys:** Settings → API. Copy the **Project URL** and the **anon public**

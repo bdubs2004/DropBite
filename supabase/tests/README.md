@@ -43,6 +43,14 @@ Test 3 caught a real hole during development: an earlier policy allowed
 and read the whole history. Membership now requires either already being in
 the thread or the thread being empty.
 
+## Not a test, but nearby: verify.sql
+
+`supabase/verify.sql` is the read-only counterpart to these. It runs against a
+real project (paste it into the Supabase SQL Editor) and reports whether the
+tables, policy counts, functions, notification triggers, migration columns and
+the photo bucket's limits are all as they should be. Use it after setting up or
+migrating a database; use the tests below to check the rules themselves.
+
 ## dm_follow_test.sql
 
 DMs are opt-in: you can only *start* a thread with someone you follow, but
