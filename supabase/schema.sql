@@ -171,8 +171,6 @@ as $$
   );
 $$;
 
-revoke all on function public.is_blocked_pair(uuid, uuid) from public;
-grant execute on function public.is_blocked_pair(uuid, uuid) to authenticated;
 
 -- -------------------------------------------------------- direct messages
 -- 1:1 threads today; the members table means group DMs need no migration.
@@ -228,8 +226,6 @@ as $$
   );
 $$;
 
-revoke all on function public.is_conversation_member(uuid, uuid) from public;
-grant execute on function public.is_conversation_member(uuid, uuid) to authenticated;
 
 -- True only while a conversation has no members at all, i.e. the instant
 -- after it is created. Used to let the creator add themselves without also
@@ -246,8 +242,6 @@ as $$
   );
 $$;
 
-revoke all on function public.conversation_is_empty(uuid) from public;
-grant execute on function public.conversation_is_empty(uuid) to authenticated;
 
 -- True if `who` follows `target`. SECURITY DEFINER because the policy on
 -- public.follows hides rows belonging to private accounts, and a private
@@ -265,8 +259,6 @@ as $$
   );
 $$;
 
-revoke all on function public.is_following(uuid, uuid) from public;
-grant execute on function public.is_following(uuid, uuid) to authenticated;
 
 -- True if anyone in the conversation has blocked (or been blocked by) `who`.
 -- Stops a blocked user from continuing to message through an old thread.
@@ -285,8 +277,6 @@ as $$
   );
 $$;
 
-revoke all on function public.conversation_has_block(uuid, uuid) from public;
-grant execute on function public.conversation_has_block(uuid, uuid) to authenticated;
 
 -- ---------------------------------------------------- comment_reactions
 -- Likes on comments. Same shape as post reactions: one row per (comment, user)
@@ -515,8 +505,6 @@ as $$
     (select count(*) from public.follows f where f.follower_id = target);
 $$;
 
-revoke all on function public.follow_counts(uuid) from public;
-grant execute on function public.follow_counts(uuid) to authenticated;
 drop policy if exists "follow as self" on public.follows;
 create policy "follow as self" on public.follows
   for insert to authenticated with check (
@@ -828,4 +816,49 @@ begin
 end;
 $$;
 
-revoke all on function public.consume_ai_quota(uuid, integer) from public;
+
+-- ------------------------------------------------ function execute grants
+-- These have to be explicit. Supabase sets ALTER DEFAULT PRIVILEGES so every
+-- new function in `public` is executable by anon and authenticated, and
+-- `revoke ... from public` does NOT remove those role grants — PUBLIC and
+-- `anon` are different grantees. Without the revokes below, anyone holding the
+-- app's anon key (which is public by design) can call these SECURITY DEFINER
+-- helpers directly over PostgREST and they answer, bypassing RLS:
+--
+--   * is_following()      would expose the follow graph of private accounts
+--   * is_blocked_pair()   would reveal that someone blocked you, which
+--                         SECURITY.md promises is never visible
+--   * consume_ai_quota()  would let anyone burn another user's daily AI
+--                         allowance and switch their recipe cards off
+--
+-- The five policy helpers genuinely need `authenticated`: an RLS policy
+-- expression runs as the caller, so the caller must be able to execute what the
+-- policy calls. Everything else gets nothing.
+revoke all on function public.is_blocked_pair(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.is_blocked_pair(uuid, uuid) to authenticated;
+
+revoke all on function public.is_conversation_member(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.is_conversation_member(uuid, uuid) to authenticated;
+
+revoke all on function public.conversation_is_empty(uuid) from public, anon, authenticated;
+grant execute on function public.conversation_is_empty(uuid) to authenticated;
+
+revoke all on function public.conversation_has_block(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.conversation_has_block(uuid, uuid) to authenticated;
+
+revoke all on function public.is_following(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.is_following(uuid, uuid) to authenticated;
+
+-- Called directly by the app. Follower counts are public by design.
+revoke all on function public.follow_counts(uuid) from public, anon, authenticated;
+grant execute on function public.follow_counts(uuid) to authenticated;
+
+-- Only the format-recipe edge function calls this, and it uses the service
+-- role key. No client should ever be able to move another user's meter.
+revoke all on function public.consume_ai_quota(uuid, integer) from public, anon, authenticated;
+
+-- Trigger functions. Postgres does not check EXECUTE on a trigger function when
+-- the trigger fires — only when the trigger is created — so revoking here costs
+-- nothing and removes two more entry points.
+revoke all on function public.notify_post_interaction() from public, anon, authenticated;
+revoke all on function public.notify_comment() from public, anon, authenticated;

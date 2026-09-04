@@ -120,6 +120,18 @@ doing here is supplying the key and pushing the function up.
 
 1. <https://console.anthropic.com> → **API keys** → create one. It starts
    `sk-ant-`. Copy it now; the console will not show it again.
+
+   **Scope it to a workspace.** A key created without a workspace has to name
+   one on every request, and the API rejects the call outright if it doesn't:
+   `This API key is not scoped to a workspace`. The function turns that into an
+   opaque `upstream_error`, and the app falls back to blurb-only — so an
+   unscoped key looks exactly like the feature silently not working. If you
+   already have an unscoped key, set the workspace as a secret instead of
+   making a new key:
+
+   ```bash
+   supabase secrets set ANTHROPIC_WORKSPACE_ID=wrkspc_your_workspace_id
+   ```
 2. **Billing** → add credit. $5 goes a long way: recipe formatting runs on
    Claude Haiku 4.5 at $1 per million input tokens and $5 per million output,
    and one recipe card is roughly 250 tokens in and 300 out — under a fifth of
@@ -176,6 +188,7 @@ Edge Functions → format-recipe → Logs:
 | --- | --- |
 | `ANTHROPIC_API_KEY not configured` | The secret did not get set, or the function was deployed before you set it — redeploy |
 | `anthropic error 401` | Bad or revoked key |
+| `anthropic error 400` … `not scoped to a workspace` | Unscoped key — set `ANTHROPIC_WORKSPACE_ID`, or make a workspace-scoped key |
 | `anthropic error 400` with a model message | Model id not available to your account |
 | `anthropic error 429` | Out of credit, or rate limited |
 | `rate_limited` (429 from the function) | Your own `AI_DAILY_LIMIT` tripped, not Anthropic |

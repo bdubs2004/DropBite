@@ -55,7 +55,9 @@ insert into public.streaks (user_id,current_streak,longest_streak)
 \echo '--- 7. ai_usage unreachable from the client (expect 0 rows, then denial) ---'
 select count(*) as rows_visible from public.ai_usage;
 insert into public.ai_usage (user_id,count) values ('33333333-3333-3333-3333-333333333333',0);
-\echo '   quota function is service-role only:'
+\echo '   quota function is service-role only (expect: permission denied)'
+\echo '   Until 0010 this SUCCEEDED, letting any client burn another user''s'
+\echo '   daily AI allowance and switch their recipe cards off.'
 select public.consume_ai_quota('33333333-3333-3333-3333-333333333333', 40);
 
 \echo '--- 8. Post owner can moderate comments on their own post ---'
@@ -74,3 +76,49 @@ select file_size_limit, allowed_mime_types from storage.buckets where id = 'phot
 select public.consume_ai_quota('33333333-3333-3333-3333-333333333333', 2) as call1;
 select public.consume_ai_quota('33333333-3333-3333-3333-333333333333', 2) as call2;
 select public.consume_ai_quota('33333333-3333-3333-3333-333333333333', 2) as call3_over;
+
+\echo '--- 11. THE DEFINER HELPERS ARE NOT OPEN TO anon ---'
+\echo '     Supabase grants EXECUTE on public functions to anon by default, so'
+\echo '     `revoke ... from public` was not enough: every one of these answered'
+\echo '     an anonymous PostgREST call and bypassed RLS while doing it.'
+reset role;
+-- Scoped to our own functions by name. A scratch database may also have
+-- pgcrypto installed into `public`; on Supabase those live in `extensions`.
+with ours(name) as (
+  values ('is_blocked_pair'), ('is_conversation_member'), ('conversation_is_empty'),
+         ('conversation_has_block'), ('is_following'), ('follow_counts'),
+         ('consume_ai_quota'), ('notify_post_interaction'), ('notify_comment')
+),
+-- authenticated needs EXECUTE only where an RLS policy expression calls it.
+expected(name, anon_ok, auth_ok) as (
+  values ('is_blocked_pair', false, true), ('is_conversation_member', false, true),
+         ('conversation_is_empty', false, true), ('conversation_has_block', false, true),
+         ('is_following', false, true), ('follow_counts', false, true),
+         ('consume_ai_quota', false, false), ('notify_post_interaction', false, false),
+         ('notify_comment', false, false)
+)
+select
+  rpad(e.name, 24) as function,
+  has_function_privilege('anon', p.oid, 'EXECUTE') as anon,
+  has_function_privilege('authenticated', p.oid, 'EXECUTE') as auth,
+  case
+    when has_function_privilege('anon', p.oid, 'EXECUTE') <> e.anon_ok
+      then 'FAIL: anon should be ' || e.anon_ok::text
+    when has_function_privilege('authenticated', p.oid, 'EXECUTE') <> e.auth_ok
+      then 'FAIL: authenticated should be ' || e.auth_ok::text
+    else 'ok'
+  end as verdict
+from expected e
+join pg_proc p on p.proname = e.name and p.pronamespace = 'public'::regnamespace
+order by verdict, function;
+
+\echo '   Every verdict above must read ok. This is the number that matters:'
+with ours(name) as (
+  values ('is_blocked_pair'), ('is_conversation_member'), ('conversation_is_empty'),
+         ('conversation_has_block'), ('is_following'), ('follow_counts'),
+         ('consume_ai_quota'), ('notify_post_interaction'), ('notify_comment')
+)
+select count(*) as our_functions_callable_by_anon
+from ours o
+join pg_proc p on p.proname = o.name and p.pronamespace = 'public'::regnamespace
+where has_function_privilege('anon', p.oid, 'EXECUTE');

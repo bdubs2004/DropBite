@@ -3,6 +3,9 @@
 //
 // Deploy:   supabase functions deploy format-recipe
 // Secret:   supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+// Optional: supabase secrets set ANTHROPIC_WORKSPACE_ID=wrkspc_...
+//           Only needed when the key is NOT scoped to a workspace; without it
+//           such a key fails every call with a 400 the client never sees.
 //
 // Request:  POST { blurb: string }
 // Response: { is_recipe, title, ingredients: [{item,quantity,unit}], steps: [], cook_time_minutes }
@@ -94,12 +97,19 @@ Deno.serve(async (req: Request) => {
       return json({ error: 'unavailable' }, 503, cors);
     }
 
+    // An Anthropic key is either scoped to a workspace or not. An unscoped key
+    // must name the workspace on every request, otherwise the API returns
+    // 400 "This API key is not scoped to a workspace". A workspace-scoped key
+    // needs nothing extra — leave ANTHROPIC_WORKSPACE_ID unset for those.
+    const workspaceId = Deno.env.get('ANTHROPIC_WORKSPACE_ID');
+
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
+        ...(workspaceId ? { 'anthropic-workspace-id': workspaceId } : {}),
       },
       body: JSON.stringify({
         model: MODEL,
