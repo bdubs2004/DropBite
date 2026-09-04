@@ -111,6 +111,16 @@ export interface Report {
   reviewer_notes: string | null;
 }
 
+/**
+ * What happened when someone signed up.
+ *
+ * `confirm_email` is not an error: with email confirmation enabled, Supabase
+ * creates the auth user but issues no session until the link is clicked.
+ */
+export type SignUpResult =
+  | { status: 'ready'; user: User }
+  | { status: 'confirm_email'; email: string };
+
 export type FeedbackKind = 'feedback' | 'bug';
 
 /** A user telling us something is wrong, or what they want. */

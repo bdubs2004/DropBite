@@ -48,21 +48,30 @@ export function AuthScreen() {
   const [displayName, setDisplayName] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Set once sign-up succeeds but the account still needs confirming.
+  const [confirmEmail, setConfirmEmail] = useState<string | null>(null);
 
   const submit = async () => {
     setError(null);
     setBusy(true);
     try {
-      const user =
-        mode === 'signup'
-          ? await svc.signUp({
-              email,
-              password,
-              handle,
-              display_name: displayName,
-            })
-          : await svc.signIn(email, password);
-      setUser(user);
+      if (mode === 'signup') {
+        const result = await svc.signUp({
+          email,
+          password,
+          handle,
+          display_name: displayName,
+        });
+        // Not an error: the account exists but is not usable until the link in
+        // the email is clicked, so there is nobody to sign in yet.
+        if (result.status === 'confirm_email') {
+          setConfirmEmail(result.email);
+          return;
+        }
+        setUser(result.user);
+      } else {
+        setUser(await svc.signIn(email, password));
+      }
     } catch (e: any) {
       setError(authErrorMessage(e, mode));
     } finally {
@@ -74,6 +83,41 @@ export function AuthScreen() {
     EMAIL_RE.test(email.trim()) &&
     password.length >= LIMITS.passwordMin &&
     (mode === 'signin' || (handle.trim().length >= 2 && displayName.trim().length >= 1));
+
+  // The account exists but is not usable until they click the link, so there
+  // is nothing to sign in to yet. Say that plainly rather than dumping them
+  // back on a form that would now fail with "email not confirmed".
+  if (confirmEmail) {
+    return (
+      <View style={[styles.scroll, styles.confirmRoot]}>
+        <View style={styles.hero}>
+          <LogoMark size={76} />
+        </View>
+        <View style={styles.card}>
+          <Text style={styles.confirmTitle}>Check your email</Text>
+          <Text style={styles.confirmBody}>
+            We sent a confirmation link to{' '}
+            <Text style={styles.confirmEmail}>{confirmEmail}</Text>. Tap it, then come back and
+            sign in.
+          </Text>
+          <Text style={styles.confirmHint}>
+            No email after a minute or two? Check your spam folder, and make sure the address is
+            right — you can start again with a different one.
+          </Text>
+          <Button
+            title="Back to sign in"
+            testID="confirm-back"
+            onPress={() => {
+              setConfirmEmail(null);
+              setMode('signin');
+              setPassword('');
+            }}
+            style={{ marginTop: spacing.lg }}
+          />
+        </View>
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -174,6 +218,30 @@ export function AuthScreen() {
 }
 
 const styles = StyleSheet.create({
+  confirmRoot: { flex: 1, justifyContent: 'center' },
+  confirmTitle: {
+    fontFamily: fonts.display,
+    fontSize: 22,
+    color: colors.cocoa,
+    textAlign: 'center',
+    marginBottom: spacing.md,
+  },
+  confirmBody: {
+    fontFamily: fonts.semi,
+    fontSize: 15,
+    lineHeight: 22,
+    color: colors.cocoa,
+    textAlign: 'center',
+  },
+  confirmEmail: { fontFamily: fonts.bold, color: colors.amberDark },
+  confirmHint: {
+    fontFamily: fonts.semi,
+    fontSize: 13,
+    lineHeight: 19,
+    color: colors.cocoaFaint,
+    textAlign: 'center',
+    marginTop: spacing.md,
+  },
   scroll: {
     flexGrow: 1,
     justifyContent: 'center',

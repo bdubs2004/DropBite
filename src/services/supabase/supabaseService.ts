@@ -1,6 +1,7 @@
 import {
   AppNotification,
   Comment,
+  SignUpResult,
   FeedbackKind,
   Conversation,
   DiscoverPerson,
@@ -85,12 +86,9 @@ export class SupabaseService implements DataService {
   async getCurrentUser(): Promise<User | null> {
     const { data } = await this.sb.auth.getUser();
     if (!data.user) return null;
-    const { data: profile } = await this.sb
-      .from('users')
-      .select('*')
-      .eq('id', data.user.id)
-      .single();
-    return (profile as User) ?? null;
+    // ensureProfile rather than a plain select: a session restored after the
+    // user confirmed their email may still have no profile row.
+    return this.ensureProfile();
   }
 
   async signUp(input: {
@@ -99,37 +97,101 @@ export class SupabaseService implements DataService {
     handle: string;
     display_name: string;
     avatar_emoji?: string;
-  }): Promise<User> {
+  }): Promise<SignUpResult> {
+    const handle = input.handle
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_]/g, '')
+      .slice(0, LIMITS.handle);
+    const display_name = clamp(input.display_name, LIMITS.displayName);
+
+    // Carry the profile fields in the auth user's metadata. With email
+    // confirmation on there is no session yet, so the profile row cannot be
+    // written here — and the user may well click the link on another device,
+    // where nothing we stored locally would be available. Metadata travels with
+    // the account, so ensureProfile() can finish the job wherever they land.
     const { data, error } = await this.sb.auth.signUp({
       email: input.email,
       password: input.password,
+      options: {
+        data: {
+          handle,
+          display_name,
+          avatar_emoji: input.avatar_emoji ?? null,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC',
+        },
+      },
     });
     if (error) throw error;
     if (!data.user) throw new Error('Sign-up failed');
-    const profile: Partial<User> = {
-      id: data.user.id,
-      handle: input.handle
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9_]/g, '')
-        .slice(0, LIMITS.handle),
-      display_name: clamp(input.display_name, LIMITS.displayName),
-      avatar_emoji: input.avatar_emoji ?? null,
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC',
-    };
-    const { data: created, error: pErr } = await this.sb
+
+    // No session means the project requires email confirmation. Not an error.
+    if (!data.session) return { status: 'confirm_email', email: input.email };
+
+    const user = await this.ensureProfile();
+    if (!user) throw new Error('Profile could not be created');
+    return { status: 'ready', user };
+  }
+
+  /**
+   * Make sure the signed-in user has a profile row, creating it from the auth
+   * metadata if not.
+   *
+   * Called after every sign-in because the row may not exist yet: with email
+   * confirmation enabled, sign-up cannot write it. Idempotent — if the row is
+   * already there it is simply returned.
+   */
+  private async ensureProfile(): Promise<User | null> {
+    const { data: auth } = await this.sb.auth.getUser();
+    if (!auth.user) return null;
+
+    const { data: existing } = await this.sb
       .from('users')
-      .insert(profile)
-      .select()
-      .single();
-    if (pErr) throw pErr;
-    return created as User;
+      .select('*')
+      .eq('id', auth.user.id)
+      .maybeSingle();
+    if (existing) return existing as User;
+
+    const meta = (auth.user.user_metadata ?? {}) as Record<string, unknown>;
+    const rawHandle = typeof meta.handle === 'string' ? meta.handle : '';
+    // A handle is required and must be unique. If metadata is missing — an
+    // account made outside this app, say — derive one rather than fail, and
+    // add a suffix so a collision doesn't lock the account out entirely.
+    const base =
+      rawHandle.replace(/[^a-z0-9_]/g, '').slice(0, LIMITS.handle) ||
+      (auth.user.email ?? 'user').split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20) ||
+      'user';
+
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const handle = attempt === 0 ? base : `${base.slice(0, 24)}${Math.floor(Math.random() * 10000)}`;
+      const { data: created, error } = await this.sb
+        .from('users')
+        .insert({
+          id: auth.user.id,
+          handle,
+          display_name:
+            (typeof meta.display_name === 'string' && meta.display_name) || handle,
+          avatar_emoji: typeof meta.avatar_emoji === 'string' ? meta.avatar_emoji : null,
+          timezone:
+            (typeof meta.timezone === 'string' && meta.timezone) ||
+            Intl.DateTimeFormat().resolvedOptions().timeZone ||
+            'UTC',
+        })
+        .select()
+        .single();
+      if (!error) return created as User;
+      // 23505 is unique_violation: the handle is taken, try another.
+      if ((error as { code?: string }).code !== '23505') throw error;
+    }
+    throw new Error('Could not pick an available handle. Please try a different one.');
   }
 
   async signIn(email: string, password: string): Promise<User> {
     const { error } = await this.sb.auth.signInWithPassword({ email, password });
     if (error) throw error;
-    const me = await this.getCurrentUser();
+    // First sign-in after confirming an email lands here with no profile row
+    // yet — this is where the account is actually finished.
+    const me = await this.ensureProfile();
     if (!me) throw new Error('Profile missing');
     return me;
   }

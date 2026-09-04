@@ -1,6 +1,7 @@
 import {
   AppNotification,
   Comment,
+  SignUpResult,
   FeedbackKind,
   Conversation,
   DiscoverPerson,
@@ -23,13 +24,24 @@ import {
 export interface DataService {
   // auth/session
   getCurrentUser(): Promise<User | null>;
+  /**
+   * Create an account.
+   *
+   * Returns `{ status: 'ready' }` when the user is signed in and their profile
+   * exists. When the project requires email confirmation, sign-up legitimately
+   * ends WITHOUT a session — nothing is signed in yet, so the profile row
+   * cannot be written (RLS would reject it, `auth.uid()` being null). That case
+   * returns `{ status: 'confirm_email' }`; the profile is created on the first
+   * sign-in after they click the link. See ensureProfile in the Supabase
+   * implementation.
+   */
   signUp(input: {
     email: string;
     password: string;
     handle: string;
     display_name: string;
     avatar_emoji?: string;
-  }): Promise<User>;
+  }): Promise<SignUpResult>;
   signIn(email: string, password: string): Promise<User>;
   signOut(): Promise<void>;
   deleteAccount(): Promise<void>;

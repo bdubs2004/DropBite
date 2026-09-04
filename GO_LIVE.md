@@ -76,11 +76,12 @@ device." Create an account, post a photo, and confirm the row in **Table Editor
 > real protection is in the RLS policies. Never put the `service_role` key in
 > `.env` or anywhere in the app. See [SECURITY.md](SECURITY.md).
 
-> **Turn email confirmation off while testing** — Authentication → Providers →
-> Email → disable "Confirm email". With it on, `signUp` returns a user but no
-> session, so the profile row the app writes immediately afterwards is rejected
-> by RLS (`auth.uid()` is null) and sign-up fails. Turning it back on for launch
-> needs the app to handle the confirm-then-create flow, which is not built yet.
+> **Email confirmation can stay ON.** The app handles it: sign-up stores the
+> handle and display name in the auth user's metadata and shows a "check your
+> email" screen, and the profile row is created on the first sign-in after the
+> link is clicked (`ensureProfile`). Using metadata rather than local state
+> matters because people often confirm on a different device. Leave it on for
+> launch — with it off, anyone can sign up as anyone's email address.
 
 ### If your database already exists
 
@@ -270,23 +271,10 @@ Cloud, and set `EXPO_PUBLIC_GOOGLE_PLACES_KEY`. No other code changes.
 - [ ] `AI_DAILY_LIMIT` set, so one user can't burn your Anthropic credit
 - [ ] You can work a report: [MODERATION.md](MODERATION.md) — App Store review asks about this
 - [ ] Account deletion works end to end (Settings → Delete account, with `delete-account` deployed)
-- [ ] **Wire up data export** — see Known gaps below
+- [ ] Data export works (Settings → Your data → Download my data)
 - [ ] Run the checks: `npm run typecheck` and `npm run test:reminders`
 - [ ] `supabase/verify.sql` reports OK on every row
 - [ ] Run the RLS tests against a scratch database: `supabase/tests/README.md`
-
-## Known gaps
-
-One thing is built but not reachable, and it matters for launch:
-
-**Data export has no button.** `exportMyData()` is implemented in both services
-and returns the user's profile, posts, follows, reactions and streak as JSON —
-but nothing in Settings calls it. CLAUDE.md lists working data export as an MVP
-requirement, and data portability is a legal obligation in the EU (GDPR art. 20)
-and California (CCPA). Account *deletion* is wired up and works; only export is
-missing. It needs a button in the Settings account section that calls
-`svc.exportMyData()` and hands the result to the share sheet — small, but do it
-before you take real users.
 
 ## Sanity checks you can run right now
 

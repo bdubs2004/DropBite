@@ -7,6 +7,7 @@ import { daysBetween, localDateString } from '../../lib/time';
 import {
   AppNotification,
   Comment,
+  SignUpResult,
   Feedback,
   FeedbackKind,
   Conversation,
@@ -172,7 +173,7 @@ export class MockService implements DataService {
     handle: string;
     display_name: string;
     avatar_emoji?: string;
-  }): Promise<User> {
+  }): Promise<SignUpResult> {
     const db = await this.load();
     const email = input.email.trim().toLowerCase();
     const handle = input.handle
@@ -208,7 +209,8 @@ export class MockService implements DataService {
     for (const f of SEED_FOLLOWING) db.follows.push({ follower_id: user.id, followee_id: f });
     db.streaks.push({ user_id: user.id, current_streak: 0, longest_streak: 0, last_post_date: null });
     await this.save();
-    return user;
+    // Demo mode has no email step, so an account is usable immediately.
+    return { status: 'ready', user };
   }
 
   async signIn(email: string, password: string): Promise<User> {
