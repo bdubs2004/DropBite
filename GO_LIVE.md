@@ -154,12 +154,26 @@ supabase functions deploy delete-account
 in the same pass: Settings → Delete account calls it, and without it account
 deletion silently fails.
 
-Prefer not to install anything? Both halves can be done in the dashboard
-instead — Edge Functions has an in-browser editor you can paste
-`supabase/functions/format-recipe/index.ts` into, and a Secrets screen for
-`ANTHROPIC_API_KEY`. Supabase has moved that screen between the Edge Functions
-tab and Project Settings, so search the dashboard for "secrets" if it is not
-where you expect.
+Prefer not to install anything? Both halves can be done in the dashboard.
+
+**The secret** goes on the Edge Function Secrets page:
+
+```
+https://supabase.com/dashboard/project/lmmuevnvshcqaqxjosbe/functions/secrets
+```
+
+Add `ANTHROPIC_API_KEY` as the key and paste the value. It is **not** in the
+database — you will not find it in the Table Editor, and it is not Supabase
+Vault (Database → Vault), which is a different feature for secrets used *by SQL*
+rather than by Edge Functions. Putting the key there would leave the function
+unable to see it.
+
+You can set the secret before any function exists, and you do **not** need to
+redeploy after changing one — secrets are read at call time.
+
+**The function itself** is separate: Edge Functions → deploy a new function, and
+paste in `supabase/functions/format-recipe/index.ts`. Do the same for
+`delete-account`.
 
 ### Two more secrets worth setting
 
@@ -186,7 +200,7 @@ Edge Functions → format-recipe → Logs:
 
 | Log / response | Meaning |
 | --- | --- |
-| `ANTHROPIC_API_KEY not configured` | The secret did not get set, or the function was deployed before you set it — redeploy |
+| `ANTHROPIC_API_KEY not configured` | The secret is not set on this project — check the Secrets page. Setting it takes effect immediately; no redeploy needed |
 | `anthropic error 401` | Bad or revoked key |
 | `anthropic error 400` … `not scoped to a workspace` | Unscoped key — set `ANTHROPIC_WORKSPACE_ID`, or make a workspace-scoped key |
 | `anthropic error 400` with a model message | Model id not available to your account |
