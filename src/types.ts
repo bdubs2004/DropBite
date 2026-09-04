@@ -111,6 +111,21 @@ export interface Report {
   reviewer_notes: string | null;
 }
 
+export type FeedbackKind = 'feedback' | 'bug';
+
+/** A user telling us something is wrong, or what they want. */
+export interface Feedback {
+  id: string;
+  user_id: string | null;
+  handle_snapshot: string | null;
+  kind: FeedbackKind;
+  message: string;
+  app_version: string | null;
+  platform: string | null;
+  status: 'new' | 'triaged' | 'resolved';
+  created_at: string;
+}
+
 export type NotificationType = 'like' | 'comment' | 'repost' | 'share';
 
 /**

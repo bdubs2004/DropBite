@@ -256,3 +256,51 @@ Reporting alone doesn't satisfy the UGC requirements. Also needed:
 - [ ] **Appeals path** for people whose content was removed.
 - [ ] Consider auto-hiding a post once it passes a report threshold, so bad
       content isn't live for a full day while you sleep.
+
+
+---
+
+## Feedback and bug reports
+
+Separate table, separate purpose: `public.reports` is a moderation queue about
+other people's content and carries legal weight. **`public.feedback`** is users
+telling you the app itself is wrong, from Help at the bottom of the profile
+drawer.
+
+| Column | What it's for |
+| --- | --- |
+| `kind` | `feedback` (an idea) or `bug` (something broken) |
+| `message` | What they wrote |
+| `user_id` | Who filed it. **Goes null if they delete their account** |
+| `handle_snapshot` | Their handle, kept readable after the account is gone |
+| `app_version`, `platform` | Attached automatically — a bug report without these usually isn't actionable |
+| `status` | `new` → `triaged` → `resolved` |
+| `reviewed_at`, `reviewer_notes` | Your audit trail |
+
+Nobody can read anyone else's, and **nobody can edit or delete a filed report**,
+including its author — there is deliberately no update or delete policy, so
+what you read is what was sent. Triage through the service role.
+
+```sql
+select
+  created_at,
+  kind,
+  message,
+  coalesce(handle_snapshot, '(deleted account)') as who,
+  platform,
+  app_version
+from public.feedback
+where status = 'new'
+order by created_at;
+```
+
+Bug reports clustering on one platform or one app version is the signal worth
+acting on:
+
+```sql
+select platform, app_version, count(*) as reports
+from public.feedback
+where kind = 'bug' and created_at > now() - interval '14 days'
+group by platform, app_version
+order by reports desc;
+```

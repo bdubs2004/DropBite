@@ -97,6 +97,8 @@ from `supabase/migrations/`:
 | `0007_message_images.sql` | Photo attachments in DMs |
 | `0008_dm_follow_and_reports.sql` | Follow-gated DMs, reportable messages |
 | `0009_notifications.sql` | In-app notifications for post interactions |
+| `0010_function_grants.sql` | **Security fix** — stops anon calling the RLS-bypassing helpers |
+| `0011_feedback.sql` | In-app feedback and bug reports |
 
 They are all safe to run twice, and so is `schema.sql` itself. What re-running
 `schema.sql` will **not** do is add a column to a table that already exists —

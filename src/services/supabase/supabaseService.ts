@@ -1,6 +1,7 @@
 import {
   AppNotification,
   Comment,
+  FeedbackKind,
   Conversation,
   DiscoverPerson,
   Message,
@@ -13,6 +14,7 @@ import {
   Streak,
   User,
 } from '../../types';
+import { appVersion, platformName } from '../../lib/appInfo';
 import { clamp, clampOrNull, LIMITS } from '../../lib/limits';
 import { sanitizeSearchTerm } from '../../lib/searchTerm';
 import { daysBetween, localDateString } from '../../lib/time';
@@ -662,6 +664,30 @@ export class SupabaseService implements DataService {
     if (themErr) throw themErr;
 
     return convId;
+  }
+
+  async sendFeedback(input: { kind: FeedbackKind; message: string }): Promise<void> {
+    const meId = await this.myId();
+    const message = clamp(input.message, 2000);
+    if (!message) throw new Error('Please tell us what happened.');
+
+    // Snapshot the handle: user_id is ON DELETE SET NULL so the report
+    // outlives the account, and an anonymous row is much harder to act on.
+    const { data: me } = await this.sb
+      .from('users')
+      .select('handle')
+      .eq('id', meId)
+      .maybeSingle();
+
+    const { error } = await this.sb.from('feedback').insert({
+      user_id: meId,
+      handle_snapshot: (me as { handle?: string } | null)?.handle ?? null,
+      kind: input.kind,
+      message,
+      app_version: appVersion(),
+      platform: platformName(),
+    });
+    if (error) throw error;
   }
 
   async reportMessage(messageId: string, reason: ReportReason, detail?: string): Promise<void> {

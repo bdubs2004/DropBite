@@ -443,6 +443,25 @@ export function ProfileScreen({ navigation, route }: any) {
               },
             ],
           },
+          {
+            title: 'Help',
+            items: [
+              {
+                key: 'feedback',
+                label: 'Send feedback',
+                hint: 'Ideas, requests, anything you think',
+                icon: 'chatbox-ellipses-outline',
+                onPress: () => navigation.navigate('Feedback', { kind: 'feedback' }),
+              },
+              {
+                key: 'bug',
+                label: 'Report a problem',
+                hint: 'Something is broken or behaving oddly',
+                icon: 'bug-outline',
+                onPress: () => navigation.navigate('Feedback', { kind: 'bug' }),
+              },
+            ],
+          },
         ]}
       />
     </View>

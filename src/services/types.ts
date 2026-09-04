@@ -1,6 +1,7 @@
 import {
   AppNotification,
   Comment,
+  FeedbackKind,
   Conversation,
   DiscoverPerson,
   Message,
@@ -131,6 +132,12 @@ export interface DataService {
   getLikedPosts(): Promise<Post[]>;
   /** Posts I've commented on, most recent comment first. Private to me. */
   getCommentedPosts(): Promise<Post[]>;
+
+  /**
+   * File feedback or a bug report. The platform and app version are attached
+   * by the implementation, not typed by the user.
+   */
+  sendFeedback(input: { kind: FeedbackKind; message: string }): Promise<void>;
 
   // notifications — someone interacted with your post
   /** Newest first. Only ever your own; the database enforces that. */

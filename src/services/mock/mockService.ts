@@ -1,11 +1,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { hashPassword, verifyPassword } from '../../lib/demoPassword';
 import { uid } from '../../lib/id';
+import { appVersion, platformName } from '../../lib/appInfo';
 import { clamp, clampOrNull, LIMITS } from '../../lib/limits';
 import { daysBetween, localDateString } from '../../lib/time';
 import {
   AppNotification,
   Comment,
+  Feedback,
+  FeedbackKind,
   Conversation,
   Message,
   NewPostInput,
@@ -76,6 +79,7 @@ interface Db {
   messages: Message[];
   blocks: { blocker_id: string; blocked_id: string }[];
   reports: Report[];
+  feedback: Feedback[];
   notifications: AppNotification[];
   streaks: Streak[];
   sessionUserId: string | null;
@@ -102,6 +106,7 @@ function freshDb(): Db {
     messages: [],
     blocks: [],
     reports: [],
+    feedback: [],
     notifications: [],
     streaks: [
       { user_id: 'u-marge', current_streak: 12, longest_streak: 34, last_post_date: localDateString() },
@@ -638,6 +643,26 @@ export class MockService implements DataService {
     db.conversationMembers.push({ conversation_id: id, user_id: userId, last_read_at: '1970-01-01T00:00:00.000Z' });
     await this.save();
     return id;
+  }
+
+  async sendFeedback(input: { kind: FeedbackKind; message: string }): Promise<void> {
+    const db = await this.load();
+    const me = await this.me();
+    const message = clamp(input.message, 2000);
+    if (!message) throw new Error('Please tell us what happened.');
+    if (!db.feedback) db.feedback = [];
+    db.feedback.push({
+      id: uid('fb-'),
+      user_id: me.id,
+      handle_snapshot: me.handle,
+      kind: input.kind,
+      message,
+      app_version: appVersion(),
+      platform: platformName(),
+      status: 'new',
+      created_at: new Date().toISOString(),
+    });
+    await this.save();
   }
 
   async reportMessage(messageId: string, reason: ReportReason, detail?: string): Promise<void> {
