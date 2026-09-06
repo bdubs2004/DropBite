@@ -65,7 +65,11 @@ Rules:
 - All timestamps UTC in DB; convert to user timezone in UI.
 - Feature-flag anything Phase 2/3 adjacent rather than half-building it.
 - Write a seed script with fake users/posts so the feed is testable immediately.
-- Privacy from day one: data export and account deletion must actually work in MVP.
+- Privacy from day one: account deletion must actually work in MVP. **Self-serve
+  data export was deliberately removed** — the company fulfils access requests
+  manually instead (see "Data access requests" in MODERATION.md). That is a
+  business decision, not an oversight; the GDPR/CCPA obligation still stands and
+  is now answered by hand.
 
 ## Definition of Done for MVP
 

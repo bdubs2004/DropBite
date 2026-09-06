@@ -18,7 +18,6 @@ import { TimePickerModal } from '../components/TimePickerModal';
 import { Button, Card, Input, Muted, ScreenTitle } from '../components/ui';
 import { LIMITS } from '../lib/limits';
 import { formatTime, MEAL_REMINDER_SLOTS, timeFor } from '../lib/mealTimes';
-import { exportFilename, exportToFile } from '../lib/exportData';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
 import { colors, fonts, radius, spacing } from '../theme';
@@ -41,8 +40,6 @@ export function SettingsScreen({ navigation, route }: any) {
   const [bio, setBio] = useState(user?.bio ?? '');
   const [followsPrivate, setFollowsPrivate] = useState(Boolean(user?.follows_private));
   const [saving, setSaving] = useState(false);
-  const [exporting, setExporting] = useState(false);
-  const [exportNote, setExportNote] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editingSlot, setEditingSlot] = useState<MealReminderSlot | null>(null);
 
@@ -109,26 +106,6 @@ export function SettingsScreen({ navigation, route }: any) {
   const deleteAccount = async () => {
     await svc.deleteAccount();
     setUser(null);
-  };
-
-  const runExport = async () => {
-    setExporting(true);
-    setExportNote(null);
-    try {
-      const json = await svc.exportMyData();
-      const result = await exportToFile(json, exportFilename());
-      setExportNote(
-        result === 'saved'
-          ? `Exported ${(json.length / 1024).toFixed(1)} KB as ${exportFilename()}.`
-          : result === 'dismissed'
-            ? 'Export cancelled. Nothing left your device.'
-            : 'Could not produce the file. Please try again.',
-      );
-    } catch {
-      setExportNote('Could not read your data right now. Please try again.');
-    } finally {
-      setExporting(false);
-    }
   };
 
   const askDelete = () => {
@@ -257,21 +234,6 @@ export function SettingsScreen({ navigation, route }: any) {
         )}
       </Card>
 
-      <Text style={styles.section}>Your data</Text>
-      <Card>
-        <Button
-          title={exporting ? 'Preparing' : 'Download my data'}
-          testID="export-data"
-          variant="ghost"
-          loading={exporting}
-          disabled={exporting}
-          onPress={runExport}
-        />
-        <Muted style={{ marginTop: spacing.sm }}>
-          {exportNote ??
-            'A JSON file with your profile, posts, recipes, follows, likes and streak. Yours to keep, and to take elsewhere.'}
-        </Muted>
-      </Card>
 
       <View style={{ height: spacing.xl }} />
       <Button

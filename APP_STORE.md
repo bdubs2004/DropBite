@@ -26,10 +26,13 @@ Then test on a real device, in this order, because each step gates the next:
 1. Sign up → you get "check your email" → click the link → sign in → your profile exists
 2. Post a photo → it appears in Supabase Storage
 3. Write a cooking blurb → tap format → an editable recipe card appears
-4. Settings → Your data → **Download my data** → a JSON file arrives
-5. Settings → **Delete account** → the account is really gone (check Authentication → Users)
+4. Settings → **Delete account** → the account is really gone (check Authentication → Users)
 
-Steps 4 and 5 are the two Apple checks most likely to bounce you.
+Step 4 is the Apple check most likely to bounce you.
+
+Note there is no in-app data export — that was removed deliberately. Apple does
+not require one (it requires deletion), but GDPR and CCPA access requests still
+have to be answered by hand: see "Data access requests" in MODERATION.md.
 
 ---
 
@@ -131,7 +134,7 @@ need one) are the long poles — everything else can happen while you wait.
 ```
 1. Start Apple Developer enrolment              ← today, it gates everything
 2. Run 0010, 0011, verify.sql; deploy both functions
-3. Test the five flows on a real device
+3. Test the four flows on a real device
 4. Write the privacy policy + support page
 5. eas build --platform ios --profile production
 6. Fill in App Store Connect (screenshots, labels, EULA, 24 h commitment)

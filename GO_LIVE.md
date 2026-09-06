@@ -271,7 +271,7 @@ Cloud, and set `EXPO_PUBLIC_GOOGLE_PLACES_KEY`. No other code changes.
 - [ ] `AI_DAILY_LIMIT` set, so one user can't burn your Anthropic credit
 - [ ] You can work a report: [MODERATION.md](MODERATION.md) — App Store review asks about this
 - [ ] Account deletion works end to end (Settings → Delete account, with `delete-account` deployed)
-- [ ] Data export works (Settings → Your data → Download my data)
+- [ ] You can answer a data access request — see "Data access requests" in [MODERATION.md](MODERATION.md). There is deliberately no in-app export, so this is a manual process with a legal clock on it (30 days GDPR, 45 CCPA)
 - [ ] Run the checks: `npm run typecheck` and `npm run test:reminders`
 - [ ] `supabase/verify.sql` reports OK on every row
 - [ ] Run the RLS tests against a scratch database: `supabase/tests/README.md`

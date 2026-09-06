@@ -45,7 +45,16 @@ export interface DataService {
   signIn(email: string, password: string): Promise<User>;
   signOut(): Promise<void>;
   deleteAccount(): Promise<void>;
-  exportMyData(): Promise<string>; // JSON string of everything the user owns
+  /**
+   * JSON of everything the signed-in user owns.
+   *
+   * NOT reachable from the UI: self-serve export was deliberately removed, so
+   * users cannot download their own data. Kept because access requests still
+   * have to be answered — see "Data access requests" in MODERATION.md for the
+   * SQL that assembles the same payload from the service role, which is how
+   * you fulfil one now. Re-adding a button is a Settings change only.
+   */
+  exportMyData(): Promise<string>;
 
   // profile
   updateProfile(

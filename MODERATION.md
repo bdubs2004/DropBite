@@ -304,3 +304,55 @@ where kind = 'bug' and created_at > now() - interval '14 days'
 group by platform, app_version
 order by reports desc;
 ```
+
+
+---
+
+## Data access requests
+
+Self-serve export was removed on purpose: there is no "download my data" button
+in the app, so **you** assemble an export when someone asks for one.
+
+That removal changes who does the work, not whether it has to be done. Under
+GDPR art. 15 and 20 an EU user can demand a copy of their data and you have one
+month to provide it; CCPA/CPRA gives California residents the same right on a
+45-day clock. Both expect a machine-readable format. Run this as the service
+role (SQL Editor), replacing the handle:
+
+```sql
+with target as (select id from public.users where handle = 'their_handle')
+select jsonb_pretty(jsonb_build_object(
+  'exported_at', now(),
+  'profile',   (select to_jsonb(u) - 'id' from public.users u, target t where u.id = t.id),
+  'posts',     (select coalesce(jsonb_agg(to_jsonb(p)), '[]'::jsonb)
+                from public.posts p, target t where p.user_id = t.id),
+  'recipes',   (select coalesce(jsonb_agg(to_jsonb(r)), '[]'::jsonb)
+                from public.recipes r
+                join public.posts p on p.id = r.post_id, target t where p.user_id = t.id),
+  'comments',  (select coalesce(jsonb_agg(to_jsonb(c)), '[]'::jsonb)
+                from public.comments c, target t where c.user_id = t.id),
+  'follows',   (select coalesce(jsonb_agg(to_jsonb(f)), '[]'::jsonb)
+                from public.follows f, target t where f.follower_id = t.id),
+  'likes',     (select coalesce(jsonb_agg(to_jsonb(x)), '[]'::jsonb)
+                from public.reactions x, target t where x.user_id = t.id),
+  'messages',  (select coalesce(jsonb_agg(to_jsonb(m)), '[]'::jsonb)
+                from public.messages m, target t where m.sender_id = t.id),
+  'streak',    (select to_jsonb(st) from public.streaks st, target t where st.user_id = t.id)
+)) as export;
+```
+
+Copy the result into a `.json` file and send it to the address on the account.
+
+Two things to get right:
+
+- **Verify who is asking** before you send anything. An access request is a
+  gift to anyone impersonating your user. Confirm from the email address on the
+  account, not one supplied in the request.
+- **Photos are not in the JSON** — it carries their URLs. If they want the
+  images too, pull the `photos` bucket folder named with their user id.
+
+Worth knowing: removing the button does not make a user's data unreadable to
+them. The app's anon key is public and RLS lets anyone read their own rows, so
+a technical user can query their own data over the REST API regardless. The
+button's absence means the app does not *offer* an export, not that one is
+impossible.
