@@ -58,10 +58,13 @@ production build, so you're not debugging a version skew at submission time.
 
 Apple will not accept placeholder URLs, and it checks that they load.
 
-- [ ] **Privacy policy** — a real page on a real domain. It must state what you collect (email, handle, photos, posts, usage), that photos go to Supabase, that blurbs are sent to Anthropic for recipe formatting, how deletion works, and how to contact you.
+- [ ] **Privacy policy** — drafted for you at [legal/PRIVACY_POLICY.md](legal/PRIVACY_POLICY.md). Fill in every `[BRACKET]`, have a lawyer read it, publish it as a public page.
+- [ ] **Terms of service / EULA** — [legal/TERMS_OF_SERVICE.md](legal/TERMS_OF_SERVICE.md). Same treatment. This satisfies the EULA that Guideline 1.2 asks for.
 - [ ] **Support URL** — can be simple, but it must exist and offer a way to reach you.
 
-Both are ~an hour with a free host if you don't have a site.
+[legal/README.md](legal/README.md) lists what to fill in, where to host, and how
+to fill in Apple's and Google's privacy forms so they match the app's actual
+behaviour — a mismatch there is one of the commonest rejections.
 
 ### App Store Connect listing
 
@@ -87,8 +90,8 @@ This is the one that fails social apps. Apple wants **all** of:
 | A way to filter objectionable content | ✅ report → moderation queue |
 | A way to report content | ✅ posts, comments, DMs |
 | A way to block abusive users | ✅ Settings → Blocked accounts |
-| A published EULA | ⬜ **you must add this** — Apple's standard EULA is fine, link it in the listing |
-| A commitment to act on reports within 24 h | ⬜ **you must state this** in the listing, and mean it |
+| A published EULA | ✅ drafted — [legal/TERMS_OF_SERVICE.md](legal/TERMS_OF_SERVICE.md); fill in the brackets, host it, link it |
+| A commitment to act on reports within 24 h | ✅ stated in the Terms — now you have to mean it |
 
 That last one is a real operational promise. `MODERATION.md` has the queries
 for working the queue — you need to actually check it daily.
