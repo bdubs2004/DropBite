@@ -117,16 +117,24 @@ Contractual Clauses with the provider concerned.
 
 ## 5. Who can see what
 
-- **Public within the app:** your handle, display name, profile photo, bio,
-  posts, recipe cards, comments, likes, follower and following counts, and
-  streak.
+- **Visible to anyone signed in:** your handle, display name, profile photo,
+  bio, posts, recipe cards, comments, likes, follower and following counts,
+  streak, and the time zone your account is set to.
 - **Private to you:** your email, saved posts, blocked accounts, your reports,
   and your feedback.
-- **Between you and the recipient:** direct messages. Nobody else can read a
-  conversation you are in — enforced by database rules, not just by the app.
-  We can access message content only when it is reported to us (section 6).
+- **Between you and the recipient:** direct messages. **No other user** can read
+  a conversation you are in — that is enforced by database rules, not merely by
+  the app, so it holds even against a modified client.
 - **Your choice:** you can make your follower and following lists private in
   Settings. The counts stay visible; the names do not.
+
+**What we can see.** Being straight about this: as the people who run NiblGo we
+hold administrative access to the database, and that access is not limited by
+the rules above — it can reach any record, including message content and email
+addresses. We use it to operate the service, investigate reports and abuse, fix
+faults, and comply with the law. We do not read private messages in the ordinary
+course of running the app. Any service works this way; we would rather say so
+than let the section above imply otherwise.
 
 **Photos are a real exception and worth reading twice.** Meal photos, profile
 photos and photos sent in messages are stored in a **public storage bucket**.
@@ -190,10 +198,10 @@ longer.
 | Data | Kept |
 | --- | --- |
 | Account, posts, photos, messages | Until you delete them or delete your account |
-| Reports and reported-content copies | 2 years after resolution, for safety records |
-| Feedback and bug reports | 2 years |
-| Server logs | As retained by our hosting provider, typically a short period |
-| Backups | Deleted content disappears from backups as they rotate, normally within 30 days |
+| Reports and reported-content copies | While relevant to safety — normally at least 2 years, so repeat behaviour is visible |
+| Feedback and bug reports | While relevant to the problem reported |
+| Server logs | As retained by our hosting provider |
+| Backups | Deleted content disappears as our provider's backups rotate |
 
 ---
 

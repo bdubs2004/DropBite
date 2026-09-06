@@ -91,9 +91,14 @@ Do not post, send, or do any of the following:
 
 ### How we enforce this
 
-Anyone can report a post, comment, message, or account from inside the app
-(the ••• menu, or by holding a post or message). Anyone can block another user
-from their profile.
+Anyone can report a **post** or a **direct message** from inside the app — the
+••• menu on a post, or holding down a post or a message. Anyone can **block**
+another user from their profile, which hides both of you from each other
+completely.
+
+To report a comment, or an account as a whole, email **camjax2004@gmail.com**
+with the handle and what you saw; we treat those exactly as we treat in-app
+reports.
 
 **We aim to review every report within 24 hours.** Where content or conduct
 breaks these terms we may, at our discretion and without notice: remove the

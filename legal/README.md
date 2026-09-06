@@ -101,7 +101,9 @@ If you change any of these, update the documents to match:
 | Notifications don't phone home | Mealtime reminders are local notifications; no push token is sent anywhere |
 | Deleting your account deletes your photos | `delete-account` sweeps the user's storage folder before deleting the auth user |
 | Reports outlive the account | `reports` and `feedback` use `ON DELETE SET NULL` and keep content snapshots |
-| Nobody can read your DMs | Enforced in row-level security, tested in `supabase/tests/dm_test.sql` |
+| No other *user* can read your DMs | Enforced in row-level security, tested in `supabase/tests/dm_test.sql`. The policy also states plainly that you, as operator, hold admin access that reaches everything — do not remove that paragraph |
+| In-app reporting covers posts and DMs only | `usePostActions.ts` and `ChatScreen.tsx` are the only two report entry points. Comments and accounts go by email; if you add in-app reporting for them, update the Terms |
+| Time zone is visible to signed-in users | `users` is readable by any authenticated user and `timezone` is a column on it |
 | Follower lists can be private | `users.follows_private`, enforced in RLS |
 | Location isn't collected | `LOCATION_TAGGING_ENABLED = false` in `src/config.ts` |
 
