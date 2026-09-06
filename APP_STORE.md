@@ -21,7 +21,12 @@ None of this is code — it's the wiring the app already expects.
 - [ ] Deploy `format-recipe` **and** `delete-account`
 - [ ] Leave **email confirmation ON** (Authentication → Providers → Email). The app handles it now, and with it off anyone can sign up as anyone's address.
 
-Then test on a real device, in this order, because each step gates the next:
+Then test on a real device. The four flows below are the minimum; the full
+pass, and the list of things that have **never run on real hardware**, are in
+**[TEST_PLAN.md](TEST_PLAN.md)**. Android builds are free and need no Apple
+account, so you can clear most of it while enrolment processes.
+
+In this order, because each step gates the next:
 
 1. Sign up → you get "check your email" → click the link → sign in → your profile exists
 2. Post a photo → it appears in Supabase Storage
@@ -112,7 +117,7 @@ only once `delete-account` is deployed. Test it for real before submitting.
 
 ## Part 2: worth doing, not required
 
-- [ ] **TestFlight** with a handful of real people first. Catches what you can't see in your own testing, and the feedback screen now collects it.
+- [ ] **TestFlight** with a handful of real people first — see [TEST_PLAN.md](TEST_PLAN.md). The build you test there is the exact binary you submit, and internal testing needs no Apple review.
 - [ ] Watch the `feedback` table for the first week (see MODERATION.md)
 - [ ] Consider deep links (`GO_LIVE.md` §4) so shared posts open the app rather than a browser
 - [ ] Set `ALLOWED_ORIGINS` and `AI_DAILY_LIMIT` on the edge function

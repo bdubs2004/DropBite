@@ -30,7 +30,8 @@ card, streak) is testable immediately.
 When you're ready to go live, start with the checklist in
 **[GO_LIVE.md](GO_LIVE.md)**; the click-by-click version is **[SETUP_GUIDE.md](SETUP_GUIDE.md)**,
 **[APP_STORE.md](APP_STORE.md)** covers everything between a working app and a
-live App Store listing, and **[legal/](legal/)** holds the privacy policy and
+live App Store listing, **[TEST_PLAN.md](TEST_PLAN.md)** is how to verify it on
+real hardware first, and **[legal/](legal/)** holds the privacy policy and
 terms drafts
 has the step-by-step for running it on your phone and wiring up Supabase, Anthropic,
 and push notifications.
