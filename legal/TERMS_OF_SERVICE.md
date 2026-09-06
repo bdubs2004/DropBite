@@ -1,14 +1,14 @@
 # NiblGo Terms of Service
 
-**Last updated: [DATE]**
-**Effective: [DATE]**
+**Last updated: 6 September 2026**
+**Effective: 6 September 2026**
 
-> **[FILL IN BEFORE PUBLISHING]** — every bracketed item below must be replaced.
-> See `legal/README.md`.
+> **Two items still need filling in before you publish: `[LEGAL ENTITY NAME]`
+> and `[REGISTERED ADDRESS]`.** See `legal/README.md`.
 
 These terms are a contract between you and **[LEGAL ENTITY NAME]** ("we", "us"),
-[registered address]. By creating an account or using NiblGo, you accept them.
-If you do not accept them, do not use the app.
+[REGISTERED ADDRESS], Sioux Falls, South Dakota, USA. By creating an account or
+using NiblGo, you accept them. If you do not accept them, do not use the app.
 
 This document doubles as the **End User Licence Agreement (EULA)** required for
 apps carrying user-generated content.
@@ -29,7 +29,7 @@ terms, or if the law where you live forbids it.
 ## 2. Your account
 
 You are responsible for what happens under your account. Keep your password to
-yourself, use one you do not use elsewhere, and tell us at **[SUPPORT EMAIL]**
+yourself, use one you do not use elsewhere, and tell us at **camjax2004@gmail.com**
 if you think someone else has access.
 
 Give us accurate information. Do not impersonate anyone, and do not create an
@@ -102,7 +102,7 @@ serious matters — anything involving a child, a credible threat, or a crime �
 we may report to law enforcement.
 
 If we remove your content or suspend you and you think we are wrong, write to
-**[SUPPORT EMAIL]** and a person will look at it again.
+**camjax2004@gmail.com** and a person will look at it again.
 
 ---
 
@@ -149,7 +149,7 @@ incidental, special, consequential, or punitive damages, or for lost profits,
 data, or goodwill.
 
 Our total liability arising out of or relating to NiblGo will not exceed the
-greater of **[AMOUNT, e.g. USD 100]** or what you paid us in the twelve months
+greater of **USD 100** or what you paid us in the twelve months
 before the claim. NiblGo is currently free, so for most users this is nominal.
 
 Some jurisdictions do not allow the exclusion of certain warranties or
@@ -193,15 +193,37 @@ account.
 
 ## 11. Law and disputes
 
-These terms are governed by the laws of **[JURISDICTION]**, without regard to
-conflict-of-laws rules. Disputes will be resolved in the courts of
-**[JURISDICTION]**.
+These terms are governed by the laws of the **State of South Dakota, USA**,
+without regard to conflict-of-laws rules. Subject to section 11.1, disputes will
+be resolved in the state or federal courts located in **Minnehaha County, South
+Dakota**, and you consent to their jurisdiction.
 
 If you are a consumer in the EU, UK, or another place whose law grants you the
-right to bring proceedings locally, that right is unaffected.
+right to bring proceedings in your own country or to rely on your own country's
+consumer protections, **that right is unaffected** and nothing here removes it.
 
-Before starting anything formal, please write to **[SUPPORT EMAIL]** — nearly
-everything is settled faster that way.
+Before starting anything formal, please write to **camjax2004@gmail.com** —
+nearly everything is settled faster that way.
+
+### 11.1 Individual resolution, and your right to opt out
+
+**This section limits how disputes are brought. Read it.**
+
+You and we agree that any dispute will be brought **individually**, and not as a
+class, collective, or representative action, and not consolidated with anyone
+else's claim.
+
+**Small claims stay available.** Either of us may bring a qualifying claim in
+small claims court instead, and nothing here stops you doing that.
+
+**You can opt out of this section entirely.** Email **camjax2004@gmail.com**
+within **30 days** of first accepting these terms, saying you opt out of section
+11.1 and giving the email on your account. Opting out costs you nothing, changes
+nothing else, and we will not treat you differently for it. If you opt out, only
+the rest of section 11 applies.
+
+If any part of this section is held unenforceable, that part is severed and the
+remainder stands.
 
 ---
 
@@ -251,4 +273,4 @@ of a merger, acquisition, or sale of assets, on notice to you.
 
 **[LEGAL ENTITY NAME]**
 [Registered address]
-**[SUPPORT EMAIL]**
+**camjax2004@gmail.com**

@@ -1,17 +1,19 @@
 # NiblGo Privacy Policy
 
-**Last updated: [DATE]**
-**Effective: [DATE]**
+**Last updated: 6 September 2026**
+**Effective: 6 September 2026**
 
-> **[FILL IN BEFORE PUBLISHING]** — every bracketed item below must be replaced.
-> See `legal/README.md`.
+> **Two items still need filling in before you publish: `[LEGAL ENTITY NAME]`
+> and `[REGISTERED ADDRESS]`.** See `legal/README.md` — the choice you make
+> there decides who is personally liable.
 
 NiblGo is a photo-first app for sharing meals with friends. This policy explains
 what we collect, why, who we share it with, and what you can make us do about it.
 
-We are **[LEGAL ENTITY NAME]**, [registered address], and we are the data
-controller for the information described here. Questions, requests, or
-complaints: **[PRIVACY EMAIL]**.
+We are **[LEGAL ENTITY NAME]**, [REGISTERED ADDRESS], Sioux Falls, South
+Dakota, USA, and we are the data controller for the information described here.
+
+Questions, requests, or complaints: **bk.axionsystems@gmail.com**.
 
 ---
 
@@ -99,7 +101,7 @@ data, and we do not share it for advertising.
 
 | Provider | What they handle | Where |
 | --- | --- | --- |
-| **Supabase** | Accounts, database, photo storage, server functions | [YOUR SUPABASE REGION] |
+| **Supabase** | Accounts, database, photo storage, server functions | United States |
 | **Anthropic** | Blurb text, only when you ask for a recipe card (section 3) | USA |
 | **Expo / Apple / Google** | App distribution and delivery | USA |
 
@@ -152,7 +154,7 @@ We aim to review reports **within 24 hours**.
 
 Whoever and wherever you are, you can:
 
-- **See your data.** Email **[PRIVACY EMAIL]** and we will send you a
+- **See your data.** Email **bk.axionsystems@gmail.com** and we will send you a
   machine-readable copy. There is no self-serve export button in the app; we
   handle requests by hand. We will confirm you own the account before sending
   anything.
@@ -204,7 +206,10 @@ the app itself were modified. Our AI provider key is held server-side and never
 ships inside the app.
 
 No system is perfectly secure. If we discover a breach affecting your personal
-data, we will notify you and the relevant regulator as the law requires.
+data, we will notify you and the relevant authorities as required by South
+Dakota law and by any other law that applies to you — for users in the EU or UK
+that means the supervisory authority within 72 hours where the breach is likely
+to present a risk to you.
 
 ---
 
@@ -213,7 +218,7 @@ data, we will notify you and the relevant regulator as the law requires.
 NiblGo is not for children under 13, and we do not knowingly collect their data.
 In the EU/EEA the minimum age is 16, or the lower age your country sets
 (13–16). If you believe a child has given us personal data, contact
-**[PRIVACY EMAIL]** and we will delete it.
+**bk.axionsystems@gmail.com** and we will delete it.
 
 ---
 
@@ -228,7 +233,10 @@ it takes effect.
 ## 12. Contact
 
 **[LEGAL ENTITY NAME]**
-[Registered address]
-Privacy: **[PRIVACY EMAIL]**
-Support: **[SUPPORT EMAIL]**
-[If you have an EU/UK representative or DPO, name them here.]
+[REGISTERED ADDRESS]
+Sioux Falls, South Dakota, USA
+
+Privacy requests, and anything about this policy: **bk.axionsystems@gmail.com**
+Support, and anything else: **camjax2004@gmail.com**
+
+Either address reaches us. Privacy requests are answered from the first.

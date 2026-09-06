@@ -3,38 +3,45 @@
 - **[PRIVACY_POLICY.md](PRIVACY_POLICY.md)** — required by Apple, Google, GDPR and CCPA
 - **[TERMS_OF_SERVICE.md](TERMS_OF_SERVICE.md)** — also serves as the EULA Apple requires for user-generated content
 
-## Read this first
+## Status
 
-**These are drafts, not legal advice.** They were written against what the code
-actually does — which is more than a template can claim — but nobody has
-reviewed them for the law that applies to you, and where and how you operate
-changes what they should say. **Have a lawyer read them before you publish.**
-An hour of a solicitor's time on documents that are already 90% specific to your
-app is a very different bill from having them drafted from scratch.
+Filled in: dates, both contact emails, South Dakota governing law and Minnehaha
+County venue, the USD 100 liability cap, Supabase region.
 
-Publishing a policy does not by itself protect you. What protects you is the
-policy being **true** — a privacy policy that describes something you don't do,
-or omits something you do, is worse than none at all, because it is now evidence.
-If you change what the app collects, change these.
+**Two things still to decide**, and they are the two that matter most:
 
-## Fill in every bracket
+### 1. `[LEGAL ENTITY NAME]` — who is on the hook
 
-Neither document is publishable until every `[BRACKETED]` item is replaced.
+If you have not formed a company, the answer is **your two names, personally**,
+and personal liability is exactly what that means: a claim against NiblGo is a
+claim against you and your co-founder as individuals, reaching your own assets.
 
-| Placeholder | What goes there |
-| --- | --- |
-| `[LEGAL ENTITY NAME]` | The person or company operating NiblGo. If you have not formed a company, this is you, personally — and so is the liability |
-| `[Registered address]` | A real postal address. Required by GDPR; a PO box is usually acceptable |
-| `[PRIVACY EMAIL]` | Where access and deletion requests go. Must be monitored — the clock runs whether or not you read it |
-| `[SUPPORT EMAIL]` | General support. Can be the same address |
-| `[DATE]` | Publication date, in both files |
-| `[YOUR SUPABASE REGION]` | From your Supabase dashboard, e.g. "US East" |
-| `[JURISDICTION]` | Where you are based, e.g. "the State of Ohio, USA" |
-| `[AMOUNT, e.g. USD 100]` | The liability cap |
+A South Dakota LLC is the ordinary fix. Filing with the SD Secretary of State is
+around **$150 online**, and you can do it yourself in an afternoon — no lawyer
+needed for a simple two-member LLC. Given you are shipping a social app that
+hosts other people's photos and prints cooking instructions, this is the single
+highest-value hour you can spend before launch. Do it, then put the LLC's name
+in both documents.
 
-Also decide whether you need an EU or UK representative (Art. 27 GDPR) — usually
-required if you have EU/UK users and no establishment there. That line is at the
-bottom of the privacy policy.
+Until then, write both your legal names, e.g. `Firstname Lastname and Firstname
+Lastname, operating as NiblGo`.
+
+### 2. `[REGISTERED ADDRESS]` — a real postal address
+
+GDPR requires a contactable address, and it becomes public the moment you
+publish the policy.
+
+**Do not use your home address.** Options, cheapest first: a USPS PO box in
+Sioux Falls (~$20–90/year); a virtual mailbox; or, if you form the LLC, your
+registered agent's address, which is public anyway.
+
+### Do you need an EU representative?
+
+Art. 27 GDPR requires one if you offer services to people in the EU and have no
+establishment there. In practice: if you are not marketing to Europe and have no
+EU users, you can leave that line out. If you get EU users, revisit it. Note the
+policy already names the EU rights and the 72-hour breach rule, which is the
+part that actually matters day to day.
 
 ## Hosting them
 
@@ -78,8 +85,9 @@ advertising identifier, and no data shared with data brokers. That also means
 - Users can request deletion: **yes** — in-app, plus an email route
 - Data used for advertising or tracking: **no**
 
-Google requires a deletion route reachable **outside** the app as well, so put
-your `[PRIVACY EMAIL]` on the privacy policy page and name it in the console.
+Google requires a deletion route reachable **outside** the app as well.
+`bk.axionsystems@gmail.com` is already named in the privacy policy for exactly
+that; put the same address in the Play Console's data-deletion field.
 
 ## Things in the app these documents depend on
 
@@ -96,6 +104,31 @@ If you change any of these, update the documents to match:
 | Nobody can read your DMs | Enforced in row-level security, tested in `supabase/tests/dm_test.sql` |
 | Follower lists can be private | `users.follows_private`, enforced in RLS |
 | Location isn't collected | `LOCATION_TAGGING_ENABLED = false` in `src/config.ts` |
+
+## Going without a lawyer
+
+You have decided not to have these reviewed. That is your call, and these drafts
+are more specific to your app than most reviewed policies are — every claim maps
+to code in the table above. Three things are worth knowing about what that
+choice does and does not cost you:
+
+**What review would most likely have changed.** The dispute-resolution clause
+(Terms § 11.1) is the one a lawyer would go at hardest, because how far you can
+limit claims varies by state and a clause drafted too aggressively gets struck
+in its entirety. The version here is deliberately conservative: individual
+claims only, small-claims court expressly preserved, and a 30-day opt-out. Those
+last two are what courts look for, and they are why this version is likelier to
+survive than a harsher one.
+
+**What no document can fix.** A policy does not create a company. If you skip the
+LLC, the strongest terms in the world still leave you personally liable. The LLC
+matters more than the paperwork.
+
+**What makes these dangerous rather than protective.** A policy that describes
+something you do not do — or omits something you do — is worse than having none,
+because you have now put it in writing. The table above exists so that when you
+change the app, you can find every claim that has to change with it. Re-read it
+whenever you add a service, a permission, or a piece of data.
 
 ## The one that will bite you
 

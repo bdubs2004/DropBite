@@ -29,6 +29,17 @@ export const APP_LINK_BASE =
   process.env.EXPO_PUBLIC_APP_LINK_BASE ?? 'https://niblgo.app';
 
 /**
+ * Where the privacy policy and terms are hosted.
+ *
+ * Both must be public pages: Apple and Google load them during review, and the
+ * sign-up screen links them so a user can read what they are agreeing to before
+ * they agree. Source text lives in `legal/` — publish it and keep these in
+ * sync. Override per environment with EXPO_PUBLIC_APP_LINK_BASE.
+ */
+export const PRIVACY_URL = `${APP_LINK_BASE}/privacy`;
+export const TERMS_URL = `${APP_LINK_BASE}/terms`;
+
+/**
  * Location / restaurant tagging ("where you ate", Google Places-backed).
  *
  * DEFERRED to Phase 2. We're launching the core loop (photo → blurb → post →

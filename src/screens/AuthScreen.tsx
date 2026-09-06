@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -8,7 +9,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { DEMO_MODE } from '../config';
+import { DEMO_MODE, PRIVACY_URL, TERMS_URL } from '../config';
 import { LogoMark } from '../components/Logo';
 import { Button, Input, Muted } from '../components/ui';
 import { LIMITS } from '../lib/limits';
@@ -205,6 +206,28 @@ export function AuthScreen() {
             style={{ marginTop: spacing.sm }}
           />
 
+          {mode === 'signup' ? (
+            <Text style={styles.legal}>
+              By creating an account you agree to our{' '}
+              <Text
+                style={styles.legalLink}
+                onPress={() => Linking.openURL(TERMS_URL)}
+                accessibilityRole="link"
+              >
+                Terms of Service
+              </Text>{' '}
+              and{' '}
+              <Text
+                style={styles.legalLink}
+                onPress={() => Linking.openURL(PRIVACY_URL)}
+                accessibilityRole="link"
+              >
+                Privacy Policy
+              </Text>
+              .
+            </Text>
+          ) : null}
+
           {DEMO_MODE ? (
             <Muted style={{ textAlign: 'center', marginTop: spacing.md }}>
               Demo mode: everything is stored on this device. See SETUP_GUIDE.md to
@@ -218,6 +241,15 @@ export function AuthScreen() {
 }
 
 const styles = StyleSheet.create({
+  legal: {
+    fontFamily: fonts.semi,
+    fontSize: 12,
+    lineHeight: 17,
+    color: colors.cocoaFaint,
+    textAlign: 'center',
+    marginTop: spacing.md,
+  },
+  legalLink: { color: colors.amberDark, textDecorationLine: 'underline' },
   confirmRoot: { flex: 1, justifyContent: 'center' },
   confirmTitle: {
     fontFamily: fonts.display,
