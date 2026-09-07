@@ -231,7 +231,7 @@ An `https://` link only opens the app instead of a browser once the operating
 system can verify the domain belongs to you. That means:
 
 1. Point `EXPO_PUBLIC_APP_LINK_BASE` at your domain (defaults to
-   `https://niblgo.app`):
+   `https://niblgo.com`):
 
    ```
    EXPO_PUBLIC_APP_LINK_BASE=https://yourdomain.com

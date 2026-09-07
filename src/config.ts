@@ -26,7 +26,7 @@ export const DEMO_MODE = !SUPABASE_URL || !SUPABASE_ANON_KEY;
  * needs no domain setup, so it is what we fall back to.
  */
 export const APP_LINK_BASE =
-  process.env.EXPO_PUBLIC_APP_LINK_BASE ?? 'https://niblgo.app';
+  process.env.EXPO_PUBLIC_APP_LINK_BASE ?? 'https://niblgo.com';
 
 /**
  * Where the privacy policy and terms are hosted.

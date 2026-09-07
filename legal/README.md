@@ -47,8 +47,9 @@ part that actually matters day to day.
 
 Apple and Google both need public URLs, and both check that they load.
 
-1. Put them on a domain you control, as HTML — `niblgo.app/privacy` and
-   `niblgo.app/terms`. GitHub Pages is free and fine.
+1. The pages are built for you — see `website/`. `npm run build:site` renders
+   these documents to `website/privacy.html` and `website/terms.html`, so the
+   markdown here stays the single source of truth.
 2. They must be reachable **without logging in**.
 3. Link both in App Store Connect and Google Play Console.
 4. Link them in the app too — the sign-up screen is the usual place, and it
@@ -86,7 +87,7 @@ advertising identifier, and no data shared with data brokers. That also means
 - Data used for advertising or tracking: **no**
 
 Google requires a deletion route reachable **outside** the app as well.
-`bk.axionsystems@gmail.com` is already named in the privacy policy for exactly
+`privacy@niblgo.com` is already named in the privacy policy for exactly
 that; put the same address in the Play Console's data-deletion field.
 
 ## Things in the app these documents depend on

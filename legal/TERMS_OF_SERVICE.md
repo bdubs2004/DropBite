@@ -1,7 +1,6 @@
 # NiblGo Terms of Service
 
-**Last updated: 6 September 2026**
-**Effective: 6 September 2026**
+**Last updated: 6 September 2026** · **Effective: 6 September 2026**
 
 > **Two items still need filling in before you publish: `[LEGAL ENTITY NAME]`
 > and `[REGISTERED ADDRESS]`.** See `legal/README.md`.
@@ -29,7 +28,7 @@ terms, or if the law where you live forbids it.
 ## 2. Your account
 
 You are responsible for what happens under your account. Keep your password to
-yourself, use one you do not use elsewhere, and tell us at **camjax2004@gmail.com**
+yourself, use one you do not use elsewhere, and tell us at **support@niblgo.com**
 if you think someone else has access.
 
 Give us accurate information. Do not impersonate anyone, and do not create an
@@ -96,7 +95,7 @@ Anyone can report a **post** or a **direct message** from inside the app — the
 another user from their profile, which hides both of you from each other
 completely.
 
-To report a comment, or an account as a whole, email **camjax2004@gmail.com**
+To report a comment, or an account as a whole, email **support@niblgo.com**
 with the handle and what you saw; we treat those exactly as we treat in-app
 reports.
 
@@ -107,7 +106,7 @@ serious matters — anything involving a child, a credible threat, or a crime �
 we may report to law enforcement.
 
 If we remove your content or suspend you and you think we are wrong, write to
-**camjax2004@gmail.com** and a person will look at it again.
+**support@niblgo.com** and a person will look at it again.
 
 ---
 
@@ -207,7 +206,7 @@ If you are a consumer in the EU, UK, or another place whose law grants you the
 right to bring proceedings in your own country or to rely on your own country's
 consumer protections, **that right is unaffected** and nothing here removes it.
 
-Before starting anything formal, please write to **camjax2004@gmail.com** —
+Before starting anything formal, please write to **support@niblgo.com** —
 nearly everything is settled faster that way.
 
 ### 11.1 Individual resolution, and your right to opt out
@@ -221,7 +220,7 @@ else's claim.
 **Small claims stay available.** Either of us may bring a qualifying claim in
 small claims court instead, and nothing here stops you doing that.
 
-**You can opt out of this section entirely.** Email **camjax2004@gmail.com**
+**You can opt out of this section entirely.** Email **support@niblgo.com**
 within **30 days** of first accepting these terms, saying you opt out of section
 11.1 and giving the email on your account. Opting out costs you nothing, changes
 nothing else, and we will not treat you differently for it. If you opt out, only
@@ -278,4 +277,4 @@ of a merger, acquisition, or sale of assets, on notice to you.
 
 **[LEGAL ENTITY NAME]**
 [Registered address]
-**camjax2004@gmail.com**
+**support@niblgo.com**
