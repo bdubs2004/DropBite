@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { colors, fonts, spacing } from '../theme';
 import { Recipe } from '../types';
+import { NutritionPanel } from './NutritionPanel';
 import { BittenCard } from './ui';
 
 /** Read-only recipe card shown on feed posts. */
@@ -37,6 +38,15 @@ export function RecipeCardView({ recipe }: { recipe: Recipe }) {
           <Text style={styles.ingText}>{s}</Text>
         </View>
       ))}
+
+      {/* Read-only: the poster already chose the serving count. */}
+      {recipe.nutrition ? (
+        <NutritionPanel
+          total={recipe.nutrition}
+          servings={recipe.servings ?? 1}
+          source={recipe.nutrition_source ?? null}
+        />
+      ) : null}
     </BittenCard>
   );
 }

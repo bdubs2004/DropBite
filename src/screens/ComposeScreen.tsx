@@ -12,13 +12,15 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PostSuccessOverlay } from '../components/PostSuccessOverlay';
+import { NutritionPanel } from '../components/NutritionPanel';
 import { RecipeCardEditor } from '../components/RecipeCardEditor';
 import { Button, Input, Muted } from '../components/ui';
 import { LIMITS } from '../lib/limits';
 import { pickImage } from '../lib/pickImage';
 import { defaultMealSlot } from '../lib/time';
+import { totalForRecipe } from '../lib/nutrition';
 import { getDataService } from '../services';
-import { formatRecipe, FormattedRecipe } from '../services/ai';
+import { formatRecipe, FormattedRecipe, lookupNutrition, NutritionResult } from '../services/ai';
 import { searchPlaces } from '../services/places';
 import { LOCATION_TAGGING_ENABLED } from '../config';
 import { useApp } from '../state/AppContext';
@@ -40,6 +42,11 @@ export function ComposeScreen({ navigation }: any) {
   const [recipeEdited, setRecipeEdited] = useState(false);
   const [formatting, setFormatting] = useState(false);
   const [formatFailed, setFormatFailed] = useState<null | 'not-recipe' | 'error'>(null);
+  // Nutrition is kept beside the recipe rather than inside it: the totals are
+  // for the whole dish, and `servings` is only a display divisor.
+  const [servings, setServings] = useState(1);
+  const [nutrition, setNutrition] = useState<NutritionResult | null>(null);
+  const [nutritionLoading, setNutritionLoading] = useState(false);
 
   const [tagsOpen, setTagsOpen] = useState(false);
   const [placeQuery, setPlaceQuery] = useState('');
@@ -95,6 +102,28 @@ export function ComposeScreen({ navigation }: any) {
     setPlaceResults(results);
   };
 
+  /**
+   * Price the current ingredient list.
+   *
+   * On demand rather than on every keystroke: it costs an API call and the
+   * user is usually still typing. Re-runnable, because editing "2 cups" down
+   * to "1 cup" has to be able to change the answer.
+   */
+  const runNutrition = async () => {
+    if (!recipe || nutritionLoading) return;
+    const ingredients = recipe.ingredients.filter((i) => i.item.trim());
+    if (ingredients.length === 0) return;
+    setNutritionLoading(true);
+    try {
+      setNutrition(await lookupNutrition(ingredients));
+    } finally {
+      setNutritionLoading(false);
+    }
+  };
+
+  // Totals for the whole dish, from whatever nutrition the ingredients carry.
+  const nutritionTotals = nutrition ? totalForRecipe(nutrition.ingredients).total : null;
+
   const post = async () => {
     setPosting(true);
     try {
@@ -112,6 +141,11 @@ export function ComposeScreen({ navigation }: any) {
               cook_time_minutes: recipe.cook_time_minutes,
               ai_generated: true,
               user_edited: recipeEdited,
+              servings,
+              // Stored as totals for the whole dish; the card divides by
+              // servings when it draws the label.
+              nutrition: nutritionTotals,
+              nutrition_source: nutritionTotals ? (nutrition?.source ?? null) : null,
             }
           : null,
       });
@@ -303,14 +337,34 @@ export function ComposeScreen({ navigation }: any) {
             ) : null}
           </View>
         ) : (
-          <RecipeCardEditor
+          <>
+            <RecipeCardEditor
             value={recipe}
             onChange={(r) => {
               setRecipe(r);
               setRecipeEdited(true);
+              // The ingredients changed, so any figures on screen are now for
+              // a different dish. Clearing beats leaving a stale label that
+              // still looks authoritative.
+              setNutrition(null);
             }}
-            onRemove={() => setRecipe(null)}
+            onRemove={() => {
+              setRecipe(null);
+              setNutrition(null);
+            }}
           />
+
+            <NutritionPanel
+              editable
+              loading={nutritionLoading}
+              total={nutritionTotals}
+              servings={servings}
+              source={nutrition?.source ?? null}
+              unmatched={nutrition?.unmatched ?? []}
+              onChangeServings={setServings}
+              onRecalculate={runNutrition}
+            />
+          </>
         )}
 
         <Button

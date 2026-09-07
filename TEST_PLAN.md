@@ -72,6 +72,7 @@ If something is broken, it is most likely here.
 | **Camera capture** | The browser has no camera | Compose → Camera → permission prompt → photo attaches |
 | **Photo upload** | Never uploaded to your Supabase | Post a photo → it appears in Storage → photos → `<your-user-id>/` |
 | **Recipe cards** | The Anthropic call has never succeeded — the first key was unscoped and nothing was deployed | Blurb → format → an editable card. If nothing appears, read the function logs |
+| **Nutrition figures** | The USDA API has never been called from this project; the shared demo key was rate-limited during development, so only the demo table has ever produced numbers | Estimate nutrition on a real recipe. The label should say "using USDA FoodData Central", **not** "sample data" |
 | **Email confirmation** | Tested against a stub only | Sign up → email arrives → click → sign in → your profile exists |
 | **Account deletion** | The function is not deployed | Settings → Delete account → gone from Authentication → Users |
 | **Photo cleanup on deletion** | **My fix; only ever simulated in SQL** | After deleting the account, `<user-id>/` in the photos bucket is **empty**. If files remain, tell me |
@@ -98,6 +99,8 @@ Work top to bottom — each step sets up the next.
 - [ ] Post with a blurb → appears in the feed with your words intact
 - [ ] Blurb → format → editable card; change a quantity → it saves as edited
 - [ ] A non-recipe blurb ("just cereal lol") → no card is forced
+- [ ] Estimate nutrition → a label appears; set servings to 4 → every number quarters
+- [ ] The label names its source, and says "sample data" only in demo mode
 - [ ] Turn airplane mode on and post → it fails gracefully, no data loss
 
 ### Feed and profile

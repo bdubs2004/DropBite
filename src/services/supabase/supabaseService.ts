@@ -520,6 +520,10 @@ export class SupabaseService implements DataService {
         cook_time_minutes: input.recipe.cook_time_minutes,
         ai_generated: input.recipe.ai_generated,
         user_edited: input.recipe.user_edited,
+        // Totals for the whole dish; `servings` is the display divisor.
+        servings: input.recipe.servings ?? 1,
+        nutrition: input.recipe.nutrition ?? null,
+        nutrition_source: input.recipe.nutrition_source ?? null,
       });
     }
     // streak upsert

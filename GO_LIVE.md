@@ -100,6 +100,7 @@ from `supabase/migrations/`:
 | `0009_notifications.sql` | In-app notifications for post interactions |
 | `0010_function_grants.sql` | **Security fix** — stops anon calling the RLS-bypassing helpers |
 | `0011_feedback.sql` | In-app feedback and bug reports |
+| `0012_nutrition.sql` | Nutrition labels and serving sizes on recipe cards |
 
 They are all safe to run twice, and so is `schema.sql` itself. What re-running
 `schema.sql` will **not** do is add a column to a table that already exists —
@@ -177,6 +178,26 @@ redeploy after changing one — secrets are read at call time.
 **The function itself** is separate: Edge Functions → deploy a new function, and
 paste in `supabase/functions/format-recipe/index.ts`. Do the same for
 `delete-account`.
+
+### Nutrition on recipe cards
+
+Recipe cards can carry a nutrition label. The numbers come from **USDA
+FoodData Central**, not from the AI — the model is used only to turn "2 cloves
+of garlic" into a weight in grams, which is a question about quantity rather
+than about food science. Asking a model for calories directly would be cheaper
+and would look identical on screen, and would be made up.
+
+Get a free key at <https://api.data.gov/signup/> — it is instant, and allows
+1,000 requests an hour. Then:
+
+```bash
+supabase secrets set USDA_API_KEY=your-key
+supabase functions deploy lookup-nutrition
+```
+
+Without the key, nutrition simply is not offered. That is deliberate: no label
+is better than a made-up one. Lookups are cached in `nutrition_cache`, so
+"chicken breast" costs one request ever rather than one per post.
 
 ### Two more secrets worth setting
 

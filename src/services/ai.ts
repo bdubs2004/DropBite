@@ -1,7 +1,84 @@
 import { DEMO_MODE } from '../config';
 import { LIMITS } from '../lib/limits';
 import { Ingredient } from '../types';
+import { NutritionSource, Per100g } from '../lib/nutrition';
 import { getSupabase } from './supabase/client';
+
+export interface NutritionResult {
+  ingredients: Ingredient[];
+  source: NutritionSource | null;
+  /** Ingredients we could not price, named so the UI can say which. */
+  unmatched: string[];
+}
+
+/**
+ * Work out nutrition for a set of ingredients.
+ *
+ * Production calls the `lookup-nutrition` edge function, which uses the model
+ * only to estimate a weight and then reads the actual nutrient numbers out of
+ * USDA FoodData Central. Demo mode uses the small seeded table below.
+ *
+ * Returns null on any failure. Like recipe formatting, nutrition must never
+ * block a post — a card without a label is fine, a wrong label is not.
+ */
+export async function lookupNutrition(ingredients: Ingredient[]): Promise<NutritionResult | null> {
+  const usable = ingredients.filter((i) => i.item?.trim());
+  if (usable.length === 0) return null;
+  try {
+    if (DEMO_MODE) {
+      await new Promise((r) => setTimeout(r, 700));
+      return demoNutrition(usable);
+    }
+    const sb = getSupabase();
+    const { data, error } = await sb.functions.invoke('lookup-nutrition', {
+      body: { ingredients: usable.map((i) => ({ item: i.item, quantity: i.quantity, unit: i.unit })) },
+    });
+    if (error || !data) return null;
+    return sanitizeNutrition(data, usable);
+  } catch {
+    return null;
+  }
+}
+
+/** Never trust the shape coming back, same as the recipe path. */
+function sanitizeNutrition(data: any, original: Ingredient[]): NutritionResult | null {
+  if (!data || !Array.isArray(data.ingredients)) return null;
+  const num = (v: any, max: number): number | null =>
+    typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= max ? v : null;
+
+  const ingredients: Ingredient[] = original.map((orig, i) => {
+    const row = data.ingredients[i] ?? {};
+    const n = row.nutrition;
+    const nutrition =
+      n && typeof n === 'object'
+        ? {
+            calories: num(n.calories, 100000) ?? 0,
+            protein_g: num(n.protein_g, 10000) ?? 0,
+            carbs_g: num(n.carbs_g, 10000) ?? 0,
+            fat_g: num(n.fat_g, 10000) ?? 0,
+            fiber_g: num(n.fiber_g, 10000) ?? 0,
+            sugar_g: num(n.sugar_g, 10000) ?? 0,
+            sodium_mg: num(n.sodium_mg, 1000000) ?? 0,
+          }
+        : null;
+    return {
+      ...orig,
+      grams: num(row.grams, 20000),
+      fdc_id: typeof row.fdc_id === 'number' ? row.fdc_id : null,
+      nutrition,
+    };
+  });
+
+  const source: NutritionSource | null =
+    data.source === 'usda' || data.source === 'estimated' || data.source === 'demo'
+      ? data.source
+      : null;
+  const unmatched = Array.isArray(data.unmatched)
+    ? data.unmatched.map((u: any) => String(u).slice(0, 120)).slice(0, 50)
+    : ingredients.filter((i) => !i.nutrition).map((i) => i.item);
+
+  return { ingredients, source, unmatched };
+}
 
 export interface FormattedRecipe {
   is_recipe: boolean;
@@ -64,6 +141,76 @@ function sanitize(data: any): FormattedRecipe | null {
         ? Math.min(Math.max(Math.round(data.cook_time_minutes), 0), 6000)
         : null,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Demo-mode nutrition.
+//
+// These are ROUND APPROXIMATIONS for a handful of common foods, and they exist
+// so the label, the serving-size stepper and the layout can be exercised with
+// zero API keys — the same reason the demo feed has invented users in it.
+//
+// They are tagged `source: 'demo'`, and the UI says "sample data" when it sees
+// that tag, because a number that looks like a nutrition fact and is not one is
+// worse than no number. Real figures come from USDA through the
+// `lookup-nutrition` function; nothing here is ever used in production.
+// ---------------------------------------------------------------------------
+
+/** Approximate, per 100 g. Demo only. */
+const DEMO_PER_100G: Record<string, Per100g> = {
+  chicken: { calories: 165, protein_g: 31, carbs_g: 0, fat_g: 3.6, fiber_g: 0, sugar_g: 0, sodium_mg: 74 },
+  beef:    { calories: 250, protein_g: 26, carbs_g: 0, fat_g: 15, fiber_g: 0, sugar_g: 0, sodium_mg: 72 },
+  egg:     { calories: 143, protein_g: 13, carbs_g: 0.7, fat_g: 9.5, fiber_g: 0, sugar_g: 0.4, sodium_mg: 142 },
+  butter:  { calories: 717, protein_g: 0.9, carbs_g: 0.1, fat_g: 81, fiber_g: 0, sugar_g: 0.1, sodium_mg: 11 },
+  oil:     { calories: 884, protein_g: 0, carbs_g: 0, fat_g: 100, fiber_g: 0, sugar_g: 0, sodium_mg: 2 },
+  flour:   { calories: 364, protein_g: 10, carbs_g: 76, fat_g: 1, fiber_g: 2.7, sugar_g: 0.3, sodium_mg: 2 },
+  sugar:   { calories: 387, protein_g: 0, carbs_g: 100, fat_g: 0, fiber_g: 0, sugar_g: 100, sodium_mg: 1 },
+  rice:    { calories: 130, protein_g: 2.7, carbs_g: 28, fat_g: 0.3, fiber_g: 0.4, sugar_g: 0.1, sodium_mg: 1 },
+  pasta:   { calories: 131, protein_g: 5, carbs_g: 25, fat_g: 1.1, fiber_g: 1.8, sugar_g: 0.6, sodium_mg: 6 },
+  cheese:  { calories: 402, protein_g: 25, carbs_g: 1.3, fat_g: 33, fiber_g: 0, sugar_g: 0.5, sodium_mg: 621 },
+  milk:    { calories: 61, protein_g: 3.2, carbs_g: 4.8, fat_g: 3.3, fiber_g: 0, sugar_g: 5.1, sodium_mg: 43 },
+  potato:  { calories: 77, protein_g: 2, carbs_g: 17, fat_g: 0.1, fiber_g: 2.2, sugar_g: 0.8, sodium_mg: 6 },
+  tomato:  { calories: 18, protein_g: 0.9, carbs_g: 3.9, fat_g: 0.2, fiber_g: 1.2, sugar_g: 2.6, sodium_mg: 5 },
+  onion:   { calories: 40, protein_g: 1.1, carbs_g: 9.3, fat_g: 0.1, fiber_g: 1.7, sugar_g: 4.2, sodium_mg: 4 },
+  garlic:  { calories: 149, protein_g: 6.4, carbs_g: 33, fat_g: 0.5, fiber_g: 2.1, sugar_g: 1, sodium_mg: 17 },
+  salt:    { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0, sugar_g: 0, sodium_mg: 38758 },
+};
+
+/** Rough weights for the demo path only. */
+const DEMO_GRAMS: Record<string, number> = {
+  clove: 3, cloves: 3, tsp: 5, teaspoon: 5, teaspoons: 5, tbsp: 14, tablespoon: 14,
+  tablespoons: 14, cup: 120, cups: 120, oz: 28, ounce: 28, ounces: 28, lb: 454,
+  lbs: 454, pound: 454, pounds: 454, g: 1, gram: 1, grams: 1, kg: 1000,
+  pinch: 0.4, dash: 0.6, slice: 25, slices: 25, stick: 113,
+};
+
+function demoNutrition(ingredients: Ingredient[]): NutritionResult {
+  const unmatched: string[] = [];
+  const out = ingredients.map((ing) => {
+    const item = ing.item.toLowerCase();
+    const key = Object.keys(DEMO_PER_100G).find((k) => item.includes(k));
+    const qty = parseFloat(ing.quantity) || 1;
+    const unitWeight = DEMO_GRAMS[ing.unit.toLowerCase().trim()] ?? 100;
+    const grams = Math.round(qty * unitWeight);
+
+    if (!key) {
+      unmatched.push(ing.item);
+      return { ...ing, grams, fdc_id: null, nutrition: null };
+    }
+    const per = DEMO_PER_100G[key];
+    const f = grams / 100;
+    return {
+      ...ing,
+      grams,
+      fdc_id: null,
+      nutrition: {
+        calories: per.calories * f, protein_g: per.protein_g * f, carbs_g: per.carbs_g * f,
+        fat_g: per.fat_g * f, fiber_g: per.fiber_g * f, sugar_g: per.sugar_g * f,
+        sodium_mg: per.sodium_mg * f,
+      },
+    };
+  });
+  return { ingredients: out, source: 'demo', unmatched };
 }
 
 // ---------------------------------------------------------------------------

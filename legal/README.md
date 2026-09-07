@@ -97,7 +97,8 @@ If you change any of these, update the documents to match:
 | --- | --- |
 | No ads, analytics or tracking | There is no analytics or ad SDK in `package.json` — verified |
 | Photos are publicly reachable by URL | The `photos` bucket is public-read (`schema.sql`) |
-| Only blurb text goes to Anthropic | `supabase/functions/format-recipe` sends the blurb and nothing else |
+| Blurb text goes to Anthropic for recipe cards | `supabase/functions/format-recipe` sends the blurb and nothing else |
+| Ingredient lists go to Anthropic, food names go to USDA, for nutrition | `supabase/functions/lookup-nutrition`. The model is asked only for weights and search terms — the prompt explicitly forbids it returning nutrient values — and USDA supplies the figures |
 | Notifications don't phone home | Mealtime reminders are local notifications; no push token is sent anywhere |
 | Deleting your account deletes your photos | `delete-account` sweeps the user's storage folder before deleting the auth user |
 | Reports outlive the account | `reports` and `feedback` use `ON DELETE SET NULL` and keep content snapshots |

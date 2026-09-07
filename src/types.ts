@@ -1,3 +1,5 @@
+import { Nutrition, NutritionSource } from './lib/nutrition';
+
 export type MealSlot = 'breakfast' | 'lunch' | 'dinner' | 'snack';
 
 export interface User {
@@ -18,6 +20,18 @@ export interface Ingredient {
   item: string;
   quantity: string;
   unit: string;
+  /**
+   * Weight in grams, so nutrition can be worked out at all.
+   *
+   * Estimated by the model, which is genuinely good at "2 cloves of garlic is
+   * about 6 g" — a question about quantity, not about food science. The
+   * nutrient numbers themselves come from USDA, which is the reverse skill.
+   */
+  grams?: number | null;
+  /** USDA FoodData Central id for the food this was matched to, for audit. */
+  fdc_id?: number | null;
+  /** This ingredient's contribution, already scaled to `grams`. */
+  nutrition?: Nutrition | null;
 }
 
 export interface Recipe {
@@ -29,6 +43,15 @@ export interface Recipe {
   cook_time_minutes: number | null;
   ai_generated: boolean;
   user_edited: boolean;
+  /**
+   * How many servings the dish makes. Set by the person posting — nothing can
+   * infer it. `nutrition` below is the TOTAL for the whole recipe; divide by
+   * this for one serving.
+   */
+  servings?: number;
+  /** Totals for the whole dish, not per serving. Null when unknown. */
+  nutrition?: Nutrition | null;
+  nutrition_source?: NutritionSource | null;
 }
 
 export interface Post {

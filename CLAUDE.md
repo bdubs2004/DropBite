@@ -26,7 +26,12 @@ A mobile-first, photo-first social app where users post meals in slots (breakfas
 - [ ] Streak counter (consecutive days with ≥1 post)
 - [ ] Basic settings: notification prefs, account deletion, data export
 
-Explicitly OUT of scope for MVP: ads, payments/premium tier, restaurant menu selection, restaurant claiming/dashboard, nutrition estimates, recipe book compilation, feed algorithm, DMs, comments beyond simple likes/reactions (likes only for MVP).
+Explicitly OUT of scope for MVP: ads, payments/premium tier, restaurant menu selection, restaurant claiming/dashboard, recipe book compilation, feed algorithm.
+
+Since first draft the owner has pulled several of these in deliberately: **DMs**,
+**comments**, and **nutrition estimates** all shipped. Nutrition takes its
+numbers from USDA FoodData Central rather than from the model, which is the only
+version of the feature worth having — see `supabase/functions/lookup-nutrition`.
 
 ## Recommended Stack (Adjust Only With Good Reason)
 
