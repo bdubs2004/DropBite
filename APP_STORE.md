@@ -93,7 +93,7 @@ This is the one that fails social apps. Apple wants **all** of:
 | Requirement | Status |
 | --- | --- |
 | A way to filter objectionable content | ✅ report → moderation queue |
-| A way to report content | ✅ posts and DMs in-app; comments and accounts by email (see note below) |
+| A way to report content | ✅ posts, comments, DMs and accounts — all in-app |
 | A way to block abusive users | ✅ Settings → Blocked accounts |
 | A published EULA | ✅ drafted — [legal/TERMS_OF_SERVICE.md](legal/TERMS_OF_SERVICE.md); fill in the brackets, host it, link it |
 | A commitment to act on reports within 24 h | ✅ stated in the Terms — now you have to mean it |
@@ -101,11 +101,12 @@ This is the one that fails social apps. Apple wants **all** of:
 That last one is a real operational promise. `MODERATION.md` has the queries
 for working the queue — you need to actually check it daily.
 
-**One gap worth closing.** In-app reporting covers posts and direct messages,
-not comments or whole accounts; the Terms route those to email. That satisfies
-1.2 as written, but a reviewer who long-presses a comment looking for Report
-will not find one. Adding "Report" to the comment menu and to the profile ••• menu
-is a small change and would remove the doubt.
+**In-app reporting is now complete.** Report is reachable on every kind of
+content a reviewer will try: a **post** (••• / long-press), a **comment**
+(long-press → Report), a **direct message** (long-press → Report), and a whole
+**account** (profile ••• → Report account). Email remains an additional route,
+not the only one for any of them — so a reviewer who long-presses a comment now
+finds Report where they expect it.
 
 ### Account deletion
 

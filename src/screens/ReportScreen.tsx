@@ -39,10 +39,28 @@ const REASONS: { key: ReportReason; label: string; hint: string }[] = [
 ];
 
 export function ReportScreen({ navigation, route }: any) {
-  // Exactly one of these is set. Same reasons and same queue either way; only
-  // the wording and the service call differ.
-  const { postId, messageId } = route.params as { postId?: string; messageId?: string };
-  const isMessage = !!messageId;
+  // Exactly one of these is set. Same reasons and same queue whichever it is;
+  // only the wording and the service call differ.
+  const { postId, messageId, commentId, reportedUserId } = route.params as {
+    postId?: string;
+    messageId?: string;
+    commentId?: string;
+    reportedUserId?: string;
+  };
+  const kind: 'post' | 'message' | 'comment' | 'account' = messageId
+    ? 'message'
+    : commentId
+      ? 'comment'
+      : reportedUserId
+        ? 'account'
+        : 'post';
+  const NOUN: Record<typeof kind, string> = {
+    post: 'post',
+    message: 'message',
+    comment: 'comment',
+    account: 'account',
+  };
+  const noun = NOUN[kind];
   const svc = getDataService();
   const insets = useSafeAreaInsets();
 
@@ -62,7 +80,9 @@ export function ReportScreen({ navigation, route }: any) {
     setSubmitting(true);
     setError(null);
     try {
-      if (isMessage) await svc.reportMessage(messageId!, reason, detail);
+      if (kind === 'message') await svc.reportMessage(messageId!, reason, detail);
+      else if (kind === 'comment') await svc.reportComment(commentId!, reason, detail);
+      else if (kind === 'account') await svc.reportUser(reportedUserId!, reason, detail);
       else await svc.reportPost(postId!, reason, detail);
       setDone(true);
     } catch (e: any) {
@@ -80,9 +100,8 @@ export function ReportScreen({ navigation, route }: any) {
         </View>
         <Text style={styles.doneTitle}>Thanks for telling us</Text>
         <Muted style={{ textAlign: 'center', paddingHorizontal: spacing.xl }}>
-          Our team will review this {isMessage ? 'message' : 'post'}. We do not
-          tell the person who reported them, and we will not share the outcome
-          of the review.
+          Our team will review this {noun}. We do not tell the person who
+          reported them, and we will not share the outcome of the review.
         </Muted>
         <Button
           title="Done"
@@ -106,7 +125,7 @@ export function ReportScreen({ navigation, route }: any) {
           <Pressable onPress={() => navigation.goBack()} hitSlop={10}>
             <Text style={styles.cancel}>Cancel</Text>
           </Pressable>
-          <Text style={styles.title}>{isMessage ? 'Report message' : 'Report post'}</Text>
+          <Text style={styles.title}>Report {noun}</Text>
           <View style={{ width: 50 }} />
         </View>
 

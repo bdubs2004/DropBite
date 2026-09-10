@@ -327,6 +327,14 @@ export function ProfileScreen({ navigation, route }: any) {
         onClose={() => setOtherMenuOpen(false)}
         actions={[
           {
+            key: 'report-account',
+            label: 'Report account',
+            hint: 'Send this profile to our moderation team',
+            icon: 'flag-outline',
+            destructive: true,
+            onPress: () => navigation.navigate('Report', { reportedUserId: userId }),
+          },
+          {
             key: 'block',
             label: blocked ? 'Unblock' : 'Block',
             hint: blocked

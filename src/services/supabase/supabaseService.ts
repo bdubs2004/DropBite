@@ -783,6 +783,48 @@ export class SupabaseService implements DataService {
     if (error) throw error;
   }
 
+  async reportComment(commentId: string, reason: ReportReason, detail?: string): Promise<void> {
+    const meId = await this.myId();
+
+    // Snapshot the comment now: comment_id is ON DELETE SET NULL, so without
+    // this the author could delete the comment and empty out the report.
+    const { data: c } = await this.sb
+      .from('comments')
+      .select('user_id, text')
+      .eq('id', commentId)
+      .maybeSingle();
+    if (!c) throw new Error('That comment no longer exists.');
+
+    const target = c as { user_id: string; text: string | null };
+    if (target.user_id === meId) throw new Error('You cannot report your own comment.');
+
+    const { error } = await this.sb.from('reports').insert({
+      comment_id: commentId,
+      reporter_id: meId,
+      reported_user_id: target.user_id,
+      reason,
+      detail: detail?.trim() ? detail.trim().slice(0, 1000) : null,
+      comment_text_snapshot: target.text || null,
+    });
+    if (error) throw error;
+  }
+
+  async reportUser(userId: string, reason: ReportReason, detail?: string): Promise<void> {
+    const meId = await this.myId();
+    if (userId === meId) throw new Error('You cannot report your own account.');
+
+    // An account report stands on its own: no post, message or comment id.
+    // reported_user_id carries who it is about, which is all a reviewer needs
+    // to pull that account's history from the queue.
+    const { error } = await this.sb.from('reports').insert({
+      reporter_id: meId,
+      reported_user_id: userId,
+      reason,
+      detail: detail?.trim() ? detail.trim().slice(0, 1000) : null,
+    });
+    if (error) throw error;
+  }
+
   async sharePostToUsers(postId: string, userIds: string[]): Promise<void> {
     for (const userId of userIds) {
       const convId = await this.startConversation(userId);

@@ -136,6 +136,10 @@ export interface DataService {
   reportPost(postId: string, reason: ReportReason, detail?: string): Promise<void>;
   /** Report a direct message. Snapshots its content so the report survives a delete. */
   reportMessage(messageId: string, reason: ReportReason, detail?: string): Promise<void>;
+  /** Report a comment. Snapshots its text so the report survives a delete. */
+  reportComment(commentId: string, reason: ReportReason, detail?: string): Promise<void>;
+  /** Report a whole account, independent of any single post, message or comment. */
+  reportUser(userId: string, reason: ReportReason, detail?: string): Promise<void>;
   /**
    * Block a user. Symmetric in effect: neither of you sees the other's posts
    * or comments, follows are severed, and neither can message the other.
