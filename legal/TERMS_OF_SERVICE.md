@@ -2,11 +2,8 @@
 
 **Last updated: 6 September 2026** · **Effective: 6 September 2026**
 
-> **Two items still need filling in before you publish: `[LEGAL ENTITY NAME]`
-> and `[REGISTERED ADDRESS]`.** See `legal/README.md`.
-
-These terms are a contract between you and **[LEGAL ENTITY NAME]** ("we", "us"),
-[REGISTERED ADDRESS], Sioux Falls, South Dakota, USA. By creating an account or
+These terms are a contract between you and **Bryce and Cameron** ("we", "us"),
+4500 E. 33rd St., Sioux Falls, South Dakota 57110, USA. By creating an account or
 using NiblGo, you accept them. If you do not accept them, do not use the app.
 
 This document doubles as the **End User Licence Agreement (EULA)** required for
@@ -275,6 +272,6 @@ of a merger, acquisition, or sale of assets, on notice to you.
 
 ## 15. Contact
 
-**[LEGAL ENTITY NAME]**
-[Registered address]
+**Bryce and Cameron**
+4500 E. 33rd St.
 **support@niblgo.com**
