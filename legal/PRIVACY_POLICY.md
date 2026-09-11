@@ -2,15 +2,11 @@
 
 **Last updated: 6 September 2026** · **Effective: 6 September 2026**
 
-> **Two items still need filling in before you publish: `[LEGAL ENTITY NAME]`
-> and `[REGISTERED ADDRESS]`.** See `legal/README.md` — the choice you make
-> there decides who is personally liable.
-
 NiblGo is a photo-first app for sharing meals with friends. This policy explains
 what we collect, why, who we share it with, and what you can make us do about it.
 
-We are **[LEGAL ENTITY NAME]**, [REGISTERED ADDRESS], Sioux Falls, South
-Dakota, USA, and we are the data controller for the information described here.
+We are **Bryce and Cameron**, 4500 E. 33rd St., Sioux Falls, South
+Dakota 57110, USA, and we are the data controller for the information described here.
 
 Questions, requests, or complaints: **privacy@niblgo.com**.
 
@@ -253,9 +249,9 @@ it takes effect.
 
 ## 12. Contact
 
-**[LEGAL ENTITY NAME]**
-[REGISTERED ADDRESS]
-Sioux Falls, South Dakota, USA
+**Bryce and Cameron**
+4500 E. 33rd St.
+Sioux Falls, South Dakota 57110, USA
 
 Privacy requests, and anything about this policy: **privacy@niblgo.com**
 Support, and anything else: **support@niblgo.com**

@@ -128,6 +128,9 @@ export interface Report {
   message_id?: string | null;
   message_text_snapshot?: string | null;
   message_image_url_snapshot?: string | null;
+  /** Set instead of post_id when a comment is what was reported. */
+  comment_id?: string | null;
+  comment_text_snapshot?: string | null;
   status: ReportStatus;
   created_at: string;
   reviewed_at: string | null;

@@ -6,34 +6,34 @@
 ## Status
 
 Filled in: dates, both contact emails, South Dakota governing law and Minnehaha
-County venue, the USD 100 liability cap, Supabase region.
+County venue, the USD 100 liability cap, Supabase region, and — now published —
+the contracting party and its address.
 
-**Two things still to decide**, and they are the two that matter most:
+**Contracting party (now set):** both documents and the live site name
+**Bryce and Cameron**, 4500 E. 33rd St., Sioux Falls, South Dakota 57110, USA.
+That resolves the two placeholders the build used to warn about. Two things about
+that choice are still worth knowing:
 
-### 1. `[LEGAL ENTITY NAME]` — who is on the hook
+### 1. `Bryce and Cameron` — who is on the hook
 
-If you have not formed a company, the answer is **your two names, personally**,
-and personal liability is exactly what that means: a claim against NiblGo is a
-claim against you and your co-founder as individuals, reaching your own assets.
+This is the **personal-names** option, and personal liability is exactly what it
+means: a claim against NiblGo is a claim against you and your co-founder as
+individuals, reaching your own assets.
 
 A South Dakota LLC is the ordinary fix. Filing with the SD Secretary of State is
 around **$150 online**, and you can do it yourself in an afternoon — no lawyer
 needed for a simple two-member LLC. Given you are shipping a social app that
-hosts other people's photos and prints cooking instructions, this is the single
-highest-value hour you can spend before launch. Do it, then put the LLC's name
-in both documents.
+hosts other people's photos and prints cooking instructions, this is still the
+single highest-value hour you can spend. If you form it, put the LLC's name in
+both `legal/*.md` files and re-run `npm run build:site`.
 
-Until then, write both your legal names, e.g. `Firstname Lastname and Firstname
-Lastname, operating as NiblGo`.
+### 2. `4500 E. 33rd St.` — the registered address is public
 
-### 2. `[REGISTERED ADDRESS]` — a real postal address
-
-GDPR requires a contactable address, and it becomes public the moment you
-publish the policy.
-
-**Do not use your home address.** Options, cheapest first: a USPS PO box in
-Sioux Falls (~$20–90/year); a virtual mailbox; or, if you form the LLC, your
-registered agent's address, which is public anyway.
+GDPR requires a contactable address, and it is public now that the policy is
+published. If you would rather not have this address public, the alternatives,
+cheapest first, are a USPS PO box in Sioux Falls (~$20–90/year); a virtual
+mailbox; or, if you form the LLC, your registered agent's address, which is
+public anyway. Change it in both `legal/*.md` files and re-run the build.
 
 ### Do you need an EU representative?
 
@@ -104,7 +104,7 @@ If you change any of these, update the documents to match:
 | Deleting your account deletes your photos | `delete-account` sweeps the user's storage folder before deleting the auth user |
 | Reports outlive the account | `reports` and `feedback` use `ON DELETE SET NULL` and keep content snapshots |
 | No other *user* can read your DMs | Enforced in row-level security, tested in `supabase/tests/dm_test.sql`. The policy also states plainly that you, as operator, hold admin access that reaches everything — do not remove that paragraph |
-| In-app reporting covers posts and DMs only | `usePostActions.ts` and `ChatScreen.tsx` are the only two report entry points. Comments and accounts go by email; if you add in-app reporting for them, update the Terms |
+| In-app reporting covers posts, comments, DMs and accounts | Report entry points: `usePostActions.ts` (posts), `CommentsScreen.tsx` (comments), `ChatScreen.tsx` (DMs), `ProfileScreen.tsx` (accounts). Email is an additional route, not the only one for comments and accounts. If you add or remove an entry point, update the Terms |
 | Time zone is visible to signed-in users | `users` is readable by any authenticated user and `timezone` is a column on it |
 | Follower lists can be private | `users.follows_private`, enforced in RLS |
 | Location isn't collected | `LOCATION_TAGGING_ENABLED = false` in `src/config.ts` |
