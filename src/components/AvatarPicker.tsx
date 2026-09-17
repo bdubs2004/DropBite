@@ -134,7 +134,11 @@ const styles = StyleSheet.create({
     ...(shadow as object),
   },
   busy: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     margin: 9,
     backgroundColor: colors.overlay,
     alignItems: 'center',

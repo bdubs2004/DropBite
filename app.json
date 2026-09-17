@@ -7,14 +7,12 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "scheme": "niblgo",
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#FFF4DE"
-    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.niblgo.app",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
       "infoPlist": {
         "NSCameraUsageDescription": "NiblGo uses your camera so you can snap a photo of your meal.",
         "NSPhotoLibraryUsageDescription": "NiblGo lets you pick a meal photo from your library."
@@ -32,19 +30,31 @@
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
     },
-    "notification": {
-      "color": "#E8862E"
-    },
     "plugins": [
       "expo-font",
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "color": "#E8862E"
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#FFF4DE"
+        }
+      ],
       [
         "expo-image-picker",
         {
           "photosPermission": "NiblGo lets you pick a meal photo from your library.",
           "cameraPermission": "NiblGo uses your camera so you can snap a photo of your meal."
         }
-      ]
+      ],
+      "expo-image",
+      "expo-status-bar"
     ]
   }
 }

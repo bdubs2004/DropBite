@@ -206,7 +206,14 @@ export function ActivityDrawer({
 
 const styles = StyleSheet.create({
   root: { flex: 1, flexDirection: 'row', justifyContent: 'flex-end' },
-  backdropFill: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.overlay },
+  backdropFill: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: colors.overlay,
+  },
   grabZone: {
     position: 'absolute',
     left: 0,
