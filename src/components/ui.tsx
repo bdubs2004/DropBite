@@ -6,6 +6,7 @@ import {
   Text,
   TextInput,
   TextInputProps,
+  TextStyle,
   View,
   ViewStyle,
 } from 'react-native';
@@ -18,6 +19,7 @@ export function Button({
   disabled,
   loading,
   style,
+  textStyle,
   small,
   testID,
 }: {
@@ -27,6 +29,8 @@ export function Button({
   disabled?: boolean;
   loading?: boolean;
   style?: ViewStyle;
+  /** Overrides the label colour/typography, e.g. to tint a custom-filled button. */
+  textStyle?: TextStyle;
   small?: boolean;
   testID?: string;
 }) {
@@ -58,9 +62,11 @@ export function Button({
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={fg} />
+        <ActivityIndicator color={textStyle?.color ?? fg} />
       ) : (
-        <Text style={[styles.btnText, small && styles.btnTextSmall, { color: fg }]}>{title}</Text>
+        <Text style={[styles.btnText, small && styles.btnTextSmall, { color: fg }, textStyle]}>
+          {title}
+        </Text>
       )}
     </Pressable>
   );

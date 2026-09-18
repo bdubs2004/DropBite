@@ -32,30 +32,19 @@ build.**
 will paste into App Store Connect and the Play Console, and short URLs age
 better than long ones.
 
-### One thing still blocks publishing
-
-The build prints this, every time:
-
-```
-⚠ UNFILLED PLACEHOLDERS — do not publish these pages yet:
-   privacy.html: [LEGAL ENTITY NAME], [REGISTERED ADDRESS]
-   terms.html: [LEGAL ENTITY NAME], [REGISTERED ADDRESS]
-```
+### The contracting party is filled in
 
 Both documents name the party you are contracting as, and that has to be a real
-name and address. The choice is yours to make and it has consequences:
+name and address. This is now filled in — the live site and `legal/*.md` both
+name **Bryce and Cameron**, 4500 E. 33rd St., Sioux Falls, South Dakota 57110,
+USA — so the build no longer prints the unfilled-placeholder warning.
 
-- **Your own names, your home address.** Free, immediate, and you are personally
-  liable — a claim against NiblGo is a claim against you both.
-- **An LLC.** In South Dakota, filing Articles of Organization with the Secretary
-  of State costs about $150 online and is usually processed in a day or two.
-  Liability stops at the company. You can use a registered agent's address
-  instead of your home one, which is the usual reason people bother.
-
-For a free app with no revenue, either is defensible. Publishing a policy with
-`[LEGAL ENTITY NAME]` still in it is not — the build refuses to let that pass
-quietly for exactly that reason. Fill it in in `legal/*.md`, re-run the build,
-and the warning goes away.
+This is the personal-names option: a claim against NiblGo is a claim against you
+both. Forming a South Dakota LLC (Articles of Organization with the Secretary of
+State, about $150 online, processed in a day or two) would move that liability to
+the company and let you use a registered agent's address instead of your own. For
+a free app with no revenue the personal-names choice is defensible; if you form
+the LLC later, update the name and address in `legal/*.md` and re-run the build.
 
 ---
 

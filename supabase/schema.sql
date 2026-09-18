@@ -321,6 +321,11 @@ create table if not exists public.reports (
   message_image_url_snapshot text check (
     message_image_url_snapshot is null or char_length(message_image_url_snapshot) <= 1000
   ),
+  -- Reported comment. SET NULL like the others so deleting the comment doesn't
+  -- erase the report; the snapshot keeps what was said. An account report has
+  -- none of post_id/message_id/comment_id set — just reported_user_id.
+  comment_id uuid references public.comments (id) on delete set null,
+  comment_text_snapshot text check (comment_text_snapshot is null or char_length(comment_text_snapshot) <= 2000),
   status text not null default 'open' check (status in ('open', 'reviewing', 'actioned', 'dismissed')),
   created_at timestamptz not null default now(),
   reviewed_at timestamptz,
@@ -332,6 +337,7 @@ create unique index if not exists reports_one_per_reporter_idx on public.reports
 -- The triage view: oldest open reports first.
 create index if not exists reports_status_created_idx on public.reports (status, created_at);
 create index if not exists reports_reported_user_idx on public.reports (reported_user_id);
+create index if not exists reports_comment_idx on public.reports (comment_id);
 
 -- ------------------------------------------------------------- feedback
 -- In-app feedback and bug reports, from the Help section of the profile

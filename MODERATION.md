@@ -11,16 +11,18 @@ over user data, and it isn't worth building until report volume justifies it.
 
 ## Where reports live
 
-Table: **`public.reports`**. One row per person per reported thing — a post,
-or a direct message. Exactly one of `post_id` / `message_id` is set; everything
-else in the row works the same either way.
+Table: **`public.reports`**. One row per person per reported thing — a post, a
+comment, a direct message, or a whole account. At most one of `post_id` /
+`comment_id` / `message_id` is set; when **all three are null** the row is an
+**account report**, standing on `reported_user_id` alone. Everything else in the
+row works the same whichever it is.
 
 | Column | What it's for |
 | --- | --- |
 | `id` | Report id |
 | `post_id` | The reported post. **Goes null if the post is deleted** |
 | `reporter_id` | Who filed it. Never show this to the reported user |
-| `reported_user_id` | Author of the reported post. Survives post deletion |
+| `reported_user_id` | Who the report is about. Survives the content's deletion |
 | `reason` | `spam`, `harassment`, `sexual`, `violence`, `self_harm`, `false_info`, `intellectual_property`, `other` |
 | `detail` | Optional free text from the reporter |
 | `post_blurb_snapshot` | The post's words, copied at report time |
@@ -28,9 +30,15 @@ else in the row works the same either way.
 | `message_id` | The reported DM. **Goes null if the sender deletes it** |
 | `message_text_snapshot` | The message's words, copied at report time |
 | `message_image_url_snapshot` | The message's attached photo, copied at report time |
+| `comment_id` | The reported comment. **Goes null if the author deletes it** |
+| `comment_text_snapshot` | The comment's words, copied at report time |
 | `status` | `open` → `reviewing` → `actioned` \| `dismissed` |
 | `created_at` | When it was filed |
 | `reviewed_at`, `reviewer_notes` | Your audit trail |
+
+An **account report** carries no content id and no snapshot — just
+`reported_user_id`, `reason` and `detail`. It says "this whole profile is a
+problem"; pull that user's other reports and their posts to judge it.
 
 ### Why the snapshots exist
 
@@ -42,11 +50,12 @@ against you — which is exactly what a bad actor would do.
 So: a report with `post_id IS NULL` means *the author already deleted it*. That
 is useful signal, not a broken row.
 
-`message_id` works exactly the same way, for the same reason. **You cannot read
-the rest of the thread** — the snapshot is all the context there is, by design:
-a moderator shouldn't be able to open anyone's private conversations. Judge the
-reported message on its own, and if it isn't judgeable alone, dismiss it and
-watch for repeat reports against the same sender.
+`message_id` and `comment_id` work exactly the same way, for the same reason.
+For a DM, **you cannot read the rest of the thread** — the snapshot is all the
+context there is, by design: a moderator shouldn't be able to open anyone's
+private conversations. Judge the reported message or comment on its own, and if
+it isn't judgeable alone, dismiss it and watch for repeat reports against the
+same sender.
 
 ---
 
@@ -71,11 +80,18 @@ select
   r.created_at,
   r.reason,
   r.detail,
-  case when r.message_id is not null or r.message_text_snapshot is not null
-       then 'direct message' else 'post' end as kind,
-  coalesce(r.post_blurb_snapshot, r.message_text_snapshot, '(no text)') as reported_text,
+  case
+    when r.message_id is not null or r.message_text_snapshot is not null then 'direct message'
+    when r.comment_id is not null or r.comment_text_snapshot is not null then 'comment'
+    when r.post_id is not null or r.post_blurb_snapshot is not null then 'post'
+    else 'account'
+  end as kind,
+  coalesce(r.post_blurb_snapshot, r.message_text_snapshot, r.comment_text_snapshot, '(no text)') as reported_text,
   coalesce(r.post_photo_url_snapshot, r.message_image_url_snapshot) as photo,
-  coalesce(r.post_id, r.message_id) is null as author_already_deleted_it,
+  -- Only meaningful for content reports; an account report has no content id.
+  coalesce(r.post_id, r.message_id, r.comment_id) is null
+    and coalesce(r.post_blurb_snapshot, r.message_text_snapshot, r.comment_text_snapshot) is not null
+    as author_already_deleted_it,
   u.handle    as reported_user,
   u.id        as reported_user_id
 from public.reports r

@@ -2,11 +2,8 @@
 
 **Last updated: 6 September 2026** · **Effective: 6 September 2026**
 
-> **Two items still need filling in before you publish: `[LEGAL ENTITY NAME]`
-> and `[REGISTERED ADDRESS]`.** See `legal/README.md`.
-
-These terms are a contract between you and **[LEGAL ENTITY NAME]** ("we", "us"),
-[REGISTERED ADDRESS], Sioux Falls, South Dakota, USA. By creating an account or
+These terms are a contract between you and **Bryce and Cameron** ("we", "us"),
+4500 E. 33rd St., Sioux Falls, South Dakota 57110, USA. By creating an account or
 using NiblGo, you accept them. If you do not accept them, do not use the app.
 
 This document doubles as the **End User Licence Agreement (EULA)** required for
@@ -90,14 +87,14 @@ Do not post, send, or do any of the following:
 
 ### How we enforce this
 
-Anyone can report a **post** or a **direct message** from inside the app — the
-••• menu on a post, or holding down a post or a message. Anyone can **block**
-another user from their profile, which hides both of you from each other
-completely.
+Anyone can report a **post**, a **comment**, a **direct message**, or a whole
+**account** from inside the app — the ••• menu on a post or a profile, or
+holding down a comment or a message. Anyone can **block** another user from
+their profile, which hides both of you from each other completely.
 
-To report a comment, or an account as a whole, email **support@niblgo.com**
-with the handle and what you saw; we treat those exactly as we treat in-app
-reports.
+You can also email **support@niblgo.com** with the handle and what you saw — for
+anything you would rather send that way — and we treat it exactly as an in-app
+report.
 
 **We aim to review every report within 24 hours.** Where content or conduct
 breaks these terms we may, at our discretion and without notice: remove the
@@ -275,6 +272,6 @@ of a merger, acquisition, or sale of assets, on notice to you.
 
 ## 15. Contact
 
-**[LEGAL ENTITY NAME]**
-[Registered address]
+**Bryce and Cameron**
+4500 E. 33rd St.
 **support@niblgo.com**

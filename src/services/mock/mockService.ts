@@ -700,6 +700,74 @@ export class MockService implements DataService {
     await this.save();
   }
 
+  async reportComment(commentId: string, reason: ReportReason, detail?: string): Promise<void> {
+    const db = await this.load();
+    const me = await this.me();
+    const comment = db.comments.find((c) => c.id === commentId);
+    if (!comment) throw new Error('That comment no longer exists.');
+    if (comment.user_id === me.id) throw new Error('You cannot report your own comment.');
+
+    // Filing twice is a no-op, same as post and message reports.
+    if (db.reports.some((r) => r.comment_id === commentId && r.reporter_id === me.id)) return;
+
+    db.reports.push({
+      id: uid('rep-'),
+      post_id: null,
+      comment_id: commentId,
+      reporter_id: me.id,
+      reported_user_id: comment.user_id,
+      reason,
+      detail: detail?.trim() ? detail.trim().slice(0, 1000) : null,
+      post_blurb_snapshot: null,
+      post_photo_url_snapshot: null,
+      // Snapshot the comment: the author can delete it, and the report has to
+      // still show a reviewer what was actually reported.
+      comment_text_snapshot: comment.text || null,
+      status: 'open',
+      created_at: new Date().toISOString(),
+      reviewed_at: null,
+      reviewer_notes: null,
+    } as any);
+    await this.save();
+  }
+
+  async reportUser(userId: string, reason: ReportReason, detail?: string): Promise<void> {
+    const db = await this.load();
+    const me = await this.me();
+    if (userId === me.id) throw new Error('You cannot report your own account.');
+
+    // One standing account report per reporter is plenty; more just buries the
+    // queue. An account report carries no content id — reported_user_id is it.
+    if (
+      db.reports.some(
+        (r) =>
+          r.reported_user_id === userId &&
+          r.reporter_id === me.id &&
+          !r.post_id &&
+          !r.message_id &&
+          !r.comment_id,
+      )
+    ) {
+      return;
+    }
+
+    db.reports.push({
+      id: uid('rep-'),
+      post_id: null,
+      reporter_id: me.id,
+      reported_user_id: userId,
+      reason,
+      detail: detail?.trim() ? detail.trim().slice(0, 1000) : null,
+      post_blurb_snapshot: null,
+      post_photo_url_snapshot: null,
+      status: 'open',
+      created_at: new Date().toISOString(),
+      reviewed_at: null,
+      reviewer_notes: null,
+    } as any);
+    await this.save();
+  }
+
   async sharePostToUsers(postId: string, userIds: string[]): Promise<void> {
     for (const userId of userIds) {
       const convId = await this.startConversation(userId);

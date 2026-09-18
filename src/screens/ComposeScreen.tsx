@@ -317,11 +317,15 @@ export function ComposeScreen({ navigation }: any) {
         {!recipe ? (
           <View>
             <Button
-              title={formatting ? 'Formatting' : 'Format as recipe card'}
+              title={formatting ? 'Formatting' : '✨ Format as recipe card'}
               variant="secondary"
               onPress={runFormat}
               disabled={blurb.trim().length < 12}
               loading={formatting}
+              // Soft-amber fill with the dark-amber action colour so it reads as
+              // a tappable AI action, distinct from the solid-amber "Share post".
+              style={{ backgroundColor: colors.amberSoft, borderWidth: 1, borderColor: colors.amber }}
+              textStyle={{ color: colors.amberDark }}
             />
             {formatFailed === 'not-recipe' ? (
               <Muted style={{ marginTop: spacing.sm }}>

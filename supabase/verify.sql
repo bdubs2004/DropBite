@@ -34,7 +34,9 @@ expected_columns(tbl, col, fixed_by) as (
     ('messages',     'image_url',             '0007_message_images.sql'),
     ('reports',      'message_id',            '0008_dm_follow_and_reports.sql'),
     ('reports',      'message_text_snapshot', '0008_dm_follow_and_reports.sql'),
-    ('notifications','read_at',               '0009_notifications.sql')
+    ('notifications','read_at',               '0009_notifications.sql'),
+    ('reports',      'comment_id',            '0013_report_comments_and_accounts.sql'),
+    ('reports',      'comment_text_snapshot', '0013_report_comments_and_accounts.sql')
 ),
 
 -- Functions the policies call. A missing one breaks every policy that uses it.

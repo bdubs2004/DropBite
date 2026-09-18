@@ -112,7 +112,9 @@ export function CommentsScreen({ navigation, route }: any) {
           <Pressable
             testID={`comment-${item.id}`}
             style={styles.row}
-            onLongPress={() => item.can_delete && setMenuFor(item)}
+            onLongPress={() =>
+              (item.can_delete || item.user_id !== user?.id) && setMenuFor(item)
+            }
             delayLongPress={350}
           >
             <Avatar user={item.user} size={34} />
@@ -171,32 +173,51 @@ export function CommentsScreen({ navigation, route }: any) {
         title="Comment"
         onClose={() => setMenuFor(null)}
         actions={[
-          {
-            key: 'delete-comment',
-            label: 'Delete comment',
-            hint:
-              menuFor && menuFor.user_id !== user?.id
-                ? 'You can remove comments on your own post'
-                : undefined,
-            icon: 'trash-outline',
-            destructive: true,
-            onPress: () => {
-              const target = menuFor;
-              if (!target) return;
-              if (Platform.OS === 'web') {
-                setConfirming(target);
-                return;
-              }
-              Alert.alert('Delete comment?', 'This cannot be undone.', [
-                { text: 'Cancel', style: 'cancel' },
+          ...(menuFor?.can_delete
+            ? [
                 {
-                  text: 'Delete',
-                  style: 'destructive',
-                  onPress: () => removeComment(target),
+                  key: 'delete-comment',
+                  label: 'Delete comment',
+                  hint:
+                    menuFor && menuFor.user_id !== user?.id
+                      ? 'You can remove comments on your own post'
+                      : undefined,
+                  icon: 'trash-outline',
+                  destructive: true,
+                  onPress: () => {
+                    const target = menuFor;
+                    if (!target) return;
+                    if (Platform.OS === 'web') {
+                      setConfirming(target);
+                      return;
+                    }
+                    Alert.alert('Delete comment?', 'This cannot be undone.', [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Delete',
+                        style: 'destructive',
+                        onPress: () => removeComment(target),
+                      },
+                    ]);
+                  },
                 },
-              ]);
-            },
-          },
+              ]
+            : []),
+          ...(menuFor && menuFor.user_id !== user?.id
+            ? [
+                {
+                  key: 'report-comment',
+                  label: 'Report comment',
+                  hint: 'Send this to our moderation team',
+                  icon: 'flag-outline',
+                  destructive: true,
+                  onPress: () => {
+                    const target = menuFor;
+                    if (target) navigation.navigate('Report', { commentId: target.id });
+                  },
+                },
+              ]
+            : []),
         ]}
       />
 
