@@ -23,6 +23,29 @@ import { daysBetween, localDateString } from '../../lib/time';
 import { DataService } from '../types';
 import { getSupabase } from './client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImageManipulator from 'expo-image-manipulator';
+
+// Decode base64 to raw bytes without relying on atob (not guaranteed on all
+// React Native engines). Used for photo upload — see uploadPhoto.
+const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+function base64ToBytes(base64: string): Uint8Array {
+  const lookup = new Uint8Array(256);
+  for (let i = 0; i < B64.length; i++) lookup[B64.charCodeAt(i)] = i;
+  const clean = base64.replace(/[^A-Za-z0-9+/]/g, '');
+  const n = clean.length;
+  const bytes = new Uint8Array((n * 3) >> 2);
+  let p = 0;
+  for (let i = 0; i < n; i += 4) {
+    const c0 = lookup[clean.charCodeAt(i)];
+    const c1 = lookup[clean.charCodeAt(i + 1)];
+    const c2 = lookup[clean.charCodeAt(i + 2)];
+    const c3 = lookup[clean.charCodeAt(i + 3)];
+    if (p < bytes.length) bytes[p++] = (c0 << 2) | (c1 >> 4);
+    if (p < bytes.length) bytes[p++] = ((c1 & 15) << 4) | (c2 >> 2);
+    if (p < bytes.length) bytes[p++] = ((c2 & 3) << 6) | c3;
+  }
+  return bytes;
+}
 
 // Kept as 'nibl.*' through the NiblGo rename: renaming would silently reset
 // everyone's saved notification preferences.
@@ -514,14 +537,36 @@ export class SupabaseService implements DataService {
 
   /** Upload a local photo URI to the "photos" bucket, return its public URL. */
   private async uploadPhoto(localUri: string, meId: string): Promise<string> {
-    const resp = await fetch(localUri);
-    const blob = await resp.arrayBuffer();
     const path = `${meId}/${Date.now()}.jpg`;
-    const { error } = await this.sb.storage.from('photos').upload(path, blob, {
+    const bytes = await this.readJpegBytes(localUri);
+    if (bytes.length === 0) throw new Error('The selected photo could not be read.');
+    const { error } = await this.sb.storage.from('photos').upload(path, bytes, {
       contentType: 'image/jpeg',
     });
     if (error) throw error;
     return this.sb.storage.from('photos').getPublicUrl(path).data.publicUrl;
+  }
+
+  /**
+   * Read a photo into raw JPEG bytes.
+   *
+   * `fetch(fileUri).arrayBuffer()` is unreliable on React Native — for a local
+   * file:// URI it frequently returns an empty buffer, which uploaded a 0-byte
+   * image (or failed). Instead read the file as base64 (a data: URL already
+   * carries it; a native file goes through the image manipulator, which also
+   * guarantees a JPEG) and decode that.
+   */
+  private async readJpegBytes(uri: string): Promise<Uint8Array> {
+    if (uri.startsWith('data:')) {
+      return base64ToBytes(uri.slice(uri.indexOf(',') + 1));
+    }
+    const out = await ImageManipulator.manipulateAsync(uri, [], {
+      base64: true,
+      compress: 0.9,
+      format: ImageManipulator.SaveFormat.JPEG,
+    });
+    if (!out.base64) throw new Error('The selected photo could not be read.');
+    return base64ToBytes(out.base64);
   }
 
   async createPost(input: NewPostInput): Promise<Post> {

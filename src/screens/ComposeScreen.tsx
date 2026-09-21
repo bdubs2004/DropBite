@@ -317,7 +317,7 @@ export function ComposeScreen({ navigation }: any) {
         {!recipe ? (
           <View>
             <Button
-              title={formatting ? 'Formatting' : '✨ Format as recipe card'}
+              title={formatting ? 'Formatting' : 'Format as recipe card'}
               variant="secondary"
               onPress={runFormat}
               disabled={blurb.trim().length < 12}

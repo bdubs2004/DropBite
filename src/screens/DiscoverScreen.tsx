@@ -40,16 +40,25 @@ export function DiscoverScreen({ navigation }: any) {
   const [posts, setPosts] = useState<Post[]>([]);
   const [people, setPeople] = useState<DiscoverPerson[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const gridRef = useRef<FlatList<Post | null>>(null);
   const peopleRef = useRef<FlatList<DiscoverPerson>>(null);
 
   const load = useCallback(async () => {
     // Load both tabs together so switching is instant.
-    const [p, u] = await Promise.all([svc.getDiscoverPosts(), svc.getDiscoverPeople()]);
-    setPosts(p);
-    setPeople(u);
-    setLoading(false);
+    setError(false);
+    try {
+      const [p, u] = await Promise.all([svc.getDiscoverPosts(), svc.getDiscoverPeople()]);
+      setPosts(p);
+      setPeople(u);
+    } catch {
+      // Without this the spinner never clears — a thrown query left Discover
+      // spinning forever with no empty state and no way to retry.
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
   }, [svc]);
 
   useFocusEffect(
@@ -123,6 +132,20 @@ export function DiscoverScreen({ navigation }: any) {
       <View style={[styles.root, { paddingTop: insets.top }]}>
         {header}
         <ActivityIndicator color={colors.amber} style={{ marginTop: spacing.xl }} />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={[styles.root, { paddingTop: insets.top }]}>
+        {header}
+        <View style={{ alignItems: 'center', marginTop: spacing.xl, paddingHorizontal: spacing.xl }}>
+          <Muted style={{ textAlign: 'center' }}>
+            Couldn’t load Discover just now. Check your connection and try again.
+          </Muted>
+          <Button title="Try again" onPress={refresh} style={{ marginTop: spacing.md }} />
+        </View>
       </View>
     );
   }
