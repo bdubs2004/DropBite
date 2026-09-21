@@ -89,6 +89,16 @@ create table if not exists public.recipes (
     check (cook_time_minutes is null or cook_time_minutes between 0 and 6000),
   ai_generated boolean not null default false,
   user_edited boolean not null default false,      -- tracks AI accuracy over time
+  -- Nutrition (migration 0012), inlined so a fresh schema.sql install matches.
+  -- Totals for the whole dish; servings is the display divisor the user sets.
+  servings integer not null default 1
+    constraint recipes_servings_range check (servings between 1 and 100),
+  nutrition jsonb constraint recipes_nutrition_bounded check (
+    nutrition is null or (jsonb_typeof(nutrition) = 'object' and pg_column_size(nutrition) <= 2048)
+  ),
+  nutrition_source text constraint recipes_nutrition_source_allowed check (
+    nutrition_source is null or nutrition_source in ('usda', 'estimated', 'demo')
+  ),
   created_at timestamptz not null default now()
 );
 

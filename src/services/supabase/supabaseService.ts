@@ -592,7 +592,11 @@ export class SupabaseService implements DataService {
     if (error) throw error;
     const post = data as Post;
     if (input.recipe) {
-      await this.sb.from('recipes').insert({
+      // The post already exists; the recipe is supplementary, so a failure here
+      // must never lose the post (CLAUDE.md: never block the post). A common
+      // cause is a database missing migration 0012 — the servings/nutrition
+      // columns — which surfaces here rather than blocking the whole post.
+      const { error: recipeErr } = await this.sb.from('recipes').insert({
         post_id: post.id,
         title: input.recipe.title,
         ingredients: input.recipe.ingredients,
@@ -605,6 +609,9 @@ export class SupabaseService implements DataService {
         nutrition: input.recipe.nutrition ?? null,
         nutrition_source: input.recipe.nutrition_source ?? null,
       });
+      if (recipeErr) {
+        console.warn('recipe insert failed (post still saved):', recipeErr.message);
+      }
     }
     // streak upsert
     const today = localDateString();

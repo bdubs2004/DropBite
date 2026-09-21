@@ -35,6 +35,9 @@ expected_columns(tbl, col, fixed_by) as (
     ('reports',      'message_id',            '0008_dm_follow_and_reports.sql'),
     ('reports',      'message_text_snapshot', '0008_dm_follow_and_reports.sql'),
     ('notifications','read_at',               '0009_notifications.sql'),
+    ('recipes',      'servings',              '0012_nutrition.sql'),
+    ('recipes',      'nutrition',             '0012_nutrition.sql'),
+    ('recipes',      'nutrition_source',      '0012_nutrition.sql'),
     ('reports',      'comment_id',            '0013_report_comments_and_accounts.sql'),
     ('reports',      'comment_text_snapshot', '0013_report_comments_and_accounts.sql')
 ),
