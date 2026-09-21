@@ -162,13 +162,13 @@ export function NutritionPanel({
 function sourceLine(source: NutritionSource | null): string {
   switch (source) {
     case 'usda':
-      return 'Estimated from your ingredients using USDA FoodData Central. Cooking, brands and how much you actually eat will move these numbers.';
+      return 'These are estimates, worked out from your ingredients using the USDA FoodData Central database. The real numbers shift with how you cook, the brands you use, and how much you actually eat.';
     case 'demo':
-      return 'Sample data for demo mode — not real nutrition figures.';
+      return 'Sample figures for demo mode — not real nutrition data.';
     case 'estimated':
-      return 'A rough estimate, not matched to a nutrition database. Treat it as a ballpark.';
+      return 'A rough ballpark from your ingredients — it isn’t matched to a nutrition database, so take it loosely.';
     default:
-      return 'An estimate. Do not rely on it for medical or dietary decisions.';
+      return 'Just an estimate — please don’t lean on it for medical or dietary decisions.';
   }
 }
 

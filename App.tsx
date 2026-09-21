@@ -15,11 +15,13 @@ import * as Linking from 'expo-linking';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StatusBar } from 'expo-status-bar';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LogoMark } from './src/components/Logo';
 import { AuthScreen } from './src/screens/AuthScreen';
+import { ResetPasswordScreen } from './src/screens/ResetPasswordScreen';
+import { getDataService } from './src/services';
 import { CommentsScreen } from './src/screens/CommentsScreen';
 import { ComposeScreen } from './src/screens/ComposeScreen';
 import { FeedScreen } from './src/screens/FeedScreen';
@@ -152,14 +154,95 @@ function Tabs() {
   );
 }
 
+/** Pull the params out of a URL's #fragment (Supabase returns auth tokens there). */
+function parseHashParams(url: string): Record<string, string> {
+  const i = url.indexOf('#');
+  if (i < 0) return {};
+  const out: Record<string, string> = {};
+  for (const pair of url.slice(i + 1).split('&')) {
+    if (!pair) continue;
+    const eq = pair.indexOf('=');
+    const k = eq < 0 ? pair : pair.slice(0, eq);
+    const v = eq < 0 ? '' : pair.slice(eq + 1);
+    try {
+      out[decodeURIComponent(k)] = decodeURIComponent(v);
+    } catch {
+      out[k] = v;
+    }
+  }
+  return out;
+}
+
+/** True for the password-reset deep link (niblgo://reset), not the post/user ones. */
+function isResetLink(url: string): boolean {
+  try {
+    const { hostname, path } = Linking.parse(url.split('#')[0]);
+    const target = (hostname || path || '').replace(/^\/+/, '').replace(/\/+$/, '');
+    return target === 'reset';
+  } catch {
+    return false;
+  }
+}
+
 function Root() {
-  const { booted, user } = useApp();
+  const { booted, user, refreshMe } = useApp();
+  const svc = getDataService();
+  // Password-recovery mode, entered via a niblgo://reset deep link. Rendered
+  // over everything else until the user sets a new password or backs out.
+  const [recovery, setRecovery] = useState<{ active: boolean; error: string | null }>({
+    active: false,
+    error: null,
+  });
+
+  useEffect(() => {
+    let mounted = true;
+    const handle = async (url: string | null) => {
+      if (!url || !isResetLink(url)) return;
+      const p = parseHashParams(url);
+      // Supabase puts an expired/used link's reason in the fragment too.
+      if (p.error || p.error_description) {
+        if (mounted) setRecovery({ active: true, error: p.error_description || p.error });
+        return;
+      }
+      if (p.access_token && p.refresh_token) {
+        try {
+          await svc.setSessionFromTokens(p.access_token, p.refresh_token);
+          await refreshMe();
+          if (mounted) setRecovery({ active: true, error: null });
+        } catch (e: any) {
+          if (mounted) {
+            setRecovery({
+              active: true,
+              error: e?.message || 'This reset link is invalid or has expired.',
+            });
+          }
+        }
+      }
+    };
+    // Cold start (app was closed) and warm (app was backgrounded) are separate
+    // paths — a link that resumes a backgrounded app never hits getInitialURL.
+    Linking.getInitialURL().then(handle);
+    const sub = Linking.addEventListener('url', ({ url }) => handle(url));
+    return () => {
+      mounted = false;
+      sub.remove();
+    };
+  }, [svc, refreshMe]);
+
   if (!booted) {
     return (
       <View style={styles.splash}>
         <LogoMark size={96} />
         <Text style={styles.splashWord}>NiblGo</Text>
       </View>
+    );
+  }
+  if (recovery.active) {
+    return (
+      <ResetPasswordScreen
+        error={recovery.error}
+        onDone={() => setRecovery({ active: false, error: null })}
+      />
     );
   }
   if (!user) return <AuthScreen />;

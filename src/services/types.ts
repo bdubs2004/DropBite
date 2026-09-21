@@ -46,6 +46,17 @@ export interface DataService {
   signOut(): Promise<void>;
   deleteAccount(): Promise<void>;
   /**
+   * Send a password-reset email. The link deep-links back into the app so the
+   * app receives the recovery session and can set a new password.
+   */
+  requestPasswordReset(email: string): Promise<void>;
+  /** Re-send the sign-up confirmation email (for links that expired or were eaten by a scanner). */
+  resendConfirmation(email: string): Promise<void>;
+  /** Establish a session from recovery tokens carried in a deep link. */
+  setSessionFromTokens(accessToken: string, refreshToken: string): Promise<void>;
+  /** Set a new password for the currently-authenticated (recovery) session. */
+  updatePassword(newPassword: string): Promise<void>;
+  /**
    * JSON of everything the signed-in user owns.
    *
    * NOT reachable from the UI: self-serve export was deliberately removed, so

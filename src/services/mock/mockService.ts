@@ -241,6 +241,29 @@ export class MockService implements DataService {
     await this.save();
   }
 
+  // Demo mode has no email delivery, so these password/confirmation flows are
+  // no-ops here — the live backend (Supabase) does the real work.
+  async requestPasswordReset(_email: string): Promise<void> {
+    // Nothing to send in demo mode.
+  }
+
+  async resendConfirmation(_email: string): Promise<void> {
+    // Demo accounts are usable immediately; nothing to resend.
+  }
+
+  async setSessionFromTokens(_accessToken: string, _refreshToken: string): Promise<void> {
+    // No token-based sessions in demo mode.
+  }
+
+  async updatePassword(newPassword: string): Promise<void> {
+    const db = await this.load();
+    const cred = db.credentials.find((c) => c.userId === db.sessionUserId);
+    if (!cred) throw new Error('Not signed in');
+    cred.password_hash = await hashPassword(newPassword);
+    delete cred.password;
+    await this.save();
+  }
+
   async deleteAccount(): Promise<void> {
     const db = await this.load();
     const meId = db.sessionUserId;
