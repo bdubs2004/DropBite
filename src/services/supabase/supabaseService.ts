@@ -15,6 +15,7 @@ import {
   Streak,
   User,
 } from '../../types';
+import { EMAIL_CONFIRM_URL, PASSWORD_RESET_URL } from '../../config';
 import { appVersion, platformName } from '../../lib/appInfo';
 import { clamp, clampOrNull, LIMITS } from '../../lib/limits';
 import { sanitizeSearchTerm } from '../../lib/searchTerm';
@@ -114,6 +115,9 @@ export class SupabaseService implements DataService {
       email: input.email,
       password: input.password,
       options: {
+        // Land the confirmation link on our own page, which finishes the
+        // verification and offers a way back into the app — not the Site URL.
+        emailRedirectTo: EMAIL_CONFIRM_URL,
         data: {
           handle,
           display_name,
@@ -198,6 +202,37 @@ export class SupabaseService implements DataService {
 
   async signOut(): Promise<void> {
     await this.sb.auth.signOut();
+  }
+
+  async requestPasswordReset(email: string): Promise<void> {
+    // redirectTo is the app's deep link: recovery must land in the app, which
+    // is the only place the returned session can be used to set a new password.
+    const { error } = await this.sb.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: PASSWORD_RESET_URL,
+    });
+    if (error) throw error;
+  }
+
+  async resendConfirmation(email: string): Promise<void> {
+    const { error } = await this.sb.auth.resend({
+      type: 'signup',
+      email: email.trim(),
+      options: { emailRedirectTo: EMAIL_CONFIRM_URL },
+    });
+    if (error) throw error;
+  }
+
+  async setSessionFromTokens(accessToken: string, refreshToken: string): Promise<void> {
+    const { error } = await this.sb.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+    if (error) throw error;
+  }
+
+  async updatePassword(newPassword: string): Promise<void> {
+    const { error } = await this.sb.auth.updateUser({ password: newPassword });
+    if (error) throw error;
   }
 
   async deleteAccount(): Promise<void> {

@@ -13,6 +13,7 @@
       "config": {
         "usesNonExemptEncryption": false
       },
+      "associatedDomains": ["applinks:niblgo.com"],
       "infoPlist": {
         "NSCameraUsageDescription": "NiblGo uses your camera so you can snap a photo of your meal.",
         "NSPhotoLibraryUsageDescription": "NiblGo lets you pick a meal photo from your library."
@@ -24,7 +25,15 @@
         "backgroundColor": "#FEF7ED",
         "foregroundImage": "./assets/adaptive-icon.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [{ "scheme": "https", "host": "niblgo.com", "pathPrefix": "/auth/confirm" }],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Linking,
@@ -51,6 +51,64 @@ export function AuthScreen() {
   const [error, setError] = useState<string | null>(null);
   // Set once sign-up succeeds but the account still needs confirming.
   const [confirmEmail, setConfirmEmail] = useState<string | null>(null);
+  // Set when sign-in fails because the account was never confirmed.
+  const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null);
+  // Set to the address once a password-reset email goes out.
+  const [resetSent, setResetSent] = useState<string | null>(null);
+  // Shared cooldown/feedback for the resend + reset buttons.
+  const [cooldown, setCooldown] = useState(0);
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionMsg, setActionMsg] = useState<string | null>(null);
+
+  // Tick the resend cooldown down to zero.
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setInterval(() => setCooldown((c) => (c <= 1 ? 0 : c - 1)), 1000);
+    return () => clearInterval(t);
+  }, [cooldown]);
+
+  const resendConfirmation = async () => {
+    if (cooldown > 0 || actionBusy) return;
+    setActionBusy(true);
+    setActionMsg(null);
+    try {
+      await svc.resendConfirmation(unconfirmedEmail ?? email);
+      setActionMsg('Sent — check your inbox, and your spam folder.');
+    } catch (e: any) {
+      const raw = String(e?.message ?? '');
+      setActionMsg(
+        /rate|too many|429/i.test(raw)
+          ? 'Please wait a minute before trying again.'
+          : 'Could not resend just now — try again in a moment.',
+      );
+    } finally {
+      // Rate-limit either way so the button can't be hammered.
+      setCooldown(60);
+      setActionBusy(false);
+    }
+  };
+
+  const forgotPassword = async () => {
+    if (!EMAIL_RE.test(email.trim())) {
+      setError('Enter your email above first, then tap “Forgot password?”.');
+      return;
+    }
+    setActionBusy(true);
+    setError(null);
+    try {
+      await svc.requestPasswordReset(email.trim());
+      setResetSent(email.trim());
+    } catch (e: any) {
+      const raw = String(e?.message ?? '');
+      setError(
+        /rate|too many/i.test(raw)
+          ? 'Too many requests. Wait a minute and try again.'
+          : 'Could not send a reset email. Check the address and try again.',
+      );
+    } finally {
+      setActionBusy(false);
+    }
+  };
 
   const submit = async () => {
     setError(null);
@@ -74,6 +132,14 @@ export function AuthScreen() {
         setUser(await svc.signIn(email, password));
       }
     } catch (e: any) {
+      const raw = String(e?.message ?? '');
+      // Unconfirmed accounts get a way forward (resend) instead of the generic
+      // "wrong email or password" — this is the Outlook-Safe-Links case where a
+      // scanner ate the one-time link before the user could tap it.
+      if (mode === 'signin' && /not confirmed|confirm your email/i.test(raw)) {
+        setUnconfirmedEmail(email.trim());
+        return;
+      }
       setError(authErrorMessage(e, mode));
     } finally {
       setBusy(false);
@@ -84,6 +150,75 @@ export function AuthScreen() {
     EMAIL_RE.test(email.trim()) &&
     password.length >= LIMITS.passwordMin &&
     (mode === 'signin' || (handle.trim().length >= 2 && displayName.trim().length >= 1));
+
+  // Sign-in blocked because the account was never confirmed. Offer a resend
+  // instead of a dead end — their original link may have expired or been eaten
+  // by a mail scanner.
+  if (unconfirmedEmail) {
+    return (
+      <View style={[styles.scroll, styles.confirmRoot]}>
+        <View style={styles.hero}>
+          <LogoMark size={76} />
+        </View>
+        <View style={styles.card}>
+          <Text style={styles.confirmTitle}>Confirm your email first</Text>
+          <Text style={styles.confirmBody}>
+            Your account isn’t verified yet. We can send a fresh link to{' '}
+            <Text style={styles.confirmEmail}>{unconfirmedEmail}</Text>.
+          </Text>
+          {actionMsg ? <Text style={styles.confirmHint}>{actionMsg}</Text> : null}
+          <Button
+            title={cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend confirmation email'}
+            onPress={resendConfirmation}
+            disabled={cooldown > 0}
+            loading={actionBusy}
+            style={{ marginTop: spacing.lg }}
+          />
+          <Button
+            title="Back to sign in"
+            variant="secondary"
+            onPress={() => {
+              setUnconfirmedEmail(null);
+              setActionMsg(null);
+            }}
+            style={{ marginTop: spacing.sm }}
+          />
+        </View>
+      </View>
+    );
+  }
+
+  // A password-reset email is on its way. It deep-links into the app, so tell
+  // them to open it on their phone.
+  if (resetSent) {
+    return (
+      <View style={[styles.scroll, styles.confirmRoot]}>
+        <View style={styles.hero}>
+          <LogoMark size={76} />
+        </View>
+        <View style={styles.card}>
+          <Text style={styles.confirmTitle}>Check your email</Text>
+          <Text style={styles.confirmBody}>
+            We sent a password reset link to{' '}
+            <Text style={styles.confirmEmail}>{resetSent}</Text>. Open it on your phone and
+            you’ll land right back here to set a new password.
+          </Text>
+          <Text style={styles.confirmHint}>
+            No email after a minute? Check your spam folder. Links can only be used once, so
+            use the newest one.
+          </Text>
+          <Button
+            title="Back to sign in"
+            onPress={() => {
+              setResetSent(null);
+              setMode('signin');
+            }}
+            style={{ marginTop: spacing.lg }}
+          />
+        </View>
+      </View>
+    );
+  }
 
   // The account exists but is not usable until they click the link, so there
   // is nothing to sign in to yet. Say that plainly rather than dumping them
@@ -206,6 +341,17 @@ export function AuthScreen() {
             style={{ marginTop: spacing.sm }}
           />
 
+          {mode === 'signin' ? (
+            <Pressable
+              onPress={forgotPassword}
+              disabled={actionBusy}
+              style={{ marginTop: spacing.md, alignSelf: 'center' }}
+              hitSlop={8}
+            >
+              <Text style={styles.forgot}>Forgot password?</Text>
+            </Pressable>
+          ) : null}
+
           {mode === 'signup' ? (
             <Text style={styles.legal}>
               By creating an account you agree to our{' '}
@@ -250,6 +396,11 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   legalLink: { color: colors.amberDark, textDecorationLine: 'underline' },
+  forgot: {
+    fontFamily: fonts.bold,
+    fontSize: 13.5,
+    color: colors.amberDark,
+  },
   confirmRoot: { flex: 1, justifyContent: 'center' },
   confirmTitle: {
     fontFamily: fonts.display,

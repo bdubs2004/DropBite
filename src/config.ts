@@ -40,6 +40,24 @@ export const PRIVACY_URL = `${APP_LINK_BASE}/privacy`;
 export const TERMS_URL = `${APP_LINK_BASE}/terms`;
 
 /**
+ * Where Supabase sends people after they click the email-confirmation link.
+ *
+ * This is a real web page (hosted on the marketing site) that completes the
+ * verification and offers a button back into the app. Without it Supabase
+ * falls back to the project's Site URL, which dumps confirmed users on the
+ * homepage. Passed as `emailRedirectTo` on sign-up and resend.
+ */
+export const EMAIL_CONFIRM_URL = `${APP_LINK_BASE}/auth/confirm`;
+
+/**
+ * Where a password-reset link sends people. This MUST be the app's own deep
+ * link, not the website: recovery hands back session tokens that only the app
+ * can act on (setSession → updateUser). A web page can open niblgo:// but the
+ * app would arrive with no session, so the reset has to land in the app.
+ */
+export const PASSWORD_RESET_URL = 'niblgo://reset';
+
+/**
  * Location / restaurant tagging ("where you ate", Google Places-backed).
  *
  * DEFERRED to Phase 2. We're launching the core loop (photo → blurb → post →
