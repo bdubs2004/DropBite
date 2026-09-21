@@ -55,6 +55,7 @@ export function ComposeScreen({ navigation }: any) {
   const [searching, setSearching] = useState(false);
 
   const [posting, setPosting] = useState(false);
+  const [postError, setPostError] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [posted, setPosted] = useState(false);
 
@@ -126,6 +127,7 @@ export function ComposeScreen({ navigation }: any) {
 
   const post = async () => {
     setPosting(true);
+    setPostError(null);
     try {
       await svc.createPost({
         meal_slot: slot,
@@ -152,6 +154,10 @@ export function ComposeScreen({ navigation }: any) {
       await refreshFeed();
       // Let the celebration play; the overlay closes the screen when it ends.
       setPosted(true);
+    } catch (e: any) {
+      // Without this the failure was silent — the spinner stopped and nothing
+      // happened, with no clue why. Show the real reason.
+      setPostError(e?.message ? String(e.message) : 'Could not post. Please try again.');
     } finally {
       setPosting(false);
     }
@@ -378,6 +384,11 @@ export function ComposeScreen({ navigation }: any) {
           loading={posting}
           style={{ marginTop: spacing.xl }}
         />
+        {postError ? (
+          <Text style={styles.postError} testID="post-error">
+            {postError}
+          </Text>
+        ) : null}
         {!hasPhoto ? (
           <Muted style={{ textAlign: 'center', marginTop: spacing.sm }}>
             Add a photo to post. NiblGo is photo-first.
@@ -415,6 +426,13 @@ const styles = StyleSheet.create({
     color: colors.cocoaSoft,
     fontSize: 15,
     width: 50,
+  },
+  postError: {
+    fontFamily: fonts.bold,
+    color: colors.danger,
+    fontSize: 13.5,
+    textAlign: 'center',
+    marginTop: spacing.sm,
   },
   title: {
     fontFamily: fonts.display,
