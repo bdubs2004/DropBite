@@ -10,12 +10,14 @@ import { Post } from '../types';
 export function usePostActions(navigation: any, refresh: () => void) {
   const svc = getDataService();
 
+  // Like / repost / save persist in the background without re-pulling the whole
+  // list — PostCard updates optimistically, so a full refresh here just caused
+  // a visible reload on every tap. The next natural refresh reconciles.
   const like = useCallback(
     async (post: Post) => {
       await svc.toggleReaction(post.id);
-      refresh();
     },
-    [svc, refresh],
+    [svc],
   );
 
   const comment = useCallback(
@@ -37,17 +39,15 @@ export function usePostActions(navigation: any, refresh: () => void) {
   const repost = useCallback(
     async (post: Post) => {
       await svc.toggleRepost(post.id);
-      refresh();
     },
-    [svc, refresh],
+    [svc],
   );
 
   const save = useCallback(
     async (post: Post) => {
       await svc.toggleSave(post.id);
-      refresh();
     },
-    [svc, refresh],
+    [svc],
   );
 
   const report = useCallback(
