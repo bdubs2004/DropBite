@@ -401,8 +401,13 @@ export class SupabaseService implements DataService {
     };
   }
 
+  // users(*) is disambiguated to the direct author FK: junction tables
+  // (reactions, comments, reposts, ...) give PostgREST several posts<->users
+  // paths, and a bare users(*) makes it error ("more than one relationship
+  // was found for 'posts' and 'users'"), which breaks the feed, Discover and
+  // the refresh right after posting.
   private readonly POST_SELECT =
-    '*, users(*), recipes(*), reactions(user_id), comments(id), shares(user_id), reposts(user_id), saved_posts(user_id)';
+    '*, users!posts_user_id_fkey(*), recipes(*), reactions(user_id), comments(id), shares(user_id), reposts(user_id), saved_posts(user_id)';
 
   async getFeed(): Promise<Post[]> {
     const meId = await this.myId();
@@ -665,7 +670,7 @@ export class SupabaseService implements DataService {
         .neq('user_id', meId),
       this.sb
         .from('messages')
-        .select('*, users(*), posts(*)')
+        .select('*, users!messages_sender_id_fkey(*), posts!messages_shared_post_id_fkey(*)')
         .in('conversation_id', ids)
         .order('created_at', { ascending: true }),
     ]);
@@ -718,7 +723,7 @@ export class SupabaseService implements DataService {
     // not in, which is the same answer and can't be bypassed by a patched app.
     const { data, error } = await this.sb
       .from('messages')
-      .select('*, users(*), posts(*)')
+      .select('*, users!messages_sender_id_fkey(*), posts!messages_shared_post_id_fkey(*)')
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: true });
     if (error) throw error;
@@ -751,7 +756,7 @@ export class SupabaseService implements DataService {
         shared_post_id: input.sharedPostId ?? null,
         image_url: imageUrl,
       })
-      .select('*, users(*), posts(*)')
+      .select('*, users!messages_sender_id_fkey(*), posts!messages_shared_post_id_fkey(*)')
       .single();
     if (error) throw error;
 
@@ -1067,7 +1072,7 @@ export class SupabaseService implements DataService {
     const [{ data }, { data: post }] = await Promise.all([
       this.sb
         .from('comments')
-        .select('*, users(*), comment_reactions(user_id)')
+        .select('*, users!comments_user_id_fkey(*), comment_reactions(user_id)')
         .eq('post_id', postId)
         .order('created_at', { ascending: true }),
       this.sb.from('posts').select('user_id').eq('id', postId).maybeSingle(),
@@ -1112,7 +1117,7 @@ export class SupabaseService implements DataService {
     const { data, error } = await this.sb
       .from('comments')
       .insert({ post_id: postId, user_id: meId, text: clamp(text, LIMITS.comment) })
-      .select('*, users(*)')
+      .select('*, users!comments_user_id_fkey(*)')
       .single();
     if (error) throw error;
     return { ...(data as Comment), user: (data as any).users as User };
