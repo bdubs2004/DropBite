@@ -130,6 +130,18 @@ Deno.serve(async (req: Request) => {
         }
       }
 
+      // Log each outcome so a dropped ingredient can be diagnosed from the
+      // function logs: is it the weight step (grams null) or the USDA match?
+      console.log(
+        'nutrition item',
+        JSON.stringify({
+          item: ing.item,
+          grams: ing.grams,
+          search_term: ing.search_term,
+          usda_matched: !!per100g,
+        }),
+      );
+
       if (!per100g || !ing.grams) {
         unmatched.push(ing.item);
         out.push({ ...ing.original, grams: ing.grams ?? null, fdc_id: null, nutrition: null });

@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { LOCATION_TAGGING_ENABLED } from '../config';
 import { relativeTime } from '../lib/time';
@@ -41,6 +41,47 @@ export function PostCard({
   const [deleting, setDeleting] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const slot = MEAL_SLOT_META[post.meal_slot];
+
+  // Optimistic like/repost/save so the button responds instantly and the
+  // screen doesn't have to re-pull the whole list on every tap (that full
+  // refresh was the jarring "it reloads every time" on the feed, and the
+  // reason a like from the profile/detail looked stale until the next tap).
+  // We still persist via the parent handler; these sync back if a real
+  // refresh brings new values.
+  const [liked, setLiked] = useState(!!post.reacted_by_me);
+  const [likeCount, setLikeCount] = useState(post.reaction_count ?? 0);
+  const [reposted, setReposted] = useState(!!post.reposted_by_me);
+  const [repostCount, setRepostCount] = useState(post.repost_count ?? 0);
+  const [saved, setSaved] = useState(!!post.saved_by_me);
+  useEffect(() => {
+    setLiked(!!post.reacted_by_me);
+    setLikeCount(post.reaction_count ?? 0);
+    setReposted(!!post.reposted_by_me);
+    setRepostCount(post.repost_count ?? 0);
+    setSaved(!!post.saved_by_me);
+  }, [
+    post.id,
+    post.reacted_by_me,
+    post.reaction_count,
+    post.reposted_by_me,
+    post.repost_count,
+    post.saved_by_me,
+  ]);
+
+  const handleLike = () => {
+    setLikeCount((c) => c + (liked ? -1 : 1));
+    setLiked((v) => !v);
+    onToggleLike(post);
+  };
+  const handleRepost = () => {
+    setRepostCount((c) => c + (reposted ? -1 : 1));
+    setReposted((v) => !v);
+    onRepost?.(post);
+  };
+  const handleSave = () => {
+    setSaved((v) => !v);
+    onToggleSave?.(post);
+  };
 
   // One menu, two outcomes: your own post can be deleted, anyone else's can be
   // reported. Reporting your own post is meaningless (just delete it), so the
@@ -191,16 +232,16 @@ export function PostCard({
         <View style={styles.actionsRow}>
           <Pressable
             testID="post-like"
-            onPress={() => onToggleLike(post)}
+            onPress={handleLike}
             style={styles.actionBtn}
             hitSlop={8}
           >
             <Ionicons
-              name={post.reacted_by_me ? 'heart' : 'heart-outline'}
+              name={liked ? 'heart' : 'heart-outline'}
               size={23}
-              color={post.reacted_by_me ? colors.danger : colors.cocoaSoft}
+              color={liked ? colors.danger : colors.cocoaSoft}
             />
-            <Text style={styles.actionCount}>{post.reaction_count ?? 0}</Text>
+            <Text style={styles.actionCount}>{likeCount}</Text>
           </Pressable>
           <Pressable
             testID="post-comment"
@@ -222,31 +263,29 @@ export function PostCard({
           </Pressable>
           <Pressable
             testID="post-repost"
-            onPress={() => onRepost?.(post)}
+            onPress={handleRepost}
             style={styles.actionBtn}
             hitSlop={8}
           >
             <Ionicons
-              name={post.reposted_by_me ? 'repeat' : 'repeat-outline'}
+              name={reposted ? 'repeat' : 'repeat-outline'}
               size={23}
-              color={post.reposted_by_me ? colors.success : colors.cocoaSoft}
+              color={reposted ? colors.success : colors.cocoaSoft}
             />
-            <Text
-              style={[styles.actionCount, post.reposted_by_me && { color: colors.success }]}
-            >
-              {post.repost_count ?? 0}
+            <Text style={[styles.actionCount, reposted && { color: colors.success }]}>
+              {repostCount}
             </Text>
           </Pressable>
           <Pressable
             testID="post-save"
-            onPress={() => onToggleSave?.(post)}
+            onPress={handleSave}
             style={styles.bookmarkBtn}
             hitSlop={8}
           >
             <Ionicons
-              name={post.saved_by_me ? 'bookmark' : 'bookmark-outline'}
+              name={saved ? 'bookmark' : 'bookmark-outline'}
               size={21}
-              color={post.saved_by_me ? colors.amberDark : colors.cocoaSoft}
+              color={saved ? colors.amberDark : colors.cocoaSoft}
             />
           </Pressable>
         </View>
