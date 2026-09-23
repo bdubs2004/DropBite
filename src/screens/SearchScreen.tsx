@@ -232,11 +232,15 @@ export function SearchScreen({ navigation }: any) {
           keyExtractor={(u) => u.id}
           ListHeaderComponent={header}
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: 120 }}
+          // No horizontal padding here: the header carries its own, and adding
+          // it on the container too would double-pad the header, so the search
+          // bar and tabs would jump inward versus the Dishes tab. The rows get
+          // their own side margin instead.
+          contentContainerStyle={{ paddingBottom: 120 }}
           renderItem={({ item }) => (
             <Pressable
               testID={`search-person-${item.id}`}
-              style={styles.userRow}
+              style={[styles.userRow, styles.userRowInList]}
               onPress={() => openProfile(item)}
             >
               <Avatar user={item} size={44} />
@@ -301,6 +305,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     ...(shadowSoft as object),
   },
+  userRowInList: { marginHorizontal: spacing.lg },
   name: { fontFamily: fonts.bold, fontSize: 15.5, color: colors.cocoa },
   bio: { fontFamily: fonts.semi, fontSize: 12.5, color: colors.cocoaFaint, marginTop: 2 },
   clearBtn: {
