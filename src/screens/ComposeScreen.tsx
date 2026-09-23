@@ -19,6 +19,7 @@ import { LIMITS } from '../lib/limits';
 import { pickImage } from '../lib/pickImage';
 import { defaultMealSlot } from '../lib/time';
 import { totalForRecipe } from '../lib/nutrition';
+import { isSubstantialChange } from '../lib/textChange';
 import { getDataService } from '../services';
 import { formatRecipe, FormattedRecipe, lookupNutrition, NutritionResult } from '../services/ai';
 import { searchPlaces } from '../services/places';
@@ -40,6 +41,9 @@ export function ComposeScreen({ navigation }: any) {
   const [blurb, setBlurb] = useState('');
   const [recipe, setRecipe] = useState<FormattedRecipe | null>(null);
   const [recipeEdited, setRecipeEdited] = useState(false);
+  // The description text the current recipe card was built from, so we can
+  // notice when the user rewrites the description out from under the card.
+  const [recipeBlurb, setRecipeBlurb] = useState('');
   const [formatting, setFormatting] = useState(false);
   const [formatFailed, setFormatFailed] = useState<null | 'not-recipe' | 'error'>(null);
   // Nutrition is kept beside the recipe rather than inside it: the totals are
@@ -89,6 +93,25 @@ export function ComposeScreen({ navigation }: any) {
     }
     setRecipe(result);
     setRecipeEdited(false);
+    // Remember what this card was built from, and drop any nutrition that
+    // belonged to the previous ingredients.
+    setRecipeBlurb(blurb);
+    setNutrition(null);
+  };
+
+  // Did the description change enough since the card was built that the card
+  // (and its nutrition) probably no longer matches?
+  const descriptionDrifted = recipe !== null && isSubstantialChange(recipeBlurb, blurb);
+
+  // "Keep what I have" — dismiss the prompt without touching the card by
+  // treating the current description as the one the card belongs to.
+  const keepRecipe = () => setRecipeBlurb(blurb);
+
+  const clearRecipe = () => {
+    setRecipe(null);
+    setNutrition(null);
+    setRecipeBlurb('');
+    setFormatFailed(null);
   };
 
   const runPlaceSearch = async (q: string) => {
@@ -348,6 +371,51 @@ export function ComposeScreen({ navigation }: any) {
           </View>
         ) : (
           <>
+            {descriptionDrifted ? (
+              <View testID="recipe-drift" style={styles.driftBanner}>
+                <Text style={styles.driftText}>
+                  Your description changed a lot. Rebuild the recipe card and
+                  nutrition to match, or keep the one you have.
+                </Text>
+                <View style={styles.driftButtons}>
+                  <Button
+                    testID="recipe-drift-regenerate"
+                    title={formatting ? 'Rebuilding' : 'Rebuild card'}
+                    onPress={runFormat}
+                    loading={formatting}
+                    style={{ flex: 1 }}
+                  />
+                  <Button
+                    testID="recipe-drift-clear"
+                    title="Clear card"
+                    variant="secondary"
+                    onPress={clearRecipe}
+                    style={{ flex: 1 }}
+                  />
+                </View>
+                <Pressable
+                  testID="recipe-drift-keep"
+                  onPress={keepRecipe}
+                  hitSlop={8}
+                  style={styles.driftKeep}
+                >
+                  <Text style={styles.driftKeepText}>Keep what I have</Text>
+                </Pressable>
+                {formatFailed === 'not-recipe' ? (
+                  <Muted style={{ marginTop: spacing.sm }}>
+                    The new description reads like a meal out, so there is no recipe to
+                    rebuild. Clear the card if you no longer want it.
+                  </Muted>
+                ) : null}
+                {formatFailed === 'error' ? (
+                  <Muted style={{ marginTop: spacing.sm }}>
+                    Rebuilding is unavailable right now — try again in a moment, or keep
+                    the card you have.
+                  </Muted>
+                ) : null}
+              </View>
+            ) : null}
+
             <RecipeCardEditor
             value={recipe}
             onChange={(r) => {
@@ -358,10 +426,7 @@ export function ComposeScreen({ navigation }: any) {
               // still looks authoritative.
               setNutrition(null);
             }}
-            onRemove={() => {
-              setRecipe(null);
-              setNutrition(null);
-            }}
+            onRemove={clearRecipe}
           />
 
             <NutritionPanel
@@ -538,5 +603,34 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
     fontSize: 15,
     color: colors.cocoa,
+  },
+  driftBanner: {
+    backgroundColor: colors.amberSoft,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.amber,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  driftText: {
+    fontFamily: fonts.semi,
+    fontSize: 13.5,
+    lineHeight: 19,
+    color: colors.amberDark,
+  },
+  driftButtons: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  driftKeep: {
+    alignSelf: 'center',
+    paddingVertical: 4,
+  },
+  driftKeepText: {
+    fontFamily: fonts.bold,
+    fontSize: 13,
+    color: colors.cocoaSoft,
+    textDecorationLine: 'underline',
   },
 });
