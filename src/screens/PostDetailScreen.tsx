@@ -1,6 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PostCard } from '../components/PostCard';
 import { Muted } from '../components/ui';
@@ -25,19 +34,42 @@ export function PostDetailScreen({ navigation, route }: any) {
 
   const [post, setPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const load = useCallback(async () => {
-    setPost(await svc.getPost(postId));
-    setLoading(false);
-  }, [svc, postId]);
+  // `showSpinner` only for the very first load — a focus reload after
+  // commenting or liking should refresh the numbers silently, not blank the
+  // card out behind a spinner.
+  const load = useCallback(
+    async (showSpinner = false) => {
+      if (showSpinner) setLoading(true);
+      setPost(await svc.getPost(postId));
+      setLoading(false);
+    },
+    [svc, postId],
+  );
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  // Reload every time the screen regains focus so a comment added (or a like
+  // toggled) in the Comments modal is reflected in the counts on return.
+  const firstLoad = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      load(firstLoad.current);
+      firstLoad.current = false;
+    }, [load]),
+  );
+
+  const pullRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await load(false);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const { like, comment, share, repost, save, remove, report } = usePostActions(
     navigation,
-    load,
+    () => load(false),
   );
 
   // Deleting from here leaves nothing to show, so step back to Discover.
@@ -57,7 +89,17 @@ export function PostDetailScreen({ navigation, route }: any) {
         <View style={{ width: 60 }} />
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingTop: spacing.md, paddingBottom: 120 }}>
+      <ScrollView
+        contentContainerStyle={{ paddingTop: spacing.md, paddingBottom: 120 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={pullRefresh}
+            tintColor={colors.amber}
+            colors={[colors.amber]}
+          />
+        }
+      >
         {loading ? (
           <ActivityIndicator color={colors.amber} style={{ marginTop: spacing.xl }} />
         ) : post ? (

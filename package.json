@@ -45,7 +45,8 @@
     "typecheck": "tsc --noEmit",
     "test:reminders": "tsc src/lib/__tests__/mealReminderPlan.test.ts --ignoreConfig --types node --outDir .test-build --module commonjs --target es2019 --esModuleInterop --skipLibCheck && node .test-build/lib/__tests__/mealReminderPlan.test.js",
     "test:nutrition": "tsc src/lib/__tests__/nutrition.test.ts --ignoreConfig --types node --outDir .test-build --module commonjs --target es2019 --esModuleInterop --skipLibCheck && node .test-build/lib/__tests__/nutrition.test.js",
-    "test": "npm run test:reminders && npm run test:nutrition",
+    "test:textchange": "tsc src/lib/__tests__/textChange.test.ts --ignoreConfig --types node --rootDir src --outDir .test-build --module commonjs --target es2019 --esModuleInterop --skipLibCheck && node .test-build/lib/__tests__/textChange.test.js",
+    "test": "npm run test:reminders && npm run test:nutrition && npm run test:textchange",
     "build:site": "node scripts/build-site.js"
   },
   "private": true
