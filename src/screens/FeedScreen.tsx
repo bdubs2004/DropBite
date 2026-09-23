@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Animated,
   FlatList,
   NativeScrollEvent,
@@ -19,7 +20,7 @@ import { Muted } from '../components/ui';
 import { usePostActions } from '../lib/usePostActions';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
-import { colors, fonts, radius, spacing } from '../theme';
+import { colors, fonts, radius, shadowSoft, spacing } from '../theme';
 
 export function FeedScreen({ navigation }: any) {
   const { feed, feedLoading, refreshFeed, streak, user } = useApp();
@@ -188,7 +189,11 @@ export function FeedScreen({ navigation }: any) {
           />
         }
         ListEmptyComponent={
-          feedLoading ? null : (
+          feedLoading ? (
+            <View style={styles.empty}>
+              <ActivityIndicator color={colors.amber} />
+            </View>
+          ) : (
             <View style={styles.empty}>
               <Ionicons name="restaurant-outline" size={44} color={colors.cocoaFaint} />
               <Text style={styles.emptyTitle}>Nothing on the table yet</Text>
@@ -199,6 +204,19 @@ export function FeedScreen({ navigation }: any) {
           )
         }
       />
+
+      {/* A reloading wheel for refreshes that aren't a pull gesture — tapping
+          the logo or the Home tab — where the RefreshControl never shows. Only
+          when there is already content, so it doesn't double up with the
+          empty-state spinner on first load. */}
+      {feedLoading && feed.length > 0 ? (
+        <View
+          pointerEvents="none"
+          style={[styles.reloadWheel, { top: insets.top + HEADER_HEIGHT + spacing.sm }]}
+        >
+          <ActivityIndicator size="small" color={colors.amber} />
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -259,6 +277,18 @@ const styles = StyleSheet.create({
     fontFamily: fonts.display,
     fontSize: 14,
     color: colors.cocoa,
+  },
+  reloadWheel: {
+    position: 'absolute',
+    alignSelf: 'center',
+    zIndex: 1,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...(shadowSoft as object),
   },
   empty: {
     alignItems: 'center',
