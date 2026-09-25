@@ -323,6 +323,84 @@ for (const p of STATIC_PAGES) {
   console.log(`  (static)              -> website/${p.out}`);
 }
 
+// --- Email-confirmation landing page --------------------------------------
+//
+// Sign-up confirmation emails send the user to https://niblgo.com/auth/confirm
+// (config.ts EMAIL_CONFIRM_URL). Supabase verifies the token server-side and
+// then redirects the browser here, so by the time this page loads the email is
+// already confirmed — the page just needs to say so and point back to the app.
+// Without this file that URL 404s. It lives in a sub-folder, so it uses
+// absolute asset paths and is fully self-contained (no shared nav).
+writeAuthConfirm();
+
+function writeAuthConfirm() {
+  const html = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Email confirmed — NiblGo</title>
+<meta name="description" content="Your NiblGo email address is confirmed.">
+<meta name="robots" content="noindex">
+<link rel="icon" href="/icon.png">
+<style>
+:root{--cream:#FFF4DE;--cream-dark:#F6E7C8;--white:#fff;--cocoa:#3D2B1F;
+--cocoa-soft:#6B5544;--amber:#F5952B;--amber-dark:#C86A12;--hairline:#EADFC8}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+background:var(--cream);color:var(--cocoa);padding:24px;
+font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.card{background:var(--white);border:1px solid var(--hairline);border-radius:20px;
+max-width:440px;width:100%;padding:36px 30px;text-align:center;
+box-shadow:0 10px 30px rgba(61,43,31,.08)}
+.logo{width:64px;height:64px;border-radius:16px;margin-bottom:14px}
+h1{font-size:26px;letter-spacing:-.4px;margin:.2em 0 .4em}
+p{color:#4A3728;margin:.5em 0}
+.btn{display:inline-block;margin-top:18px;background:var(--amber);color:#fff;
+text-decoration:none;font-weight:700;font-size:16px;padding:13px 26px;border-radius:999px}
+.btn:active{opacity:.85}
+.muted{color:var(--cocoa-soft);font-size:14px;margin-top:18px}
+</style>
+</head>
+<body>
+<main class="card">
+  <img class="logo" src="/icon.png" alt="NiblGo">
+  <div id="ok">
+    <h1>You're all set 🎉</h1>
+    <p>Your email is confirmed. Head back to the NiblGo app and sign in.</p>
+    <a class="btn" href="niblgo://">Open NiblGo</a>
+    <p class="muted">You can close this page.</p>
+  </div>
+  <div id="err" hidden>
+    <h1>This link didn't work</h1>
+    <p id="errmsg">The link may have expired or already been used.</p>
+    <p>Open the NiblGo app, try to sign in, and tap “Resend confirmation” for a fresh link.</p>
+    <a class="btn" href="niblgo://">Open NiblGo</a>
+  </div>
+</main>
+<script>
+  // Supabase appends #error=...&error_description=... when a link is expired or
+  // already used. Show the recovery message instead of a false "all set".
+  try {
+    var h = new URLSearchParams((location.hash || '').replace(/^#/, ''));
+    if (h.get('error') || h.get('error_code')) {
+      document.getElementById('ok').hidden = true;
+      var e = document.getElementById('err');
+      e.hidden = false;
+      var d = h.get('error_description');
+      if (d) document.getElementById('errmsg').textContent =
+        decodeURIComponent(d.replace(/\\+/g, ' '));
+    }
+  } catch (_) {}
+</script>
+</body>
+</html>
+`;
+  fs.mkdirSync(path.join(OUT, 'auth'), { recursive: true });
+  fs.writeFileSync(path.join(OUT, 'auth', 'confirm.html'), html);
+  console.log('  (static)              -> website/auth/confirm.html');
+}
+
 // The favicon and header mark. Copied rather than referenced so the site
 // directory is self-contained and can be dropped on any static host.
 fs.copyFileSync(path.join(ROOT, 'assets/icon.png'), path.join(OUT, 'icon.png'));

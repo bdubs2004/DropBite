@@ -57,3 +57,10 @@
   from = "/support"
   to = "/support.html"
   status = 200
+
+# Email-confirmation landing page. Sign-up emails point here (config.ts
+# EMAIL_CONFIRM_URL); Supabase redirects the browser here after verifying.
+[[redirects]]
+  from = "/auth/confirm"
+  to = "/auth/confirm.html"
+  status = 200
