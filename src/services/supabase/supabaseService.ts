@@ -770,58 +770,16 @@ export class SupabaseService implements DataService {
   }
 
   async startConversation(userId: string): Promise<string> {
-    const meId = await this.myId();
-    if (userId === meId) throw new Error('You cannot message yourself.');
-
-    // Reuse an existing 1:1 rather than stacking duplicate threads. RLS scopes
-    // the first query to my own memberships already.
-    const { data: mine } = await this.sb
-      .from('conversation_members')
-      .select('conversation_id')
-      .eq('user_id', meId);
-    const myIds = (mine ?? []).map((r: any) => r.conversation_id);
-    if (myIds.length > 0) {
-      const { data: shared } = await this.sb
-        .from('conversation_members')
-        .select('conversation_id')
-        .eq('user_id', userId)
-        .in('conversation_id', myIds)
-        .limit(1);
-      if (shared && shared.length > 0) return shared[0].conversation_id as string;
-    }
-
-    // DMs are opt-in: you can only open a thread with someone you follow.
-    // RLS is the authority (the "join conversations" policy); this check is
-    // here so the user gets a sentence instead of a policy violation, and so
-    // we don't leave an orphan conversation row behind when it fails.
-    const { count } = await this.sb
-      .from('follows')
-      .select('*', { count: 'exact', head: true })
-      .match({ follower_id: meId, followee_id: userId });
-    if (!count) {
-      throw new Error('You can only message people you follow. Follow them first.');
-    }
-
-    const { data: conv, error: cErr } = await this.sb
-      .from('conversations')
-      .insert({})
-      .select('id')
-      .single();
-    if (cErr) throw cErr;
-    const convId = (conv as any).id as string;
-
-    // Order matters: I must join the empty conversation first, because the
-    // RLS policy only lets me add someone else once I am already a member.
-    const { error: meErr } = await this.sb
-      .from('conversation_members')
-      .insert({ conversation_id: convId, user_id: meId, last_read_at: new Date().toISOString() });
-    if (meErr) throw meErr;
-    const { error: themErr } = await this.sb
-      .from('conversation_members')
-      .insert({ conversation_id: convId, user_id: userId });
-    if (themErr) throw themErr;
-
-    return convId;
+    // One atomic server-side call. A client-side insert can't work cleanly:
+    // the creator isn't a member of the brand-new thread yet, so members-only
+    // RLS both blocks the insert and can't return the new row. The RPC creates
+    // the conversation and adds both members as the definer, while still
+    // enforcing the follow + block rules itself. Its RAISE messages are already
+    // user-facing sentences.
+    const { data, error } = await this.sb.rpc('start_conversation', { target: userId });
+    if (error) throw new Error(error.message || 'Could not start the conversation.');
+    if (!data) throw new Error('Could not start the conversation.');
+    return data as string;
   }
 
   async sendFeedback(input: { kind: FeedbackKind; message: string }): Promise<void> {

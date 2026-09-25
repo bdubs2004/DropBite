@@ -74,6 +74,11 @@ export function NotificationsScreen({ navigation }: any) {
     else navigation.navigate('PostDetail', { postId: n.post_id });
   };
 
+  // Tapping the avatar opens the person; tapping the body opens the post.
+  const openProfile = (userId?: string) => {
+    if (userId) navigation.navigate('UserProfile', { userId });
+  };
+
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <View style={styles.header}>
@@ -110,35 +115,46 @@ export function NotificationsScreen({ navigation }: any) {
           renderItem={({ item }) => {
             const kind = KIND[item.type];
             return (
-              <Pressable
+              <View
                 testID={`notification-${item.id}`}
-                onPress={() => open(item)}
                 style={[styles.row, !item.read_at && styles.rowUnread]}
               >
-                <View>
+                {/* Avatar → the person's profile. */}
+                <Pressable
+                  testID={`notification-actor-${item.id}`}
+                  onPress={() => openProfile(item.actor?.id)}
+                  hitSlop={6}
+                >
                   <Avatar user={item.actor} size={44} />
                   <View style={[styles.kindBadge, { backgroundColor: kind.color }]}>
                     <Ionicons name={kind.icon} size={11} color={colors.white} />
                   </View>
-                </View>
+                </Pressable>
 
-                <View style={{ flex: 1, marginLeft: spacing.md }}>
-                  <Text style={styles.text}>
-                    <Text style={styles.name}>{item.actor?.display_name ?? 'Someone'}</Text>{' '}
-                    {kind.verb}
-                    {item.type === 'comment' && item.comment_text
-                      ? `: ${item.comment_text}`
-                      : ''}
-                  </Text>
-                  <Muted style={styles.time}>{relativeTime(item.created_at)}</Muted>
-                </View>
+                {/* Body (text + thumbnail) → the post it happened on. */}
+                <Pressable
+                  testID={`notification-body-${item.id}`}
+                  onPress={() => open(item)}
+                  style={styles.body}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.text}>
+                      <Text style={styles.name}>{item.actor?.display_name ?? 'Someone'}</Text>{' '}
+                      {kind.verb}
+                      {item.type === 'comment' && item.comment_text
+                        ? `: ${item.comment_text}`
+                        : ''}
+                    </Text>
+                    <Muted style={styles.time}>{relativeTime(item.created_at)}</Muted>
+                  </View>
 
-                {/* PostThumb, not a raw Image: demo posts have no real photo
-                    and fall back to the same emoji tile used everywhere else. */}
-                {item.post ? (
-                  <PostThumb post={item.post} radius={8} style={styles.thumb} />
-                ) : null}
-              </Pressable>
+                  {/* PostThumb, not a raw Image: demo posts have no real photo
+                      and fall back to the same emoji tile used everywhere else. */}
+                  {item.post ? (
+                    <PostThumb post={item.post} radius={8} style={styles.thumb} />
+                  ) : null}
+                </Pressable>
+              </View>
             );
           }}
           ListEmptyComponent={
@@ -179,6 +195,12 @@ const styles = StyleSheet.create({
   },
   // Unread rows get a warm wash rather than a dot: easier to scan a whole list.
   rowUnread: { backgroundColor: colors.creamDark },
+  body: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: spacing.md,
+  },
   kindBadge: {
     position: 'absolute',
     right: -2,

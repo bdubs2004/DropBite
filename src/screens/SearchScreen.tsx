@@ -74,10 +74,16 @@ export function SearchScreen({ navigation }: any) {
         return;
       }
       setSearching(true);
-      const [u, p] = await Promise.all([svc.listUsers(term), svc.searchPosts(term)]);
+      // Fetch people and dishes independently so one failing doesn't wipe the
+      // other, and so a thrown error can't leave the previous results on screen
+      // (which looked like "profiles still showing but no dishes").
+      const [uRes, pRes] = await Promise.allSettled([
+        svc.listUsers(term),
+        svc.searchPosts(term),
+      ]);
       if (mine !== seq.current) return; // a newer search already answered
-      setPeople(u);
-      setPosts(p);
+      setPeople(uRes.status === 'fulfilled' ? uRes.value : []);
+      setPosts(pRes.status === 'fulfilled' ? pRes.value : []);
       setSearching(false);
     },
     [svc],

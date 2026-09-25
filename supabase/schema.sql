@@ -288,6 +288,54 @@ as $$
 $$;
 
 
+-- Start (or reuse) a 1:1 DM thread in one server-side call. SECURITY DEFINER
+-- so it can create the conversation and add both members atomically — the
+-- creator is not a member at insert time, so a client-side insert cannot both
+-- pass the members-only RLS and read the new row back. Enforces the same rules
+-- the policies do: you may only message someone you follow, and never anyone in
+-- a block relationship.
+create or replace function public.start_conversation(target uuid)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  me uuid := auth.uid();
+  conv uuid;
+begin
+  if me is null then raise exception 'Not authenticated'; end if;
+  if target = me then raise exception 'You cannot message yourself.'; end if;
+  if not exists (select 1 from public.users where id = target) then
+    raise exception 'That account no longer exists.';
+  end if;
+  if not exists (
+    select 1 from public.follows where follower_id = me and followee_id = target
+  ) then
+    raise exception 'You can only message people you follow. Follow them first.';
+  end if;
+  if public.is_blocked_pair(me, target) then
+    raise exception 'You cannot message this person.';
+  end if;
+
+  select m1.conversation_id into conv
+  from public.conversation_members m1
+  join public.conversation_members m2
+    on m2.conversation_id = m1.conversation_id
+  where m1.user_id = me and m2.user_id = target
+  limit 1;
+  if conv is not null then return conv; end if;
+
+  insert into public.conversations default values returning id into conv;
+  insert into public.conversation_members (conversation_id, user_id, last_read_at)
+    values (conv, me, now());
+  insert into public.conversation_members (conversation_id, user_id)
+    values (conv, target);
+  return conv;
+end;
+$$;
+
+
 -- ---------------------------------------------------- comment_reactions
 -- Likes on comments. Same shape as post reactions: one row per (comment, user)
 -- so the count is inherently idempotent.
@@ -958,6 +1006,9 @@ grant execute on function public.conversation_has_block(uuid, uuid) to authentic
 
 revoke all on function public.is_following(uuid, uuid) from public, anon, authenticated;
 grant execute on function public.is_following(uuid, uuid) to authenticated;
+
+revoke all on function public.start_conversation(uuid) from public, anon;
+grant execute on function public.start_conversation(uuid) to authenticated;
 
 -- Called directly by the app. Follower counts are public by design.
 revoke all on function public.follow_counts(uuid) from public, anon, authenticated;
