@@ -411,15 +411,75 @@ export class SupabaseService implements DataService {
 
   async getFeed(): Promise<Post[]> {
     const meId = await this.myId();
-    const ids = [...(await this.getFollowingIds()), meId];
-    const { data, error } = await this.sb
-      .from('posts')
-      .select(this.POST_SELECT)
-      .in('user_id', ids)
-      .order('created_at', { ascending: false })
-      .limit(100);
-    if (error) throw error;
-    return (data ?? []).map((row: any) => this.hydrateRow(row, meId));
+    const followingIds = await this.getFollowingIds();
+    const authorIds = [...followingIds, meId];
+
+    // Two sources, merged: posts written by people you follow (and yourself),
+    // and posts *reposted* by people you follow — surfaced with a "reposted"
+    // label and bumped to their repost time, the way TikTok resurfaces reposts.
+    const [origRes, repostRes] = await Promise.all([
+      this.sb
+        .from('posts')
+        .select(this.POST_SELECT)
+        .in('user_id', authorIds)
+        .order('created_at', { ascending: false })
+        .limit(100),
+      followingIds.length
+        ? this.sb
+            .from('reposts')
+            // Only one reposts->users relationship (user_id), so the bare embed
+            // is unambiguous and avoids depending on the FK constraint name.
+            .select('post_id, user_id, created_at, users(*)')
+            .in('user_id', followingIds)
+            .order('created_at', { ascending: false })
+            .limit(60)
+        : Promise.resolve({ data: [], error: null } as any),
+    ]);
+    if (origRes.error) throw origRes.error;
+
+    const rowsById = new Map<string, any>();
+    for (const row of (origRes.data ?? []) as any[]) rowsById.set(row.id, row);
+
+    // Dedupe reposts by post (newest repost wins — the query is newest-first).
+    const repostRows: any[] = [];
+    const seen = new Set<string>();
+    for (const r of (repostRes.data ?? []) as any[]) {
+      if (seen.has(r.post_id)) continue;
+      seen.add(r.post_id);
+      repostRows.push(r);
+    }
+
+    // Fetch any reposted post we didn't already pull with the originals.
+    const missing = repostRows.map((r) => r.post_id).filter((id) => !rowsById.has(id));
+    if (missing.length) {
+      const { data: extra } = await this.sb
+        .from('posts')
+        .select(this.POST_SELECT)
+        .in('id', missing);
+      for (const row of (extra ?? []) as any[]) rowsById.set(row.id, row);
+    }
+
+    // Sort key per post id: the original's created_at, or a repost's time if a
+    // followed user reposted it more recently.
+    const merged = new Map<string, { post: Post; ts: string }>();
+    for (const row of rowsById.values()) {
+      const post = this.hydrateRow(row, meId);
+      merged.set(post.id, { post, ts: post.created_at });
+    }
+    for (const r of repostRows) {
+      const row = rowsById.get(r.post_id);
+      if (!row) continue; // deleted or not visible
+      if (row.user_id === r.user_id) continue; // reposting your own post
+      const post = this.hydrateRow(row, meId);
+      post.reposter = r.users as User;
+      post.repost_at = r.created_at;
+      merged.set(post.id, { post, ts: r.created_at });
+    }
+
+    return [...merged.values()]
+      .sort((a, b) => b.ts.localeCompare(a.ts))
+      .map((x) => x.post)
+      .slice(0, 100);
   }
 
   async getPost(postId: string): Promise<Post | null> {

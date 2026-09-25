@@ -170,6 +170,22 @@ export function PostCard({
       onLongPress={() => menuActions.length > 0 && setMenuOpen(true)}
       delayLongPress={350}
     >
+      {/* "reposted" label — shown when this post is in the feed because someone
+          you follow reposted it, TikTok-style. Taps through to the reposter. */}
+      {post.reposter ? (
+        <Pressable
+          testID="post-repost-tag"
+          style={styles.repostTag}
+          onPress={() => post.reposter && onPressUser?.(post.reposter.id)}
+          hitSlop={6}
+        >
+          <Ionicons name="repeat" size={13} color={colors.success} />
+          <Text style={styles.repostTagText} numberOfLines={1}>
+            {post.reposter.display_name} reposted
+          </Text>
+        </Pressable>
+      ) : null}
+
       {/* header */}
       <View style={styles.header}>
         <Pressable style={styles.userRow} onPress={() => onPressUser?.(post.user_id)}>
@@ -354,6 +370,25 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
     overflow: 'hidden',
     ...(shadow as object),
+  },
+  repostTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    alignSelf: 'flex-start',
+    marginTop: spacing.md,
+    marginLeft: spacing.lg,
+    marginBottom: -spacing.xs,
+    backgroundColor: '#E7F4EA',
+    borderRadius: radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  repostTagText: {
+    fontFamily: fonts.bold,
+    fontSize: 12,
+    color: colors.success,
+    maxWidth: 240,
   },
   header: {
     flexDirection: 'row',
