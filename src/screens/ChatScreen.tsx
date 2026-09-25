@@ -44,7 +44,6 @@ export function ChatScreen({ navigation, route }: any) {
   // A photo staged in the composer, not sent yet — same "review before you
   // send" shape as compose, so a mis-tap costs nothing.
   const [photo, setPhoto] = useState<string | null>(null);
-  const [pickerOpen, setPickerOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   // Long-pressed message, for the report menu.
   const [menuFor, setMenuFor] = useState<Message | null>(null);
@@ -69,7 +68,6 @@ export function ChatScreen({ navigation, route }: any) {
   };
 
   const attach = async (fromCamera: boolean) => {
-    setPickerOpen(false);
     const res = await pickImage({ fromCamera, aspect: [4, 5], width: 1200 });
     if (res.error) {
       setNotice(res.error);
@@ -134,9 +132,11 @@ export function ChatScreen({ navigation, route }: any) {
         }
         renderItem={({ item }) => {
           const mine = item.sender_id === user?.id;
-          // A photo on its own reads better as the photo, not as a photo
-          // inside a thick coloured frame — so drop the bubble around it.
+          // A photo — or a shared-post card — on its own reads better as the
+          // thing itself, not wrapped in a thick coloured frame.
           const photoOnly = !!item.image_url && !item.text && !item.shared_post_id;
+          const sharedOnly = !!item.shared_post_id && !item.text && !item.image_url;
+          const bare = photoOnly || sharedOnly;
           return (
             <Pressable
               testID={`chat-message-${item.id}`}
@@ -150,7 +150,7 @@ export function ChatScreen({ navigation, route }: any) {
                 style={[
                   styles.bubble,
                   mine ? styles.bubbleMine : styles.bubbleTheirs,
-                  photoOnly && styles.bubbleBare,
+                  bare && styles.bubbleBare,
                 ]}
               >
                 {item.shared_post ? (
@@ -161,10 +161,18 @@ export function ChatScreen({ navigation, route }: any) {
                     }
                     style={styles.sharedCard}
                   >
-                    <PostThumb post={item.shared_post} radius={10} style={{ width: 150 }} />
-                    <Text style={styles.sharedBlurb} numberOfLines={2}>
-                      {item.shared_post.blurb}
-                    </Text>
+                    <PostThumb post={item.shared_post} radius={0} style={styles.sharedThumb} />
+                    <View style={styles.sharedMeta}>
+                      {item.shared_post.blurb ? (
+                        <Text style={styles.sharedBlurb} numberOfLines={2}>
+                          {item.shared_post.blurb}
+                        </Text>
+                      ) : null}
+                      <View style={styles.sharedOpenRow}>
+                        <Text style={styles.sharedOpen}>View post</Text>
+                        <Ionicons name="chevron-forward" size={13} color={colors.amberDark} />
+                      </View>
+                    </View>
                   </Pressable>
                 ) : item.shared_post_id ? (
                   // The post existed when it was sent but has since been deleted.
@@ -215,26 +223,6 @@ export function ChatScreen({ navigation, route }: any) {
         ]}
       />
 
-      <ActionSheet
-        visible={pickerOpen}
-        title="Send a photo"
-        onClose={() => setPickerOpen(false)}
-        actions={[
-          {
-            key: 'camera',
-            label: 'Take a photo',
-            icon: 'camera-outline',
-            onPress: () => attach(true),
-          },
-          {
-            key: 'library',
-            label: 'Choose from library',
-            icon: 'images-outline',
-            onPress: () => attach(false),
-          },
-        ]}
-      />
-
       {notice ? (
         <Pressable testID="chat-notice" onPress={() => setNotice(null)} style={styles.notice}>
           <Text style={styles.noticeText}>{notice}</Text>
@@ -260,9 +248,13 @@ export function ChatScreen({ navigation, route }: any) {
       <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
         <Pressable
           testID="chat-attach"
-          onPress={() => setPickerOpen(true)}
+          // Tap opens the photo library straight away (no dulled menu);
+          // long-press is the shortcut for the camera.
+          onPress={() => attach(false)}
+          onLongPress={() => attach(true)}
+          delayLongPress={300}
           style={styles.attach}
-          accessibilityLabel="Attach a photo"
+          accessibilityLabel="Add a photo from your library. Hold for camera."
         >
           <Ionicons name="image-outline" size={22} color={colors.amberDark} />
         </Pressable>
@@ -315,12 +307,27 @@ const styles = StyleSheet.create({
   bubbleTheirs: { backgroundColor: colors.white },
   text: { fontFamily: fonts.semi, fontSize: 15, lineHeight: 21, color: colors.cocoa },
   textMine: { color: colors.white },
-  sharedCard: { gap: 6 },
+  sharedCard: {
+    width: 216,
+    borderRadius: 14,
+    overflow: 'hidden',
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
+  sharedThumb: { width: 216, height: 168 },
+  sharedMeta: { paddingHorizontal: 12, paddingVertical: 10, gap: 4 },
   sharedBlurb: {
     fontFamily: fonts.semi,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.cocoa,
+  },
+  sharedOpenRow: { flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: 2 },
+  sharedOpen: {
+    fontFamily: fonts.bold,
     fontSize: 12.5,
-    color: colors.cocoaSoft,
-    width: 150,
+    color: colors.amberDark,
   },
   time: { fontSize: 11, marginTop: 3 },
   photo: {

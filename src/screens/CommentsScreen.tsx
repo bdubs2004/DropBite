@@ -94,14 +94,11 @@ export function CommentsScreen({ navigation, route }: any) {
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: colors.cream }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={insets.top}
     >
-      <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={10}>
-          <Text style={styles.close}>Close</Text>
-        </Pressable>
+      {/* The sheet supplies its own grabber above this; keep the header compact
+          so it reads like Instagram's comments panel, not a full page. */}
+      <View style={styles.header}>
         <Text style={styles.title}>Comments</Text>
-        <View style={{ width: 48 }} />
       </View>
 
       <FlatList
@@ -281,11 +278,12 @@ const styles = StyleSheet.create({
     minWidth: 26,
   },
   header: {
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.sm,
+    justifyContent: 'center',
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
+    borderBottomWidth: 1,
+    borderColor: colors.hairline,
   },
   close: {
     fontFamily: fonts.bold,
