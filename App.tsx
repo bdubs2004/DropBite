@@ -257,7 +257,15 @@ function Root() {
       <Stack.Screen
         name="Comments"
         component={CommentsScreen}
-        options={{ presentation: 'modal' }}
+        options={{
+          // Instagram-style: a bottom sheet that stops short of the top so the
+          // post stays visible behind it, draggable up to full height.
+          presentation: 'formSheet',
+          sheetAllowedDetents: [0.72, 1],
+          sheetInitialDetentIndex: 0,
+          sheetGrabberVisible: true,
+          sheetCornerRadius: 22,
+        }}
       />
       <Stack.Screen
         name="Report"

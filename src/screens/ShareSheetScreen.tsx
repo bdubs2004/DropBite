@@ -69,7 +69,8 @@ export function ShareSheetScreen({ navigation, route }: any) {
       await svc.sharePostToUsers(postId, [...selected]);
       await svc.recordShare(postId);
       setSent(true);
-      setTimeout(() => navigation.goBack(), 900);
+      // Just a quick flash of confirmation, then out of the way.
+      setTimeout(() => navigation.goBack(), 300);
     } catch (e: any) {
       setExternalNote(e?.message ?? 'Could not send that post.');
     } finally {

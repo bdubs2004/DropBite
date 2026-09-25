@@ -40,11 +40,18 @@ export function SearchScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
 
   const [tab, setTab] = useState<Tab>('dishes');
-  const [query, setQuery] = useState('');
+  // Two fully independent searches: each tab keeps its own query and its own
+  // results, and only the active tab's source is queried. Typing in one never
+  // touches the other, so there is zero overlap between people and dishes.
+  const [dishQuery, setDishQuery] = useState('');
+  const [peopleQuery, setPeopleQuery] = useState('');
   const [people, setPeople] = useState<User[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
   const [searching, setSearching] = useState(false);
   const [recents, setRecents] = useState<Awaited<ReturnType<typeof getRecentSearches>>>([]);
+
+  const query = tab === 'dishes' ? dishQuery : peopleQuery;
+  const setQuery = (t: string) => (tab === 'dishes' ? setDishQuery(t) : setPeopleQuery(t));
 
   // Recents are what the screen shows before you have typed anything.
   const loadRecents = useCallback(async () => {
@@ -63,37 +70,46 @@ export function SearchScreen({ navigation }: any) {
   // Guards against a slow early request landing after a later one.
   const seq = useRef(0);
 
+  // Search only the active tab's source — never both. Dishes never returns
+  // people, people never returns dishes.
   const run = useCallback(
-    async (text: string) => {
+    async (which: Tab, text: string) => {
       const term = text.trim();
       const mine = ++seq.current;
       if (!term) {
-        setPeople([]);
-        setPosts([]);
+        if (which === 'dishes') setPosts([]);
+        else setPeople([]);
         setSearching(false);
         return;
       }
       setSearching(true);
-      // Fetch people and dishes independently so one failing doesn't wipe the
-      // other, and so a thrown error can't leave the previous results on screen
-      // (which looked like "profiles still showing but no dishes").
-      const [uRes, pRes] = await Promise.allSettled([
-        svc.listUsers(term),
-        svc.searchPosts(term),
-      ]);
-      if (mine !== seq.current) return; // a newer search already answered
-      setPeople(uRes.status === 'fulfilled' ? uRes.value : []);
-      setPosts(pRes.status === 'fulfilled' ? pRes.value : []);
-      setSearching(false);
+      try {
+        if (which === 'dishes') {
+          const p = await svc.searchPosts(term);
+          if (mine !== seq.current) return;
+          setPosts(p);
+        } else {
+          const u = await svc.listUsers(term);
+          if (mine !== seq.current) return;
+          setPeople(u);
+        }
+      } catch {
+        if (mine !== seq.current) return;
+        if (which === 'dishes') setPosts([]);
+        else setPeople([]);
+      } finally {
+        if (mine === seq.current) setSearching(false);
+      }
     },
     [svc],
   );
 
-  // Debounce so typing doesn't fire a query per keystroke.
+  // Debounce so typing doesn't fire a query per keystroke. Re-runs on tab
+  // switch too, so each tab shows results for its own query.
   useEffect(() => {
-    const t = setTimeout(() => run(query), DEBOUNCE_MS);
+    const t = setTimeout(() => run(tab, query), DEBOUNCE_MS);
     return () => clearTimeout(t);
-  }, [query, run]);
+  }, [tab, query, run]);
 
   const gridData: (Post | null)[] = (() => {
     const remainder = posts.length % GRID_COLUMNS;
@@ -112,7 +128,11 @@ export function SearchScreen({ navigation }: any) {
         <View>
           <Input
             testID="search-input"
-            placeholder="Try chicken, pancakes, or a name"
+            placeholder={
+              tab === 'dishes'
+                ? 'Search dishes and ingredients'
+                : 'Search people by name or handle'
+            }
             value={query}
             onChangeText={setQuery}
             autoCapitalize="none"
@@ -146,7 +166,8 @@ export function SearchScreen({ navigation }: any) {
   );
 
   const empty = !hasQuery ? (
-    recents.length > 0 ? (
+    // Recents are people you looked up, so they only belong on the People tab.
+    tab === 'people' && recents.length > 0 ? (
       <View testID="search-recents" style={styles.recents}>
         <View style={styles.recentsHead}>
           <Text style={styles.recentsTitle}>Recent</Text>
@@ -188,9 +209,11 @@ export function SearchScreen({ navigation }: any) {
       </View>
     ) : (
       <View style={styles.empty}>
-        <Ionicons name="search" size={40} color={colors.cocoaFaint} />
+        <Ionicons name={tab === 'dishes' ? 'restaurant-outline' : 'people-outline'} size={40} color={colors.cocoaFaint} />
         <Muted style={styles.emptyText}>
-          Search for a dish, an ingredient, or someone by name or handle.
+          {tab === 'dishes'
+            ? 'Search for a dish or an ingredient — like chicken, pancakes, or gochujang.'
+            : 'Search for someone by name or handle.'}
         </Muted>
       </View>
     )
