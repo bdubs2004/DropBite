@@ -20,7 +20,7 @@ import { Muted } from '../components/ui';
 import { usePostActions } from '../lib/usePostActions';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
-import { colors, fonts, radius, shadowSoft, spacing } from '../theme';
+import { colors, fonts, radius, spacing } from '../theme';
 
 export function FeedScreen({ navigation }: any) {
   const { feed, feedLoading, refreshFeed, streak, user } = useApp();
@@ -278,17 +278,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.cocoa,
   },
+  // Plain amber spinner, no card behind it — matches the Discover tab.
   reloadWheel: {
     position: 'absolute',
     alignSelf: 'center',
     zIndex: 1,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...(shadowSoft as object),
   },
   empty: {
     alignItems: 'center',
