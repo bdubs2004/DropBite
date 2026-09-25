@@ -78,6 +78,13 @@ export interface Post {
   reacted_by_me?: boolean;
   reposted_by_me?: boolean;
   saved_by_me?: boolean;
+  /**
+   * Set when this post appears in the feed because someone you follow reposted
+   * it — carries who did the reposting so the card can show a "reposted" label.
+   * `repost_at` is the repost time, used to order it in the feed.
+   */
+  reposter?: User | null;
+  repost_at?: string;
 }
 
 export interface Comment {
