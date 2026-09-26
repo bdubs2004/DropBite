@@ -152,8 +152,18 @@ export class SupabaseService implements DataService {
     if (error) throw error;
     if (!data.user) throw new Error('Sign-up failed');
 
-    // No session means the project requires email confirmation. Not an error.
-    if (!data.session) return { status: 'confirm_email', email: input.email };
+    // No session means the project requires email confirmation. Not an error —
+    // unless the email is already taken: Supabase returns a fake success with
+    // an empty `identities` array and sends nothing, to avoid revealing which
+    // emails are registered. Catch that so we don't promise an email that will
+    // never arrive.
+    if (!data.session) {
+      const identities = (data.user as { identities?: unknown[] }).identities;
+      if (Array.isArray(identities) && identities.length === 0) {
+        return { status: 'already_exists', email: input.email };
+      }
+      return { status: 'confirm_email', email: input.email };
+    }
 
     const user = await this.ensureProfile();
     if (!user) throw new Error('Profile could not be created');

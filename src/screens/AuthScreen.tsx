@@ -73,13 +73,13 @@ export function AuthScreen() {
     setActionMsg(null);
     try {
       await svc.resendConfirmation(unconfirmedEmail ?? email);
-      setActionMsg('Sent — check your inbox, and your spam folder.');
+      setActionMsg('Sent. Check your inbox, and your spam folder.');
     } catch (e: any) {
       const raw = String(e?.message ?? '');
       setActionMsg(
         /rate|too many|429/i.test(raw)
           ? 'Please wait a minute before trying again.'
-          : 'Could not resend just now — try again in a moment.',
+          : 'Could not resend just now. Try again in a moment.',
       );
     } finally {
       // Rate-limit either way so the button can't be hammered.
@@ -121,6 +121,17 @@ export function AuthScreen() {
           handle,
           display_name: displayName,
         });
+        // The email already has an account. Move them to sign in with the
+        // address kept, and say so warmly instead of pretending an email went
+        // out.
+        if (result.status === 'already_exists') {
+          setMode('signin');
+          setPassword('');
+          setError(
+            'Looks like that email already has a NiblGo account. Sign in below, or use a different email to make a new one.',
+          );
+          return;
+        }
         // Not an error: the account exists but is not usable until the link in
         // the email is clicked, so there is nobody to sign in yet.
         if (result.status === 'confirm_email') {
@@ -238,7 +249,7 @@ export function AuthScreen() {
           </Text>
           <Text style={styles.confirmHint}>
             No email after a minute or two? Check your spam folder, and make sure the address is
-            right — you can start again with a different one.
+            right. You can always start again with a different one.
           </Text>
           <Button
             title="Back to sign in"
