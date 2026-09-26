@@ -168,7 +168,12 @@ export function DiscoverScreen({ navigation }: any) {
           }
           renderItem={({ item }) =>
             item ? (
-              <PostThumb post={item} onPress={() => openPost(item)} style={{ flex: 1 }} />
+              <PostThumb
+                post={item}
+                onPress={() => openPost(item)}
+                onLongPress={() => navigation.navigate('PostPeek', { postId: item.id })}
+                style={{ flex: 1 }}
+              />
             ) : (
               <View style={{ flex: 1 }} />
             )

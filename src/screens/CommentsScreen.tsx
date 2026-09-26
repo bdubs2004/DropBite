@@ -19,6 +19,7 @@ import { Muted } from '../components/ui';
 import { LIMITS } from '../lib/limits';
 import { pickImage } from '../lib/pickImage';
 import { relativeTime } from '../lib/time';
+import { useKeyboardVisible } from '../lib/useKeyboardVisible';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
 import { colors, fonts, radius, spacing } from '../theme';
@@ -35,6 +36,7 @@ export function CommentsScreen({ navigation, route }: any) {
   const svc = getDataService();
   const { user, refreshFeed } = useApp();
   const insets = useSafeAreaInsets();
+  const keyboardUp = useKeyboardVisible();
 
   const [comments, setComments] = useState<Comment[]>([]);
   const [text, setText] = useState('');
@@ -236,7 +238,10 @@ export function CommentsScreen({ navigation, route }: any) {
           ) : null}
 
           <View
-            style={[styles.composer, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}
+            style={[
+              styles.composer,
+              { paddingBottom: keyboardUp ? spacing.md : Math.max(insets.bottom, spacing.md) },
+            ]}
           >
             <Avatar user={user} size={32} />
             <Pressable

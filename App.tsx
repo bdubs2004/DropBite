@@ -33,6 +33,7 @@ import { LeaderboardScreen } from './src/screens/LeaderboardScreen';
 import { NewMessageScreen } from './src/screens/NewMessageScreen';
 import { ShareSheetScreen } from './src/screens/ShareSheetScreen';
 import { PostDetailScreen } from './src/screens/PostDetailScreen';
+import { PostPeekScreen } from './src/screens/PostPeekScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { FeedbackScreen } from './src/screens/FeedbackScreen';
 import { NotificationsScreen } from './src/screens/NotificationsScreen';
@@ -301,6 +302,11 @@ function Root() {
         options={{ presentation: 'modal' }}
       />
       <Stack.Screen name="PostDetail" component={PostDetailScreen} />
+      <Stack.Screen
+        name="PostPeek"
+        component={PostPeekScreen}
+        options={{ presentation: 'transparentModal', animation: 'fade' }}
+      />
       <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
       <Stack.Screen
