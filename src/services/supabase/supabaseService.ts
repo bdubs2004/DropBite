@@ -1098,26 +1098,74 @@ export class SupabaseService implements DataService {
     }
   }
 
-  async getComments(postId: string): Promise<Comment[]> {
+  /**
+   * Top-level comments only, newest first, in pages — so a post with a thousand
+   * comments doesn't load them all at once. Each carries its reply count; the
+   * replies themselves load on demand via getReplies().
+   */
+  async getComments(postId: string, limit = 15, offset = 0): Promise<Comment[]> {
     const meId = await this.myId();
     const [{ data }, { data: post }] = await Promise.all([
       this.sb
         .from('comments')
         .select('*, users!comments_user_id_fkey(*), comment_reactions(user_id)')
         .eq('post_id', postId)
-        .order('created_at', { ascending: true }),
+        .is('parent_id', null)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1),
       this.sb.from('posts').select('user_id').eq('id', postId).maybeSingle(),
     ]);
-    // Mirrors the "delete own comment or on own post" RLS policy, so the UI
-    // only offers what the database would actually allow.
+    const rows = (data ?? []) as any[];
+
+    // One extra query for this page's reply counts, grouped client-side.
+    const ids = rows.map((r) => r.id);
+    const replyCounts: Record<string, number> = {};
+    if (ids.length) {
+      const { data: reps } = await this.sb
+        .from('comments')
+        .select('parent_id')
+        .in('parent_id', ids);
+      for (const r of (reps ?? []) as any[]) {
+        replyCounts[r.parent_id] = (replyCounts[r.parent_id] ?? 0) + 1;
+      }
+    }
+
     const postOwnerId = (post as { user_id?: string } | null)?.user_id;
-    return (data ?? []).map((row: any) => ({
+    return rows.map((row: any) => this.hydrateComment(row, meId, postOwnerId, replyCounts[row.id] ?? 0));
+  }
+
+  /** The replies under one top-level comment, oldest first. */
+  async getReplies(parentId: string): Promise<Comment[]> {
+    const meId = await this.myId();
+    const { data } = await this.sb
+      .from('comments')
+      .select('*, users!comments_user_id_fkey(*), comment_reactions(user_id)')
+      .eq('parent_id', parentId)
+      .order('created_at', { ascending: true });
+    const rows = (data ?? []) as any[];
+    // Post owner (for the "delete on your own post" affordance).
+    let postOwnerId: string | undefined;
+    if (rows.length) {
+      const { data: post } = await this.sb
+        .from('posts')
+        .select('user_id')
+        .eq('id', rows[0].post_id)
+        .maybeSingle();
+      postOwnerId = (post as { user_id?: string } | null)?.user_id;
+    }
+    return rows.map((row: any) => this.hydrateComment(row, meId, postOwnerId, 0));
+  }
+
+  private hydrateComment(row: any, meId: string, postOwnerId?: string, replyCount = 0): Comment {
+    return {
       ...(row as Comment),
       user: row.users as User,
       like_count: (row.comment_reactions ?? []).length,
       liked_by_me: (row.comment_reactions ?? []).some((r: any) => r.user_id === meId),
+      // Mirrors the "delete own comment or on own post" RLS policy.
       can_delete: row.user_id === meId || postOwnerId === meId,
-    }));
+      reply_count: replyCount,
+    };
   }
 
   async deleteComment(commentId: string): Promise<void> {
@@ -1147,6 +1195,7 @@ export class SupabaseService implements DataService {
     postId: string,
     text: string,
     imageUri?: string,
+    parentId?: string | null,
   ): Promise<Comment> {
     const meId = await this.myId();
     const body = clamp(text, LIMITS.comment);
@@ -1161,7 +1210,13 @@ export class SupabaseService implements DataService {
 
     const { data, error } = await this.sb
       .from('comments')
-      .insert({ post_id: postId, user_id: meId, text: body, image_url: imageUrl })
+      .insert({
+        post_id: postId,
+        user_id: meId,
+        text: body,
+        image_url: imageUrl,
+        parent_id: parentId ?? null,
+      })
       .select('*, users!comments_user_id_fkey(*)')
       .single();
     if (error) throw error;

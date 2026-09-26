@@ -1045,25 +1045,38 @@ export class MockService implements DataService {
     await this.save();
   }
 
-  async getComments(postId: string): Promise<Comment[]> {
+  async getComments(postId: string, limit = 15, offset = 0): Promise<Comment[]> {
     const db = await this.load();
     const me = await this.me();
-    // Older saved demo databases predate comment likes.
-    const likes = db.commentReactions ?? [];
     const blockedC = this.blockedIds(db, me.id);
-    // You may delete your own comment, or any comment on your own post. Mirrors
-    // the "delete own comment or on own post" RLS policy.
-    const postOwnerId = db.posts.find((p) => p.id === postId)?.user_id;
+    const top = db.comments
+      .filter((c) => c.post_id === postId && !c.parent_id && !blockedC.has(c.user_id))
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .slice(offset, offset + limit);
+    return top.map((c) => this.hydrateMockComment(db, me.id, c));
+  }
+
+  async getReplies(parentId: string): Promise<Comment[]> {
+    const db = await this.load();
+    const me = await this.me();
+    const blockedC = this.blockedIds(db, me.id);
     return db.comments
-      .filter((c) => c.post_id === postId && !blockedC.has(c.user_id))
+      .filter((c) => c.parent_id === parentId && !blockedC.has(c.user_id))
       .sort((a, b) => a.created_at.localeCompare(b.created_at))
-      .map((c) => ({
-        ...c,
-        user: db.users.find((u) => u.id === c.user_id),
-        like_count: likes.filter((r) => r.comment_id === c.id).length,
-        liked_by_me: likes.some((r) => r.comment_id === c.id && r.user_id === me.id),
-        can_delete: c.user_id === me.id || postOwnerId === me.id,
-      }));
+      .map((c) => this.hydrateMockComment(db, me.id, c));
+  }
+
+  private hydrateMockComment(db: any, meId: string, c: Comment): Comment {
+    const likes = db.commentReactions ?? [];
+    const postOwnerId = db.posts.find((p: any) => p.id === c.post_id)?.user_id;
+    return {
+      ...c,
+      user: db.users.find((u: any) => u.id === c.user_id),
+      like_count: likes.filter((r: any) => r.comment_id === c.id).length,
+      liked_by_me: likes.some((r: any) => r.comment_id === c.id && r.user_id === meId),
+      can_delete: c.user_id === meId || postOwnerId === meId,
+      reply_count: db.comments.filter((x: any) => x.parent_id === c.id).length,
+    };
   }
 
   async deleteComment(commentId: string): Promise<void> {
@@ -1094,7 +1107,12 @@ export class MockService implements DataService {
     await this.save();
   }
 
-  async addComment(postId: string, text: string, imageUri?: string): Promise<Comment> {
+  async addComment(
+    postId: string,
+    text: string,
+    imageUri?: string,
+    parentId?: string | null,
+  ): Promise<Comment> {
     const db = await this.load();
     const me = await this.me();
     const comment: Comment = {
@@ -1103,6 +1121,7 @@ export class MockService implements DataService {
       user_id: me.id,
       text: clamp(text, LIMITS.comment),
       image_url: imageUri ?? null,
+      parent_id: parentId ?? null,
       created_at: new Date().toISOString(),
     };
     db.comments.push(comment);

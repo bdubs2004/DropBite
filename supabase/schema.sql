@@ -123,11 +123,15 @@ create table if not exists public.comments (
   image_url text constraint comments_image_url_https check (
     image_url is null or (image_url ~ '^https://[^\s]+$' and char_length(image_url) <= 1000)
   ),
+  -- A reply points at the top-level comment it sits under; NULL = top-level.
+  -- Two levels only: replies to replies still attach to the top-level parent.
+  parent_id uuid references public.comments (id) on delete cascade,
   created_at timestamptz not null default now(),
   -- A comment must carry something: a caption, a photo, or both.
   constraint comments_not_empty check (char_length(text) > 0 or image_url is not null)
 );
 create index if not exists comments_post_created_idx on public.comments (post_id, created_at);
+create index if not exists comments_parent_idx on public.comments (parent_id);
 
 -- -------------------------------------------------------------- reposts
 create table if not exists public.reposts (

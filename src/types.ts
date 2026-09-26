@@ -94,6 +94,8 @@ export interface Comment {
   text: string;
   /** An optional attached photo. */
   image_url?: string | null;
+  /** The top-level comment this reply sits under; null for a top-level comment. */
+  parent_id?: string | null;
   created_at: string;
   // hydrated client-side
   user?: User;
@@ -101,6 +103,8 @@ export interface Comment {
   liked_by_me?: boolean;
   /** True when the viewer wrote it, or owns the post it sits on. */
   can_delete?: boolean;
+  /** Number of replies (top-level comments only). */
+  reply_count?: number;
 }
 
 /**
