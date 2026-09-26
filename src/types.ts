@@ -152,7 +152,11 @@ export interface Report {
  */
 export type SignUpResult =
   | { status: 'ready'; user: User }
-  | { status: 'confirm_email'; email: string };
+  | { status: 'confirm_email'; email: string }
+  // The email already belongs to an account. Supabase hides this behind a fake
+  // success (no session, no identities, no email sent) to stop email probing,
+  // so we detect it and steer the person to sign in instead.
+  | { status: 'already_exists'; email: string };
 
 export type FeedbackKind = 'feedback' | 'bug';
 
