@@ -1140,11 +1140,25 @@ export class SupabaseService implements DataService {
     }
   }
 
-  async addComment(postId: string, text: string): Promise<Comment> {
+  async addComment(
+    postId: string,
+    text: string,
+    imageUri?: string,
+  ): Promise<Comment> {
     const meId = await this.myId();
+    const body = clamp(text, LIMITS.comment);
+    if (!body && !imageUri) throw new Error('Nothing to post.');
+
+    // Photos go in the same per-user folder as post/message photos, so the
+    // existing storage policy and its size/MIME limits already cover them.
+    let imageUrl: string | null = null;
+    if (imageUri) {
+      imageUrl = imageUri.startsWith('http') ? imageUri : await this.uploadPhoto(imageUri, meId);
+    }
+
     const { data, error } = await this.sb
       .from('comments')
-      .insert({ post_id: postId, user_id: meId, text: clamp(text, LIMITS.comment) })
+      .insert({ post_id: postId, user_id: meId, text: body, image_url: imageUrl })
       .select('*, users!comments_user_id_fkey(*)')
       .single();
     if (error) throw error;

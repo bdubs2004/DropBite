@@ -92,6 +92,8 @@ export interface Comment {
   post_id: string;
   user_id: string;
   text: string;
+  /** An optional attached photo. */
+  image_url?: string | null;
   created_at: string;
   // hydrated client-side
   user?: User;

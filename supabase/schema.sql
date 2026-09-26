@@ -117,8 +117,15 @@ create table if not exists public.comments (
   id uuid primary key default gen_random_uuid(),
   post_id uuid not null references public.posts (id) on delete cascade,
   user_id uuid not null references public.users (id) on delete cascade,
-  text text not null check (char_length(text) between 1 and 2000),
-  created_at timestamptz not null default now()
+  text text not null default '' check (char_length(text) <= 2000),
+  -- An attached photo (e.g. "here's the pie I made"), same folder + rules as
+  -- post and message photos.
+  image_url text constraint comments_image_url_https check (
+    image_url is null or (image_url ~ '^https://[^\s]+$' and char_length(image_url) <= 1000)
+  ),
+  created_at timestamptz not null default now(),
+  -- A comment must carry something: a caption, a photo, or both.
+  constraint comments_not_empty check (char_length(text) > 0 or image_url is not null)
 );
 create index if not exists comments_post_created_idx on public.comments (post_id, created_at);
 
