@@ -1094,7 +1094,7 @@ export class MockService implements DataService {
     await this.save();
   }
 
-  async addComment(postId: string, text: string): Promise<Comment> {
+  async addComment(postId: string, text: string, imageUri?: string): Promise<Comment> {
     const db = await this.load();
     const me = await this.me();
     const comment: Comment = {
@@ -1102,6 +1102,7 @@ export class MockService implements DataService {
       post_id: postId,
       user_id: me.id,
       text: clamp(text, LIMITS.comment),
+      image_url: imageUri ?? null,
       created_at: new Date().toISOString(),
     };
     db.comments.push(comment);

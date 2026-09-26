@@ -289,13 +289,10 @@ function Root() {
         name="Comments"
         component={CommentsScreen}
         options={{
-          // Instagram-style: a bottom sheet that stops short of the top so the
-          // post stays visible behind it, draggable up to full height.
-          presentation: 'formSheet',
-          sheetAllowedDetents: [0.72, 1],
-          sheetInitialDetentIndex: 0,
-          sheetGrabberVisible: true,
-          sheetCornerRadius: 22,
+          // Transparent modal: the screen itself draws the dimmed backdrop and
+          // the bottom sheet, so it looks identical opened from any page.
+          presentation: 'transparentModal',
+          animation: 'slide_from_bottom',
         }}
       />
       <Stack.Screen

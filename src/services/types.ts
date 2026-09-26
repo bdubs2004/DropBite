@@ -105,7 +105,7 @@ export interface DataService {
 
   // engagement (comments, reposts, shares)
   getComments(postId: string): Promise<Comment[]>;
-  addComment(postId: string, text: string): Promise<Comment>;
+  addComment(postId: string, text: string, imageUri?: string): Promise<Comment>;
   /** Like/unlike a comment. Idempotent per user. */
   toggleCommentLike(commentId: string): Promise<void>;
   /** Delete a comment you wrote, or any comment on a post you own. */
