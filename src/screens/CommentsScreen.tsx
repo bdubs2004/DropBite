@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Animated,
   FlatList,
@@ -27,11 +28,13 @@ import { useApp } from '../state/AppContext';
 import { colors, fonts, radius, spacing } from '../theme';
 import { Comment } from '../types';
 
+/** Top-level comments loaded per page; more load as you scroll. */
+const PAGE = 15;
+
 /**
- * Comments as an Instagram-style bottom sheet: a rounded panel that rises from
- * the bottom over a dimmed backdrop, so the post stays visible behind it. Built
- * by hand (over a transparent modal) rather than a native sheet so it looks the
- * same opened from the feed, a profile, Discover, or a post page.
+ * Comments as an Instagram-style bottom sheet: a rounded panel over a dimmed
+ * backdrop (drag it down to dismiss), with threaded replies and paged loading
+ * so a post with hundreds of comments doesn't fetch them all at once.
  */
 export function CommentsScreen({ navigation, route }: any) {
   const postId: string = route.params.postId;
@@ -39,20 +42,27 @@ export function CommentsScreen({ navigation, route }: any) {
   const { user, refreshFeed } = useApp();
   const insets = useSafeAreaInsets();
   const keyboardUp = useKeyboardVisible();
+  const inputRef = useRef<TextInput>(null);
 
-  const [comments, setComments] = useState<Comment[]>([]);
+  const [threads, setThreads] = useState<Comment[]>([]);
+  const [replies, setReplies] = useState<Record<string, Comment[]>>({});
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [loadingReplies, setLoadingReplies] = useState<Set<string>>(new Set());
+  const [replyTo, setReplyTo] = useState<{ parentId: string; handle: string } | null>(null);
+
   const [text, setText] = useState('');
   const [photo, setPhoto] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [posting, setPosting] = useState(false);
   const [menuFor, setMenuFor] = useState<Comment | null>(null);
   const [confirming, setConfirming] = useState<Comment | null>(null);
 
   const close = () => navigation.goBack();
 
-  // Drag the sheet down to dismiss. The gesture lives on the grabber/header
-  // area so it never fights the comment list's own scrolling.
+  // Drag the sheet down to dismiss.
   const translateY = useRef(new Animated.Value(0)).current;
   const dragDown = useRef(
     PanResponder.create({
@@ -62,31 +72,74 @@ export function CommentsScreen({ navigation, route }: any) {
       },
       onPanResponderRelease: (_e, g) => {
         if (g.dy > 120 || g.vy > 0.6) {
-          Animated.timing(translateY, {
-            toValue: 900,
-            duration: 160,
-            useNativeDriver: true,
-          }).start(() => navigation.goBack());
+          Animated.timing(translateY, { toValue: 900, duration: 160, useNativeDriver: true }).start(
+            () => navigation.goBack(),
+          );
         } else {
-          Animated.spring(translateY, {
-            toValue: 0,
-            useNativeDriver: true,
-            friction: 9,
-            tension: 80,
-          }).start();
+          Animated.spring(translateY, { toValue: 0, useNativeDriver: true, friction: 9, tension: 80 }).start();
         }
       },
     }),
   ).current;
 
-  const load = useCallback(async () => {
-    setComments(await svc.getComments(postId));
+  const loadFirst = useCallback(async () => {
+    setLoading(true);
+    const first = await svc.getComments(postId, PAGE, 0);
+    setThreads(first);
+    setHasMore(first.length === PAGE);
     setLoading(false);
   }, [svc, postId]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    loadFirst();
+  }, [loadFirst]);
+
+  const loadMore = async () => {
+    if (loadingMore || !hasMore || loading) return;
+    setLoadingMore(true);
+    try {
+      const next = await svc.getComments(postId, PAGE, threads.length);
+      setThreads((prev) => {
+        const seen = new Set(prev.map((t) => t.id));
+        return [...prev, ...next.filter((n) => !seen.has(n.id))];
+      });
+      setHasMore(next.length === PAGE);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  const toggleReplies = async (c: Comment) => {
+    const id = c.id;
+    if (expanded.has(id)) {
+      setExpanded((prev) => {
+        const n = new Set(prev);
+        n.delete(id);
+        return n;
+      });
+      return;
+    }
+    setExpanded((prev) => new Set(prev).add(id));
+    if (!replies[id]) {
+      setLoadingReplies((prev) => new Set(prev).add(id));
+      try {
+        const r = await svc.getReplies(id);
+        setReplies((prev) => ({ ...prev, [id]: r }));
+      } finally {
+        setLoadingReplies((prev) => {
+          const n = new Set(prev);
+          n.delete(id);
+          return n;
+        });
+      }
+    }
+  };
+
+  const startReply = (c: Comment) => {
+    // Replying to a reply attaches to its top-level parent (two levels only).
+    setReplyTo({ parentId: c.parent_id ?? c.id, handle: c.user?.handle ?? '' });
+    inputRef.current?.focus();
+  };
 
   const attach = async (fromCamera: boolean) => {
     const res = await pickImage({ fromCamera, aspect: [4, 5], width: 1200 });
@@ -98,28 +151,37 @@ export function CommentsScreen({ navigation, route }: any) {
   };
 
   const removeComment = async (c: Comment) => {
-    setComments((prev) => prev.filter((x) => x.id !== c.id));
+    if (c.parent_id) {
+      const pid = c.parent_id;
+      setReplies((prev) => ({ ...prev, [pid]: (prev[pid] ?? []).filter((x) => x.id !== c.id) }));
+      setThreads((prev) =>
+        prev.map((t) => (t.id === pid ? { ...t, reply_count: Math.max(0, (t.reply_count ?? 1) - 1) } : t)),
+      );
+    } else {
+      setThreads((prev) => prev.filter((x) => x.id !== c.id));
+    }
     try {
       await svc.deleteComment(c.id);
       refreshFeed();
     } catch {
-      load();
+      loadFirst();
     }
   };
 
-  const toggleLike = async (comment: Comment) => {
-    const liked = !comment.liked_by_me;
-    setComments((prev) =>
-      prev.map((c) =>
-        c.id === comment.id
-          ? { ...c, liked_by_me: liked, like_count: (c.like_count ?? 0) + (liked ? 1 : -1) }
-          : c,
-      ),
-    );
+  const toggleLike = async (c: Comment) => {
+    const liked = !c.liked_by_me;
+    const upd = (x: Comment) =>
+      x.id === c.id ? { ...x, liked_by_me: liked, like_count: (x.like_count ?? 0) + (liked ? 1 : -1) } : x;
+    if (c.parent_id) {
+      const pid = c.parent_id;
+      setReplies((prev) => ({ ...prev, [pid]: (prev[pid] ?? []).map(upd) }));
+    } else {
+      setThreads((prev) => prev.map(upd));
+    }
     try {
-      await svc.toggleCommentLike(comment.id);
+      await svc.toggleCommentLike(c.id);
     } catch {
-      load();
+      loadFirst();
     }
   };
 
@@ -127,11 +189,24 @@ export function CommentsScreen({ navigation, route }: any) {
     const body = text.trim();
     if ((!body && !photo) || posting) return;
     setPosting(true);
+    const parentId = replyTo?.parentId ?? null;
     try {
-      await svc.addComment(postId, body, photo ?? undefined);
+      const created = await svc.addComment(postId, body, photo ?? undefined, parentId);
       setText('');
       setPhoto(null);
-      await load();
+      setReplyTo(null);
+      if (parentId) {
+        // Re-pull the thread so it includes the new reply, and keep it open.
+        const r = await svc.getReplies(parentId);
+        setReplies((prev) => ({ ...prev, [parentId]: r }));
+        setExpanded((prev) => new Set(prev).add(parentId));
+        setThreads((prev) => prev.map((t) => (t.id === parentId ? { ...t, reply_count: r.length } : t)));
+      } else {
+        setThreads((prev) => [
+          { ...created, can_delete: true, like_count: 0, liked_by_me: false, reply_count: 0 },
+          ...prev,
+        ]);
+      }
       refreshFeed();
     } catch (e: any) {
       setNotice(e?.message ?? 'That comment could not be posted.');
@@ -141,6 +216,60 @@ export function CommentsScreen({ navigation, route }: any) {
   };
 
   const canSend = (text.trim().length > 0 || photo !== null) && !posting;
+
+  const row = (c: Comment, indented: boolean) => (
+    <Pressable
+      key={c.id}
+      testID={`comment-${c.id}`}
+      style={[styles.row, indented && styles.rowIndented]}
+      onLongPress={() => (c.can_delete || c.user_id !== user?.id) && setMenuFor(c)}
+      delayLongPress={350}
+    >
+      <Avatar user={c.user} size={indented ? 28 : 34} />
+      <View style={styles.body}>
+        <Text style={styles.text}>
+          <Text style={styles.handle}>{c.user?.handle ?? 'unknown'} </Text>
+          {c.text}
+        </Text>
+        {c.image_url ? (
+          <Image
+            testID={`comment-photo-${c.id}`}
+            source={{ uri: c.image_url }}
+            style={styles.commentPhoto}
+            resizeMode="cover"
+          />
+        ) : null}
+        <View style={styles.metaRow}>
+          <Text style={styles.time}>{relativeTime(c.created_at)}</Text>
+          {c.like_count ? (
+            <Text style={styles.metaCount}>
+              {c.like_count} {c.like_count === 1 ? 'like' : 'likes'}
+            </Text>
+          ) : null}
+          <Pressable testID={`comment-reply-${c.id}`} onPress={() => startReply(c)} hitSlop={8}>
+            <Text style={styles.metaAction}>Reply</Text>
+          </Pressable>
+          {c.can_delete ? (
+            <Pressable testID={`comment-menu-${c.id}`} onPress={() => setMenuFor(c)} hitSlop={8}>
+              <Text style={styles.metaAction}>Delete</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      </View>
+      <Pressable
+        testID={`comment-like-${c.id}`}
+        onPress={() => toggleLike(c)}
+        hitSlop={10}
+        style={styles.likeBtn}
+      >
+        <Ionicons
+          name={c.liked_by_me ? 'heart' : 'heart-outline'}
+          size={15}
+          color={c.liked_by_me ? colors.danger : colors.cocoaFaint}
+        />
+      </Pressable>
+    </Pressable>
+  );
 
   return (
     <View style={styles.root}>
@@ -154,104 +283,76 @@ export function CommentsScreen({ navigation, route }: any) {
           onPress={close}
           accessibilityLabel="Close comments"
         />
-        {/* Spacer sizes the gap above the sheet; taps fall through to the
-            backdrop behind it. */}
         <View style={styles.spacer} pointerEvents="none" />
         <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]}>
-          {/* Rounded, clipped panel for the grabber/header/list only. Keeping
-              the composer OUT of this clip avoids the iOS bug where overflow
-              hidden rounds all four corners and leaves cream notches by the
-              keyboard. */}
           <View style={styles.panel}>
-          {/* Grabber + header own the drag-to-dismiss gesture. */}
-          <View {...dragDown.panHandlers}>
-            <View style={styles.grabber} />
-            <View style={styles.header}>
-              <Text style={styles.title}>Comments</Text>
-              <Pressable
-                testID="comments-close"
-                onPress={close}
-                hitSlop={10}
-                style={styles.closeBtn}
-              >
-                <Ionicons name="close" size={22} color={colors.cocoaSoft} />
-              </Pressable>
-            </View>
-          </View>
-
-          <FlatList
-            style={{ flex: 1 }}
-            data={comments}
-            keyExtractor={(c) => c.id}
-            contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.lg }}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag"
-            renderItem={({ item }) => (
-              <Pressable
-                testID={`comment-${item.id}`}
-                style={styles.row}
-                onLongPress={() =>
-                  (item.can_delete || item.user_id !== user?.id) && setMenuFor(item)
-                }
-                delayLongPress={350}
-              >
-                <Avatar user={item.user} size={34} />
-                <View style={styles.body}>
-                  <Text style={styles.text}>
-                    <Text style={styles.handle}>{item.user?.handle ?? 'unknown'} </Text>
-                    {item.text}
-                  </Text>
-                  {item.image_url ? (
-                    <Image
-                      testID={`comment-photo-${item.id}`}
-                      source={{ uri: item.image_url }}
-                      style={styles.commentPhoto}
-                      resizeMode="cover"
-                    />
-                  ) : null}
-                  <View style={styles.metaRow}>
-                    <Text style={styles.time}>{relativeTime(item.created_at)}</Text>
-                    {item.like_count ? (
-                      <Text testID={`comment-like-count-${item.id}`} style={styles.metaCount}>
-                        {item.like_count} {item.like_count === 1 ? 'like' : 'likes'}
-                      </Text>
-                    ) : null}
-                    {item.can_delete ? (
-                      <Pressable
-                        testID={`comment-menu-${item.id}`}
-                        onPress={() => setMenuFor(item)}
-                        hitSlop={8}
-                      >
-                        <Text style={styles.metaAction}>Delete</Text>
-                      </Pressable>
-                    ) : null}
-                  </View>
-                </View>
-                <Pressable
-                  testID={`comment-like-${item.id}`}
-                  onPress={() => toggleLike(item)}
-                  hitSlop={10}
-                  style={styles.likeBtn}
-                >
-                  <Ionicons
-                    name={item.liked_by_me ? 'heart' : 'heart-outline'}
-                    size={15}
-                    color={item.liked_by_me ? colors.danger : colors.cocoaFaint}
-                  />
+            <View {...dragDown.panHandlers}>
+              <View style={styles.grabber} />
+              <View style={styles.header}>
+                <Text style={styles.title}>Comments</Text>
+                <Pressable testID="comments-close" onPress={close} hitSlop={10} style={styles.closeBtn}>
+                  <Ionicons name="close" size={22} color={colors.cocoaSoft} />
                 </Pressable>
-              </Pressable>
-            )}
-            ListEmptyComponent={
-              loading ? null : (
-                <View style={styles.empty}>
-                  <Ionicons name="chatbubble-outline" size={38} color={colors.cocoaFaint} />
-                  <Muted style={{ textAlign: 'center', marginTop: spacing.sm }}>
-                    No comments yet. Be the first to say something.
-                  </Muted>
+              </View>
+            </View>
+
+            <FlatList
+              style={{ flex: 1 }}
+              data={threads}
+              keyExtractor={(c) => c.id}
+              contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.lg }}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+              onEndReachedThreshold={0.4}
+              onEndReached={loadMore}
+              renderItem={({ item }) => (
+                <View>
+                  {row(item, false)}
+                  {item.reply_count ? (
+                    <Pressable
+                      testID={`comment-replies-${item.id}`}
+                      onPress={() => toggleReplies(item)}
+                      style={styles.repliesToggle}
+                      hitSlop={6}
+                    >
+                      <View style={styles.replyLine} />
+                      <Text style={styles.repliesToggleText}>
+                        {expanded.has(item.id)
+                          ? 'Hide replies'
+                          : `View ${item.reply_count} ${item.reply_count === 1 ? 'reply' : 'replies'}`}
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                  {expanded.has(item.id)
+                    ? loadingReplies.has(item.id) && !replies[item.id]
+                      ? (
+                        <ActivityIndicator
+                          color={colors.amber}
+                          style={{ marginLeft: 46, marginVertical: spacing.sm }}
+                        />
+                      )
+                      : (replies[item.id] ?? []).map((r) => row(r, true))
+                    : null}
                 </View>
-              )
-            }
-          />
+              )}
+              ListFooterComponent={
+                loadingMore ? (
+                  <ActivityIndicator color={colors.amber} style={{ marginVertical: spacing.md }} />
+                ) : null
+              }
+              ListEmptyComponent={
+                loading ? (
+                  <ActivityIndicator color={colors.amber} style={{ marginTop: spacing.xl }} />
+                ) : (
+                  <View style={styles.empty}>
+                    <Ionicons name="chatbubble-outline" size={38} color={colors.cocoaFaint} />
+                    <Muted style={{ textAlign: 'center', marginTop: spacing.sm }}>
+                      No comments yet. Be the first to say something.
+                    </Muted>
+                  </View>
+                )
+              }
+            />
           </View>
 
           {notice ? (
@@ -259,6 +360,15 @@ export function CommentsScreen({ navigation, route }: any) {
               <Text style={styles.noticeText}>{notice}</Text>
               <Ionicons name="close" size={16} color={colors.cocoaSoft} />
             </Pressable>
+          ) : null}
+
+          {replyTo ? (
+            <View style={styles.replyBar}>
+              <Text style={styles.replyBarText}>Replying to @{replyTo.handle}</Text>
+              <Pressable testID="reply-cancel" onPress={() => setReplyTo(null)} hitSlop={10}>
+                <Ionicons name="close" size={16} color={colors.cocoaSoft} />
+              </Pressable>
+            </View>
           ) : null}
 
           {photo ? (
@@ -294,9 +404,10 @@ export function CommentsScreen({ navigation, route }: any) {
               <Ionicons name="image-outline" size={22} color={colors.amberDark} />
             </Pressable>
             <TextInput
+              ref={inputRef}
               value={text}
               onChangeText={setText}
-              placeholder="Add a comment"
+              placeholder={replyTo ? `Reply to @${replyTo.handle}` : 'Add a comment'}
               placeholderTextColor={colors.cocoaFaint}
               style={styles.input}
               multiline
@@ -339,11 +450,7 @@ export function CommentsScreen({ navigation, route }: any) {
                     }
                     Alert.alert('Delete comment?', 'This cannot be undone.', [
                       { text: 'Cancel', style: 'cancel' },
-                      {
-                        text: 'Delete',
-                        style: 'destructive',
-                        onPress: () => removeComment(target),
-                      },
+                      { text: 'Delete', style: 'destructive', onPress: () => removeComment(target) },
                     ]);
                   },
                 },
@@ -407,11 +514,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: colors.overlay,
   },
-  // Spacer : sheet ≈ 1.3 : 6, so the sheet rests around ~82% and the post
-  // shows behind it; it still shrinks with the keyboard instead of clipping.
   spacer: { flex: 1.3 },
-  // Transparent flex container; the rounded/clipped surface is `panel`, and the
-  // composer is a separate unclipped white bar so its corners stay square.
   sheet: { flex: 6 },
   panel: {
     flex: 1,
@@ -445,27 +548,16 @@ const styles = StyleSheet.create({
     borderColor: colors.hairline,
   },
   closeBtn: { position: 'absolute', right: spacing.lg, top: 0, padding: 2 },
-  title: {
-    fontFamily: fonts.display,
-    fontSize: 18,
-    color: colors.cocoa,
-  },
+  title: { fontFamily: fonts.display, fontSize: 18, color: colors.cocoa },
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     marginBottom: spacing.lg,
   },
+  rowIndented: { marginLeft: 44 },
   body: { flex: 1, marginLeft: spacing.md },
-  handle: {
-    fontFamily: fonts.bold,
-    color: colors.cocoa,
-  },
-  text: {
-    fontFamily: fonts.semi,
-    fontSize: 14.5,
-    lineHeight: 20,
-    color: colors.cocoa,
-  },
+  handle: { fontFamily: fonts.bold, color: colors.cocoa },
+  text: { fontFamily: fonts.semi, fontSize: 14.5, lineHeight: 20, color: colors.cocoa },
   commentPhoto: {
     width: 150,
     height: 188,
@@ -473,27 +565,20 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     backgroundColor: colors.creamDark,
   },
-  metaRow: {
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: 4 },
+  time: { fontFamily: fonts.semi, fontSize: 11.5, color: colors.cocoaFaint },
+  metaCount: { fontFamily: fonts.bold, fontSize: 11.5, color: colors.cocoaFaint },
+  metaAction: { fontFamily: fonts.bold, fontSize: 11.5, color: colors.cocoaFaint },
+  repliesToggle: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    marginTop: 4,
+    gap: spacing.sm,
+    marginLeft: 44,
+    marginTop: -spacing.sm,
+    marginBottom: spacing.lg,
   },
-  time: {
-    fontFamily: fonts.semi,
-    fontSize: 11.5,
-    color: colors.cocoaFaint,
-  },
-  metaCount: {
-    fontFamily: fonts.bold,
-    fontSize: 11.5,
-    color: colors.cocoaFaint,
-  },
-  metaAction: {
-    fontFamily: fonts.bold,
-    fontSize: 11.5,
-    color: colors.cocoaFaint,
-  },
+  replyLine: { width: 22, height: 1, backgroundColor: colors.creamDark },
+  repliesToggleText: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.cocoaSoft },
   notice: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -505,6 +590,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.creamDark,
   },
   noticeText: { flex: 1, fontFamily: fonts.semi, fontSize: 13, color: colors.cocoa },
+  replyBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.creamDark,
+  },
+  replyBarText: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.cocoaSoft },
   staged: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -528,25 +622,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
   },
-  confirmText: {
-    flex: 1,
-    fontFamily: fonts.bold,
-    fontSize: 14,
-    color: colors.cocoa,
-  },
-  confirmBtn: {
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: 8,
-  },
+  confirmText: { flex: 1, fontFamily: fonts.bold, fontSize: 14, color: colors.cocoa },
+  confirmBtn: { borderRadius: radius.pill, paddingHorizontal: spacing.lg, paddingVertical: 8 },
   confirmCancel: { backgroundColor: colors.creamDark },
   confirmCancelText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.cocoa },
   confirmDelete: { backgroundColor: colors.danger },
   confirmDeleteText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.white },
-  empty: {
-    alignItems: 'center',
-    marginTop: 60,
-  },
+  empty: { alignItems: 'center', marginTop: 60 },
   attach: {
     width: 34,
     height: 34,
