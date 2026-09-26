@@ -86,7 +86,8 @@ export function ActionSheet({
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: colors.overlay, justifyContent: 'flex-end' },
+  // No dim behind the sheet — just the popup itself over the screen.
+  backdrop: { flex: 1, backgroundColor: 'transparent', justifyContent: 'flex-end' },
   sheet: {
     backgroundColor: colors.cream,
     borderTopLeftRadius: radius.xl,

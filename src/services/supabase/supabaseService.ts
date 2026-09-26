@@ -713,7 +713,10 @@ export class SupabaseService implements DataService {
     return {
       ...(row as Message),
       sender: row.users as User,
-      shared_post: row.posts ? (row.posts as Post) : null,
+      // Carry the shared post's author through so the DM card can show it.
+      shared_post: row.posts
+        ? ({ ...(row.posts as Post), user: (row.posts.users as User) ?? undefined } as Post)
+        : null,
     };
   }
 
@@ -740,7 +743,7 @@ export class SupabaseService implements DataService {
         .neq('user_id', meId),
       this.sb
         .from('messages')
-        .select('*, users!messages_sender_id_fkey(*), posts!messages_shared_post_id_fkey(*)')
+        .select('*, users!messages_sender_id_fkey(*), posts!messages_shared_post_id_fkey(*, users!posts_user_id_fkey(*))')
         .in('conversation_id', ids)
         .order('created_at', { ascending: true }),
     ]);
@@ -793,7 +796,7 @@ export class SupabaseService implements DataService {
     // not in, which is the same answer and can't be bypassed by a patched app.
     const { data, error } = await this.sb
       .from('messages')
-      .select('*, users!messages_sender_id_fkey(*), posts!messages_shared_post_id_fkey(*)')
+      .select('*, users!messages_sender_id_fkey(*), posts!messages_shared_post_id_fkey(*, users!posts_user_id_fkey(*))')
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: true });
     if (error) throw error;
@@ -826,7 +829,7 @@ export class SupabaseService implements DataService {
         shared_post_id: input.sharedPostId ?? null,
         image_url: imageUrl,
       })
-      .select('*, users!messages_sender_id_fkey(*), posts!messages_shared_post_id_fkey(*)')
+      .select('*, users!messages_sender_id_fkey(*), posts!messages_shared_post_id_fkey(*, users!posts_user_id_fkey(*))')
       .single();
     if (error) throw error;
 

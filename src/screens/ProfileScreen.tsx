@@ -151,7 +151,8 @@ export function ProfileScreen({ navigation, route }: any) {
     <View style={styles.headerWrap}>
       {!isMe ? (
         <Pressable onPress={() => navigation.goBack()} style={styles.back} hitSlop={10}>
-          <Text style={styles.backText}>← Back</Text>
+          <Ionicons name="chevron-back" size={22} color={colors.amberDark} />
+          <Text style={styles.backText}>Back</Text>
         </Pressable>
       ) : null}
       <View style={styles.card}>
@@ -306,6 +307,7 @@ export function ProfileScreen({ navigation, route }: any) {
             <PostThumb
               post={item}
               onPress={() => navigation.navigate('PostDetail', { postId: item.id })}
+              onLongPress={() => navigation.navigate('PostPeek', { postId: item.id })}
               style={{ flex: 1 }}
             />
           ) : (
@@ -502,6 +504,10 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   back: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    marginLeft: -4,
     marginBottom: spacing.sm,
   },
   backText: {

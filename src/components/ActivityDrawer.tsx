@@ -144,13 +144,18 @@ export function ActivityDrawer({
 
         <Animated.View
           testID="activity-drawer"
+          // The whole panel follows a horizontal drag now, so the sheet is easy
+          // to pull closed from anywhere on it — not just the thin handle. The
+          // responder only claims clear horizontal drags, so taps on rows and
+          // vertical scrolling still work, and `dragging` guards row presses.
+          {...pan.panHandlers}
           style={[
             styles.panel,
             { paddingTop: insets.top + spacing.md, transform: [{ translateX: slide }] },
           ]}
         >
-          {/* Drag handle: the only surface that owns the pan gesture. */}
-          <View style={styles.grabZone} {...pan.panHandlers}>
+          {/* Visual grip cueing that the panel can be dragged closed. */}
+          <View style={styles.grabZone} pointerEvents="none">
             <View style={styles.grabBar} />
           </View>
 

@@ -245,6 +245,7 @@ export function SearchScreen({ navigation }: any) {
               <PostThumb
                 post={item}
                 onPress={() => navigation.navigate('PostDetail', { postId: item.id })}
+                onLongPress={() => navigation.navigate('PostPeek', { postId: item.id })}
                 style={{ flex: 1 }}
               />
             ) : (

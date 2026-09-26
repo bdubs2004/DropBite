@@ -14,10 +14,12 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ActionSheet } from '../components/ActionSheet';
+import { Avatar } from '../components/Avatar';
 import { PostThumb } from '../components/PostThumb';
 import { Muted } from '../components/ui';
 import { pickImage } from '../lib/pickImage';
 import { relativeTime } from '../lib/time';
+import { useKeyboardVisible } from '../lib/useKeyboardVisible';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
 import { colors, fonts, radius, spacing } from '../theme';
@@ -35,6 +37,7 @@ export function ChatScreen({ navigation, route }: any) {
   const svc = getDataService();
   const { user } = useApp();
   const insets = useSafeAreaInsets();
+  const keyboardUp = useKeyboardVisible();
   const listRef = useRef<FlatList<Message>>(null);
 
   const [messages, setMessages] = useState<Message[]>([]);
@@ -102,7 +105,6 @@ export function ChatScreen({ navigation, route }: any) {
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: colors.cream }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={insets.top}
     >
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
         <Pressable onPress={() => navigation.goBack()} hitSlop={10} style={styles.backBtn}>
@@ -161,6 +163,15 @@ export function ChatScreen({ navigation, route }: any) {
                     }
                     style={styles.sharedCard}
                   >
+                    <View style={styles.sharedAuthorRow}>
+                      <Avatar user={item.shared_post.user} size={26} />
+                      <Text style={styles.sharedAuthorName} numberOfLines={1}>
+                        {item.shared_post.user?.display_name ??
+                          (item.shared_post.user?.handle
+                            ? '@' + item.shared_post.user.handle
+                            : 'Shared post')}
+                      </Text>
+                    </View>
                     <PostThumb post={item.shared_post} radius={0} style={styles.sharedThumb} />
                     <View style={styles.sharedMeta}>
                       {item.shared_post.blurb ? (
@@ -245,7 +256,12 @@ export function ChatScreen({ navigation, route }: any) {
         </View>
       ) : null}
 
-      <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
+      <View
+        style={[
+          styles.composer,
+          { paddingBottom: keyboardUp ? spacing.md : Math.max(insets.bottom, spacing.md) },
+        ]}
+      >
         <Pressable
           testID="chat-attach"
           // Tap opens the photo library straight away (no dulled menu);
@@ -308,19 +324,32 @@ const styles = StyleSheet.create({
   text: { fontFamily: fonts.semi, fontSize: 15, lineHeight: 21, color: colors.cocoa },
   textMine: { color: colors.white },
   sharedCard: {
-    width: 216,
-    borderRadius: 14,
+    width: 264,
+    borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: colors.white,
     borderWidth: 1,
     borderColor: colors.hairline,
   },
-  sharedThumb: { width: 216, height: 168 },
-  sharedMeta: { paddingHorizontal: 12, paddingVertical: 10, gap: 4 },
+  sharedAuthorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  sharedAuthorName: {
+    flex: 1,
+    fontFamily: fonts.bold,
+    fontSize: 14,
+    color: colors.cocoa,
+  },
+  sharedThumb: { width: 264, height: 248 },
+  sharedMeta: { paddingHorizontal: 12, paddingVertical: 11, gap: 5 },
   sharedBlurb: {
     fontFamily: fonts.semi,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 13.5,
+    lineHeight: 19,
     color: colors.cocoa,
   },
   sharedOpenRow: { flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: 2 },

@@ -20,11 +20,13 @@ const TILE_TONES: Record<string, string> = {
 export function PostThumb({
   post,
   onPress,
+  onLongPress,
   style,
   radius = 0,
 }: {
   post: Post;
   onPress?: () => void;
+  onLongPress?: () => void;
   style?: ViewStyle;
   radius?: number;
 }) {
@@ -35,6 +37,8 @@ export function PostThumb({
     <Pressable
       testID={`thumb-${post.id}`}
       onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={250}
       style={({ pressed }) => [
         styles.tile,
         { borderRadius: radius },

@@ -85,7 +85,9 @@ export function PostDetailScreen({ navigation, route }: any) {
           <Ionicons name="chevron-back" size={22} color={colors.amberDark} />
           <Text style={styles.back}>Back</Text>
         </Pressable>
-        <Text style={styles.title}>Post</Text>
+        <Text style={styles.title} numberOfLines={1}>
+          {post?.user?.display_name ? `${post.user.display_name}'s Post` : 'Post'}
+        </Text>
         <View style={{ width: 60 }} />
       </View>
 
@@ -150,6 +152,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   title: {
+    flex: 1,
+    textAlign: 'center',
     fontFamily: fonts.display,
     fontSize: 18,
     color: colors.cocoa,
