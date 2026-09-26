@@ -158,6 +158,11 @@ export function CommentsScreen({ navigation, route }: any) {
             backdrop behind it. */}
         <View style={styles.spacer} pointerEvents="none" />
         <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]}>
+          {/* Rounded, clipped panel for the grabber/header/list only. Keeping
+              the composer OUT of this clip avoids the iOS bug where overflow
+              hidden rounds all four corners and leaves cream notches by the
+              keyboard. */}
+          <View style={styles.panel}>
           {/* Grabber + header own the drag-to-dismiss gesture. */}
           <View {...dragDown.panHandlers}>
             <View style={styles.grabber} />
@@ -247,6 +252,7 @@ export function CommentsScreen({ navigation, route }: any) {
               )
             }
           />
+          </View>
 
           {notice ? (
             <Pressable testID="comment-notice" onPress={() => setNotice(null)} style={styles.notice}>
@@ -404,12 +410,14 @@ const styles = StyleSheet.create({
   // Spacer : sheet ≈ 1.3 : 6, so the sheet rests around ~82% and the post
   // shows behind it; it still shrinks with the keyboard instead of clipping.
   spacer: { flex: 1.3 },
-  sheet: {
-    flex: 6,
+  // Transparent flex container; the rounded/clipped surface is `panel`, and the
+  // composer is a separate unclipped white bar so its corners stay square.
+  sheet: { flex: 6 },
+  panel: {
+    flex: 1,
     backgroundColor: colors.cream,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    overflow: 'hidden',
   },
   grabber: {
     alignSelf: 'center',
