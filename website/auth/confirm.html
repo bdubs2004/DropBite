@@ -31,8 +31,8 @@ text-decoration:none;font-weight:700;font-size:16px;padding:13px 26px;border-rad
   <img class="logo" src="/icon.png" alt="NiblGo">
   <div id="ok">
     <h1>You're all set 🎉</h1>
-    <p>Your email is confirmed. Head back to the NiblGo app and sign in.</p>
-    <a class="btn" href="niblgo://">Open NiblGo</a>
+    <p>Your email is confirmed. Tap below to hop back into NiblGo — you'll be signed in automatically.</p>
+    <a id="openBtn" class="btn" href="niblgo://auth/confirm">Open NiblGo</a>
     <p class="muted">You can close this page.</p>
   </div>
   <div id="err" hidden>
@@ -43,10 +43,10 @@ text-decoration:none;font-weight:700;font-size:16px;padding:13px 26px;border-rad
   </div>
 </main>
 <script>
-  // Supabase appends #error=...&error_description=... when a link is expired or
-  // already used. Show the recovery message instead of a false "all set".
   try {
     var h = new URLSearchParams((location.hash || '').replace(/^#/, ''));
+    // Supabase appends #error=...&error_description=... when a link is expired
+    // or already used. Show the recovery message instead of a false "all set".
     if (h.get('error') || h.get('error_code')) {
       document.getElementById('ok').hidden = true;
       var e = document.getElementById('err');
@@ -54,6 +54,12 @@ text-decoration:none;font-weight:700;font-size:16px;padding:13px 26px;border-rad
       var d = h.get('error_description');
       if (d) document.getElementById('errmsg').textContent =
         decodeURIComponent(d.replace(/\+/g, ' '));
+    } else {
+      // Forward the session tokens (in the URL fragment) into the app's deep
+      // link, so tapping "Open NiblGo" signs the user in and lands them on the
+      // home feed instead of the sign-in screen.
+      var btn = document.getElementById('openBtn');
+      if (btn) btn.href = 'niblgo://auth/confirm' + (location.hash || '');
     }
   } catch (_) {}
 </script>

@@ -173,15 +173,29 @@ function parseHashParams(url: string): Record<string, string> {
   return out;
 }
 
-/** True for the password-reset deep link (niblgo://reset), not the post/user ones. */
-function isResetLink(url: string): boolean {
+/** The deep-link target (host + path, trimmed), e.g. "reset" or "auth/confirm". */
+function linkTarget(url: string): string {
   try {
     const { hostname, path } = Linking.parse(url.split('#')[0]);
-    const target = (hostname || path || '').replace(/^\/+/, '').replace(/\/+$/, '');
-    return target === 'reset';
+    return [hostname, path]
+      .filter(Boolean)
+      .join('/')
+      .replace(/^\/+|\/+$/g, '')
+      .replace(/\/{2,}/g, '/');
   } catch {
-    return false;
+    return '';
   }
+}
+
+/** True for the password-reset deep link (niblgo://reset), not the post/user ones. */
+function isResetLink(url: string): boolean {
+  return linkTarget(url) === 'reset';
+}
+
+/** True for the email-confirmation deep link (niblgo://auth/confirm). */
+function isConfirmLink(url: string): boolean {
+  const t = linkTarget(url);
+  return t === 'auth/confirm' || t === 'auth';
 }
 
 function Root() {
@@ -197,8 +211,25 @@ function Root() {
   useEffect(() => {
     let mounted = true;
     const handle = async (url: string | null) => {
-      if (!url || !isResetLink(url)) return;
+      if (!url) return;
       const p = parseHashParams(url);
+
+      // Email confirmation: the browser verified the account and handed the
+      // session tokens back through the deep link. Set the session and pull the
+      // profile so the app opens straight on the home feed — no second sign-in.
+      if (isConfirmLink(url)) {
+        if (p.access_token && p.refresh_token) {
+          try {
+            await svc.setSessionFromTokens(p.access_token, p.refresh_token);
+            await refreshMe(); // user becomes set -> Root renders the app, not AuthScreen
+          } catch {
+            // Fall back to the sign-in screen; they can log in by hand.
+          }
+        }
+        return;
+      }
+
+      if (!isResetLink(url)) return;
       // Supabase puts an expired/used link's reason in the fragment too.
       if (p.error || p.error_description) {
         if (mounted) setRecovery({ active: true, error: p.error_description || p.error });
