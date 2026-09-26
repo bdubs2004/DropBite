@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Dimensions,
   FlatList,
   Image,
   KeyboardAvoidingView,
@@ -27,6 +28,9 @@ import { Message } from '../types';
 
 /** Bubble width for an attached photo, and the height of its 4:5 frame. */
 const PHOTO_W = 190;
+
+/** A shared-post card fills most of the bubble so it doesn't leave dead space. */
+const SHARED_W = Math.min(300, Math.round(Dimensions.get('window').width * 0.72));
 
 /** One DM thread. Messages can be text, a shared post, or both. */
 export function ChatScreen({ navigation, route }: any) {
@@ -156,6 +160,8 @@ export function ChatScreen({ navigation, route }: any) {
                 ]}
               >
                 {item.shared_post ? (
+                  // Tap the card anywhere to open the post; tap the author bar
+                  // to open that person's profile.
                   <Pressable
                     testID={`chat-shared-${item.id}`}
                     onPress={() =>
@@ -163,27 +169,30 @@ export function ChatScreen({ navigation, route }: any) {
                     }
                     style={styles.sharedCard}
                   >
-                    <View style={styles.sharedAuthorRow}>
-                      <Avatar user={item.shared_post.user} size={26} />
+                    <Pressable
+                      testID={`chat-shared-author-${item.id}`}
+                      style={styles.sharedAuthorRow}
+                      onPress={() =>
+                        item.shared_post?.user_id &&
+                        navigation.navigate('UserProfile', { userId: item.shared_post.user_id })
+                      }
+                    >
+                      <Avatar user={item.shared_post.user} size={28} />
                       <Text style={styles.sharedAuthorName} numberOfLines={1}>
                         {item.shared_post.user?.display_name ??
                           (item.shared_post.user?.handle
                             ? '@' + item.shared_post.user.handle
                             : 'Shared post')}
                       </Text>
-                    </View>
+                    </Pressable>
                     <PostThumb post={item.shared_post} radius={0} style={styles.sharedThumb} />
-                    <View style={styles.sharedMeta}>
-                      {item.shared_post.blurb ? (
+                    {item.shared_post.blurb ? (
+                      <View style={styles.sharedMeta}>
                         <Text style={styles.sharedBlurb} numberOfLines={2}>
                           {item.shared_post.blurb}
                         </Text>
-                      ) : null}
-                      <View style={styles.sharedOpenRow}>
-                        <Text style={styles.sharedOpen}>View post</Text>
-                        <Ionicons name="chevron-forward" size={13} color={colors.amberDark} />
                       </View>
-                    </View>
+                    ) : null}
                   </Pressable>
                 ) : item.shared_post_id ? (
                   // The post existed when it was sent but has since been deleted.
@@ -263,14 +272,18 @@ export function ChatScreen({ navigation, route }: any) {
         ]}
       >
         <Pressable
-          testID="chat-attach"
-          // Tap opens the photo library straight away (no dulled menu);
-          // long-press is the shortcut for the camera.
-          onPress={() => attach(false)}
-          onLongPress={() => attach(true)}
-          delayLongPress={300}
+          testID="chat-camera"
+          onPress={() => attach(true)}
           style={styles.attach}
-          accessibilityLabel="Add a photo from your library. Hold for camera."
+          accessibilityLabel="Take a photo"
+        >
+          <Ionicons name="camera-outline" size={22} color={colors.amberDark} />
+        </Pressable>
+        <Pressable
+          testID="chat-library"
+          onPress={() => attach(false)}
+          style={styles.attach}
+          accessibilityLabel="Choose a photo from your library"
         >
           <Ionicons name="image-outline" size={22} color={colors.amberDark} />
         </Pressable>
@@ -324,7 +337,7 @@ const styles = StyleSheet.create({
   text: { fontFamily: fonts.semi, fontSize: 15, lineHeight: 21, color: colors.cocoa },
   textMine: { color: colors.white },
   sharedCard: {
-    width: 264,
+    width: SHARED_W,
     borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: colors.white,
@@ -341,22 +354,16 @@ const styles = StyleSheet.create({
   sharedAuthorName: {
     flex: 1,
     fontFamily: fonts.bold,
-    fontSize: 14,
+    fontSize: 14.5,
     color: colors.cocoa,
   },
-  sharedThumb: { width: 264, height: 248 },
-  sharedMeta: { paddingHorizontal: 12, paddingVertical: 11, gap: 5 },
+  sharedThumb: { width: SHARED_W, height: Math.round(SHARED_W * 0.9) },
+  sharedMeta: { paddingHorizontal: 12, paddingVertical: 11 },
   sharedBlurb: {
     fontFamily: fonts.semi,
     fontSize: 13.5,
     lineHeight: 19,
     color: colors.cocoa,
-  },
-  sharedOpenRow: { flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: 2 },
-  sharedOpen: {
-    fontFamily: fonts.bold,
-    fontSize: 12.5,
-    color: colors.amberDark,
   },
   time: { fontSize: 11, marginTop: 3 },
   photo: {
