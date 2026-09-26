@@ -1,10 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  Animated,
   FlatList,
   Image,
   KeyboardAvoidingView,
+  PanResponder,
   Platform,
   Pressable,
   StyleSheet,
@@ -48,6 +50,34 @@ export function CommentsScreen({ navigation, route }: any) {
   const [confirming, setConfirming] = useState<Comment | null>(null);
 
   const close = () => navigation.goBack();
+
+  // Drag the sheet down to dismiss. The gesture lives on the grabber/header
+  // area so it never fights the comment list's own scrolling.
+  const translateY = useRef(new Animated.Value(0)).current;
+  const dragDown = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_e, g) => g.dy > 6 && g.dy > Math.abs(g.dx),
+      onPanResponderMove: (_e, g) => {
+        if (g.dy > 0) translateY.setValue(g.dy);
+      },
+      onPanResponderRelease: (_e, g) => {
+        if (g.dy > 120 || g.vy > 0.6) {
+          Animated.timing(translateY, {
+            toValue: 900,
+            duration: 160,
+            useNativeDriver: true,
+          }).start(() => navigation.goBack());
+        } else {
+          Animated.spring(translateY, {
+            toValue: 0,
+            useNativeDriver: true,
+            friction: 9,
+            tension: 80,
+          }).start();
+        }
+      },
+    }),
+  ).current;
 
   const load = useCallback(async () => {
     setComments(await svc.getComments(postId));
@@ -127,18 +157,21 @@ export function CommentsScreen({ navigation, route }: any) {
         {/* Spacer sizes the gap above the sheet; taps fall through to the
             backdrop behind it. */}
         <View style={styles.spacer} pointerEvents="none" />
-        <View style={styles.sheet}>
-          <View style={styles.grabber} />
-          <View style={styles.header}>
-            <Text style={styles.title}>Comments</Text>
-            <Pressable
-              testID="comments-close"
-              onPress={close}
-              hitSlop={10}
-              style={styles.closeBtn}
-            >
-              <Ionicons name="close" size={22} color={colors.cocoaSoft} />
-            </Pressable>
+        <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]}>
+          {/* Grabber + header own the drag-to-dismiss gesture. */}
+          <View {...dragDown.panHandlers}>
+            <View style={styles.grabber} />
+            <View style={styles.header}>
+              <Text style={styles.title}>Comments</Text>
+              <Pressable
+                testID="comments-close"
+                onPress={close}
+                hitSlop={10}
+                style={styles.closeBtn}
+              >
+                <Ionicons name="close" size={22} color={colors.cocoaSoft} />
+              </Pressable>
+            </View>
           </View>
 
           <FlatList
@@ -272,7 +305,7 @@ export function CommentsScreen({ navigation, route }: any) {
               <Ionicons name="arrow-up" size={20} color={colors.white} />
             </Pressable>
           </View>
-        </View>
+        </Animated.View>
       </KeyboardAvoidingView>
 
       <ActionSheet
@@ -368,9 +401,9 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: colors.overlay,
   },
-  // Spacer : sheet ≈ 1 : 6, so the sheet fills ~86% and shrinks with the
-  // keyboard instead of clipping off the top.
-  spacer: { flex: 1 },
+  // Spacer : sheet ≈ 1.3 : 6, so the sheet rests around ~82% and the post
+  // shows behind it; it still shrinks with the keyboard instead of clipping.
+  spacer: { flex: 1.3 },
   sheet: {
     flex: 6,
     backgroundColor: colors.cream,

@@ -112,9 +112,7 @@ export function NutritionPanel({
           </View>
         </View>
       ) : (
-        <Text style={styles.servingsHint}>
-          Serves {servings} — one serving is {servingFractionLabel(servings)}
-        </Text>
+        <Text style={styles.servingsHint}>Serves {servings}</Text>
       )}
 
       <View style={styles.calorieRow}>

@@ -19,6 +19,8 @@ export function RecipeCardView({ recipe }: { recipe: Recipe }) {
         ) : null}
       </View>
 
+      <View style={styles.divider} />
+
       <Text style={styles.section}>Ingredients</Text>
       {recipe.ingredients.map((ing, i) => (
         <View key={i} style={styles.ingRow}>
@@ -61,15 +63,25 @@ export function formatTime(mins: number): string {
 const styles = StyleSheet.create({
   title: {
     fontFamily: fonts.display,
-    fontSize: 18,
+    fontSize: 20,
+    lineHeight: 26,
     color: colors.cocoa,
-    paddingRight: 40, // clear the bitten corner
+    textAlign: 'center',
+    paddingHorizontal: spacing.md,
+    marginTop: 2,
   },
   metaRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'center',
     gap: 8,
-    marginTop: 6,
+    marginTop: 10,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.hairline,
+    marginTop: spacing.lg,
+    marginHorizontal: spacing.sm,
   },
   metaChip: {
     fontFamily: fonts.bold,
@@ -87,7 +99,7 @@ const styles = StyleSheet.create({
     color: colors.cocoaSoft,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
-    marginTop: spacing.lg,
+    marginTop: spacing.md,
     marginBottom: 6,
   },
   ingRow: {

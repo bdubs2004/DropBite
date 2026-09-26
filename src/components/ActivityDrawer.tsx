@@ -62,11 +62,13 @@ export function ActivityDrawer({
   const slide = useRef(new Animated.Value(PANEL_WIDTH)).current;
 
   const openPanel = () =>
-    Animated.timing(slide, {
+    // Spring, not a linear timing, so snapping back reads as alive rather than
+    // stiff — a little give when you let go.
+    Animated.spring(slide, {
       toValue: 0,
-      duration: 260,
-      easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
+      friction: 8,
+      tension: 70,
     }).start();
 
   const closePanel = (then?: () => void) =>
@@ -104,13 +106,14 @@ export function ActivityDrawer({
       // Only claim the gesture for clear horizontal drags, so vertical
       // scrolling inside the panel still works.
       onMoveShouldSetPanResponder: (_e, g) =>
-        Math.abs(g.dx) > 8 && Math.abs(g.dx) > Math.abs(g.dy),
+        Math.abs(g.dx) > 5 && Math.abs(g.dx) > Math.abs(g.dy),
       onPanResponderGrant: () => {
         dragging.current = true;
       },
       onPanResponderMove: (_e, g) => {
-        // Rightward only; resist leftward pulls past the open position.
-        slide.setValue(Math.max(0, g.dx));
+        // Follow the finger right to close; give a small rubber-band the other
+        // way so it feels springy instead of hitting a hard wall at "open".
+        slide.setValue(g.dx >= 0 ? g.dx : g.dx * 0.18);
       },
       onPanResponderRelease: (_e, g) => {
         if (g.dx > DISMISS_DISTANCE || g.vx > DISMISS_VELOCITY) dismiss();

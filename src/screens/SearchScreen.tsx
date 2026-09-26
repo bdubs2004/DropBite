@@ -212,7 +212,7 @@ export function SearchScreen({ navigation }: any) {
         <Ionicons name={tab === 'dishes' ? 'restaurant-outline' : 'people-outline'} size={40} color={colors.cocoaFaint} />
         <Muted style={styles.emptyText}>
           {tab === 'dishes'
-            ? 'Search for a dish or an ingredient — like chicken, pancakes, or gochujang.'
+            ? 'Search for a dish or an ingredient, like chicken, pancakes, or gochujang.'
             : 'Search for someone by name or handle.'}
         </Muted>
       </View>
