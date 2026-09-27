@@ -133,8 +133,15 @@ export interface DataService {
    * follow — enforced in RLS, mirrored here for a readable error.
    */
   startConversation(userId: string): Promise<string>;
-  /** Send one post to several people at once (the share sheet). */
+  /**
+   * Open (or reuse) a group thread with several people. Same follow/block
+   * rules as a 1:1, applied to each member.
+   */
+  startGroupConversation(userIds: string[]): Promise<string>;
+  /** Send one post to several people as separate 1:1 DMs (the share sheet). */
   sharePostToUsers(postId: string, userIds: string[]): Promise<void>;
+  /** Send one post into a single group thread with everyone selected. */
+  sharePostToGroup(postId: string, userIds: string[]): Promise<void>;
   markConversationRead(conversationId: string): Promise<void>;
   /**
    * Remove a thread from YOUR inbox by leaving it. The other person keeps

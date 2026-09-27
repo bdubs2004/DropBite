@@ -212,11 +212,18 @@ export interface DiscoverPerson {
   is_following: boolean;
 }
 
-/** A direct-message thread. MVP is 1:1, but the model allows more members. */
+/** A direct-message thread. 1:1 or a group of several members. */
 export interface Conversation {
   id: string;
-  /** The other participant (1:1 threads). */
+  /**
+   * The first other participant. Kept for 1:1 threads and as a convenient
+   * avatar/id for the row; for groups, see `others`.
+   */
   other: User;
+  /** Everyone in the thread except you. One entry for a 1:1, several for a group. */
+  others: User[];
+  /** True once the thread has more than one other member. */
+  is_group: boolean;
   last_message: Message | null;
   unread_count: number;
   updated_at: string;

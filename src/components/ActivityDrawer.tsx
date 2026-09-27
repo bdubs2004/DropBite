@@ -13,6 +13,11 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  drawerTranslate,
+  isHorizontalDrag,
+  shouldCloseDrawer,
+} from '../lib/drawerGesture';
 import { colors, fonts, radius, shadow, spacing } from '../theme';
 
 type Item = {
@@ -27,9 +32,6 @@ type Item = {
 type Section = { title: string; items: Item[] };
 
 const PANEL_WIDTH = Math.min(Dimensions.get('window').width * 0.82, 360);
-/** Let go past the halfway point, or flick fast enough, and the panel closes. */
-const DISMISS_DISTANCE = PANEL_WIDTH * 0.5;
-const DISMISS_VELOCITY = 0.5;
 
 /**
  * The side panel behind the profile's menu button.
@@ -103,23 +105,26 @@ export function ActivityDrawer({
 
   const pan = useRef(
     PanResponder.create({
-      // Only claim the gesture for clear horizontal drags, so vertical
-      // scrolling inside the panel still works.
-      onMoveShouldSetPanResponder: (_e, g) =>
-        Math.abs(g.dx) > 5 && Math.abs(g.dx) > Math.abs(g.dy),
+      // Claim only clear horizontal drags, so a vertical scroll inside the
+      // panel still scrolls. Capture as well as bubble: capturing lets the
+      // panel win a horizontal drag that starts on top of the scroll list or a
+      // menu row, which is what made the old edge-only handle feel dead.
+      onMoveShouldSetPanResponder: (_e, g) => isHorizontalDrag(g.dx, g.dy),
+      onMoveShouldSetPanResponderCapture: (_e, g) => isHorizontalDrag(g.dx, g.dy),
       onPanResponderGrant: () => {
         dragging.current = true;
       },
       onPanResponderMove: (_e, g) => {
         // Track the finger 1:1, exactly like dragging the comments sheet: follow
-        // it right toward closed, and follow it back left, clamping at 0 so it
-        // never pulls past fully-open. Hold and slide it over and back freely.
-        slide.setValue(Math.max(0, g.dx));
+        // it toward closed and back toward open, clamped at 0 so it never pulls
+        // past fully-open. Hold and slide it over and back freely.
+        slide.setValue(drawerTranslate(g.dx));
       },
       onPanResponderRelease: (_e, g) => {
-        if (g.dx > DISMISS_DISTANCE || g.vx > DISMISS_VELOCITY) dismiss();
+        if (shouldCloseDrawer(g.dx, g.vx, PANEL_WIDTH)) dismiss();
         else openPanel();
-        // Outlast the click event the browser synthesises on release.
+        // Outlast the click event the browser synthesises on release, so the
+        // drag that just ended doesn't also fire a menu row.
         setTimeout(() => {
           dragging.current = false;
         }, 120);
@@ -148,15 +153,18 @@ export function ActivityDrawer({
 
         <Animated.View
           testID="activity-drawer"
+          {...pan.panHandlers}
           style={[
             styles.panel,
             { paddingTop: insets.top + spacing.md, transform: [{ translateX: slide }] },
           ]}
         >
-          {/* Grab the tab on the left edge and drag horizontally to close — the
-              same feel as the comments grabber, just sideways. The gesture lives
-              on the tab so it never fights the menu rows or the scroll. */}
-          <View style={styles.grabZone} {...pan.panHandlers}>
+          {/* Drag horizontally anywhere on the panel to slide it — same feel as
+              the comments sheet, just sideways. The whole panel is the handle;
+              the tab on the left edge is the visible affordance. A vertical
+              gesture still scrolls the list; the dragging guard keeps a drag
+              that ends on a row from also firing it. */}
+          <View style={styles.grabZone} pointerEvents="none">
             <View style={styles.grabBar} />
           </View>
 

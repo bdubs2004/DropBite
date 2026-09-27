@@ -32,10 +32,15 @@ export function ShareSheetScreen({ navigation, route }: any) {
   const [post, setPost] = useState<Post | null>(null);
   const [people, setPeople] = useState<User[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [asGroup, setAsGroup] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [externalNote, setExternalNote] = useState<string | null>(null);
+
+  // A group chat only makes sense with two or more people.
+  const canGroup = selected.size >= 2;
+  const sendingToGroup = canGroup && asGroup;
 
   const load = useCallback(async () => {
     // Only people you follow: sending a post opens a DM thread, and DMs are
@@ -66,7 +71,8 @@ export function ShareSheetScreen({ navigation, route }: any) {
     if (selected.size === 0 || sending) return;
     setSending(true);
     try {
-      await svc.sharePostToUsers(postId, [...selected]);
+      if (sendingToGroup) await svc.sharePostToGroup(postId, [...selected]);
+      else await svc.sharePostToUsers(postId, [...selected]);
       await svc.recordShare(postId);
       setSent(true);
       // Just a quick flash of confirmation, then out of the way.
@@ -152,14 +158,42 @@ export function ShareSheetScreen({ navigation, route }: any) {
           />
 
           <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
+            {canGroup ? (
+              <Pressable
+                testID="share-group-toggle"
+                onPress={() => setAsGroup((g) => !g)}
+                style={[styles.groupToggle, asGroup && styles.groupToggleOn]}
+              >
+                <Ionicons
+                  name={asGroup ? 'people' : 'people-outline'}
+                  size={20}
+                  color={asGroup ? colors.amberDark : colors.cocoaSoft}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.groupToggleLabel}>Send as a group chat</Text>
+                  <Text style={styles.groupToggleHint}>
+                    {asGroup
+                      ? 'One thread with everyone selected'
+                      : 'Off: sends a separate DM to each'}
+                  </Text>
+                </View>
+                <Ionicons
+                  name={asGroup ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={22}
+                  color={asGroup ? colors.amberDark : colors.cocoaFaint}
+                />
+              </Pressable>
+            ) : null}
             <Button
               testID="share-send"
               title={
                 sending
                   ? 'Sending'
-                  : selected.size > 0
-                    ? `Send to ${selected.size}`
-                    : 'Select someone to send to'
+                  : selected.size === 0
+                    ? 'Select someone to send to'
+                    : sendingToGroup
+                      ? `Send to group of ${selected.size}`
+                      : `Send to ${selected.size}`
               }
               onPress={sendInternally}
               disabled={selected.size === 0 || sending}
@@ -228,6 +262,20 @@ const styles = StyleSheet.create({
   },
   personOn: { borderColor: colors.amber },
   personName: { fontFamily: fonts.bold, fontSize: 15, color: colors.cocoa },
+  groupToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1.5,
+    borderColor: colors.creamDark,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  groupToggleOn: { borderColor: colors.amber, backgroundColor: colors.cream },
+  groupToggleLabel: { fontFamily: fonts.bold, fontSize: 14.5, color: colors.cocoa },
+  groupToggleHint: { fontFamily: fonts.semi, fontSize: 12, color: colors.cocoaFaint, marginTop: 1 },
   footer: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
