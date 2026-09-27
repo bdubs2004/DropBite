@@ -412,6 +412,13 @@ text-decoration:none;font-weight:700;font-size:16px;padding:13px 26px;border-rad
 fs.copyFileSync(path.join(ROOT, 'assets/icon.png'), path.join(OUT, 'icon.png'));
 console.log('  assets/icon.png       -> website/icon.png');
 
+// The Cloudflare Pages Worker that renders the rich preview behind a shared
+// post link (/post/<id>). Copied to the site root as _worker.js, which Pages
+// picks up automatically on upload. All non-/post paths fall through to the
+// static files above, so the rest of the site is unaffected.
+fs.copyFileSync(path.join(__dirname, 'post-preview-worker.js'), path.join(OUT, '_worker.js'));
+console.log('  post-preview-worker.js -> website/_worker.js');
+
 for (const p of PAGES) {
   const md = fs.readFileSync(path.join(ROOT, p.src), 'utf8');
   // The "fill these in before publishing" note is for the repo, not the public
