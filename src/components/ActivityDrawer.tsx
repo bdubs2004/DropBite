@@ -147,18 +147,15 @@ export function ActivityDrawer({
 
         <Animated.View
           testID="activity-drawer"
-          // The whole panel follows a horizontal drag now, so the sheet is easy
-          // to pull closed from anywhere on it — not just the thin handle. The
-          // responder only claims clear horizontal drags, so taps on rows and
-          // vertical scrolling still work, and `dragging` guards row presses.
-          {...pan.panHandlers}
           style={[
             styles.panel,
             { paddingTop: insets.top + spacing.md, transform: [{ translateX: slide }] },
           ]}
         >
-          {/* Visual grip cueing that the panel can be dragged closed. */}
-          <View style={styles.grabZone} pointerEvents="none">
+          {/* Grab the tab on the left edge and drag horizontally to close — the
+              same feel as the comments grabber, just sideways. The gesture lives
+              on the tab so it never fights the menu rows or the scroll. */}
+          <View style={styles.grabZone} {...pan.panHandlers}>
             <View style={styles.grabBar} />
           </View>
 
@@ -227,15 +224,15 @@ const styles = StyleSheet.create({
     left: 0,
     top: 0,
     bottom: 0,
-    width: 26,
+    width: 40,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 3,
   },
   grabBar: {
-    width: 4,
-    height: 56,
-    borderRadius: 2,
+    width: 5,
+    height: 60,
+    borderRadius: 3,
     backgroundColor: colors.creamDark,
   },
   panel: {
@@ -244,7 +241,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cream,
     borderTopLeftRadius: radius.xl,
     borderBottomLeftRadius: radius.xl,
-    paddingLeft: spacing.lg + 14,
+    paddingLeft: spacing.lg + 28,
     paddingRight: spacing.lg,
     ...(shadow as object),
   },
