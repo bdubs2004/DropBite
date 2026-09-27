@@ -57,3 +57,55 @@ export async function clearRecentSearches(): Promise<void> {
     /* ignore */
   }
 }
+
+/**
+ * Recent dish search *terms*, newest first.
+ *
+ * The People tab remembers profiles you opened; the Dishes tab has no profile
+ * to remember, so instead it remembers the words you searched once you tapped
+ * into a result — so "what did I look up last time" is one tap away. Same
+ * device-only, small-and-scannable rules as the profile list above.
+ */
+const TERMS_KEY = 'niblgo.recent.terms.v1';
+
+export async function getRecentTerms(): Promise<string[]> {
+  try {
+    const raw = await AsyncStorage.getItem(TERMS_KEY);
+    const list = raw ? (JSON.parse(raw) as string[]) : [];
+    return Array.isArray(list) ? list.slice(0, MAX) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Record a dish term you searched. Re-searching it moves it back to the top. */
+export async function addRecentTerm(term: string): Promise<void> {
+  const t = term.trim();
+  if (!t) return;
+  try {
+    const list = await getRecentTerms();
+    // Case-insensitive de-dupe so "Pizza" and "pizza" don't both pile up.
+    const lower = t.toLowerCase();
+    const next = [t, ...list.filter((x) => x.toLowerCase() !== lower)].slice(0, MAX);
+    await AsyncStorage.setItem(TERMS_KEY, JSON.stringify(next));
+  } catch {
+    // A missing convenience list is not worth surfacing.
+  }
+}
+
+export async function removeRecentTerm(term: string): Promise<void> {
+  try {
+    const list = await getRecentTerms();
+    await AsyncStorage.setItem(TERMS_KEY, JSON.stringify(list.filter((x) => x !== term)));
+  } catch {
+    /* ignore */
+  }
+}
+
+export async function clearRecentTerms(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(TERMS_KEY);
+  } catch {
+    /* ignore */
+  }
+}

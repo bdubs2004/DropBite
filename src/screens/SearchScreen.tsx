@@ -14,9 +14,13 @@ import { PostThumb } from '../components/PostThumb';
 import { Input, Muted, ScreenTitle } from '../components/ui';
 import {
   addRecentSearch,
+  addRecentTerm,
   clearRecentSearches,
+  clearRecentTerms,
   getRecentSearches,
+  getRecentTerms,
   removeRecentSearch,
+  removeRecentTerm,
 } from '../lib/recentSearches';
 import { getDataService } from '../services';
 import { colors, fonts, radius, shadowSoft, spacing } from '../theme';
@@ -49,13 +53,17 @@ export function SearchScreen({ navigation }: any) {
   const [posts, setPosts] = useState<Post[]>([]);
   const [searching, setSearching] = useState(false);
   const [recents, setRecents] = useState<Awaited<ReturnType<typeof getRecentSearches>>>([]);
+  const [recentTerms, setRecentTerms] = useState<string[]>([]);
 
   const query = tab === 'dishes' ? dishQuery : peopleQuery;
   const setQuery = (t: string) => (tab === 'dishes' ? setDishQuery(t) : setPeopleQuery(t));
 
-  // Recents are what the screen shows before you have typed anything.
+  // Recents are what the screen shows before you have typed anything: opened
+  // profiles on the People tab, searched dish terms on the Dishes tab.
   const loadRecents = useCallback(async () => {
-    setRecents(await getRecentSearches());
+    const [users, terms] = await Promise.all([getRecentSearches(), getRecentTerms()]);
+    setRecents(users);
+    setRecentTerms(terms);
   }, []);
 
   useEffect(() => {
@@ -66,6 +74,14 @@ export function SearchScreen({ navigation }: any) {
     await addRecentSearch(u as any);
     loadRecents();
     navigation.navigate('UserProfile', { userId: u.id });
+  };
+
+  // Tapping into a dish result remembers what you searched, so next time the
+  // Dishes tab can offer it back as a recent search.
+  const openPost = async (postId: string) => {
+    await addRecentTerm(dishQuery);
+    loadRecents();
+    navigation.navigate('PostDetail', { postId });
   };
   // Guards against a slow early request landing after a later one.
   const seq = useRef(0);
@@ -166,7 +182,47 @@ export function SearchScreen({ navigation }: any) {
   );
 
   const empty = !hasQuery ? (
-    // Recents are people you looked up, so they only belong on the People tab.
+    // Dishes tab: offer back the terms you searched before.
+    tab === 'dishes' && recentTerms.length > 0 ? (
+      <View testID="search-recent-terms" style={styles.recents}>
+        <View style={styles.recentsHead}>
+          <Text style={styles.recentsTitle}>Recent searches</Text>
+          <Pressable
+            testID="recent-terms-clear-all"
+            onPress={async () => {
+              await clearRecentTerms();
+              loadRecents();
+            }}
+            hitSlop={8}
+          >
+            <Text style={styles.recentsClear}>Clear all</Text>
+          </Pressable>
+        </View>
+        {recentTerms.map((term) => (
+          <Pressable
+            key={term}
+            testID={`recent-term-${term}`}
+            style={styles.termRow}
+            onPress={() => setDishQuery(term)}
+          >
+            <Ionicons name="search" size={17} color={colors.cocoaFaint} />
+            <Text style={styles.termText} numberOfLines={1}>
+              {term}
+            </Text>
+            <Pressable
+              testID={`recent-term-remove-${term}`}
+              onPress={async () => {
+                await removeRecentTerm(term);
+                loadRecents();
+              }}
+              hitSlop={10}
+            >
+              <Ionicons name="close" size={17} color={colors.cocoaFaint} />
+            </Pressable>
+          </Pressable>
+        ))}
+      </View>
+    ) : // Profile recents are people you looked up, so they belong on the People tab.
     tab === 'people' && recents.length > 0 ? (
       <View testID="search-recents" style={styles.recents}>
         <View style={styles.recentsHead}>
@@ -244,8 +300,11 @@ export function SearchScreen({ navigation }: any) {
             item ? (
               <PostThumb
                 post={item}
-                onPress={() => navigation.navigate('PostDetail', { postId: item.id })}
-                onLongPress={() => navigation.navigate('PostPeek', { postId: item.id })}
+                onPress={() => openPost(item.id)}
+                onLongPress={() => {
+                  addRecentTerm(dishQuery).then(loadRecents);
+                  navigation.navigate('PostPeek', { postId: item.id });
+                }}
                 style={{ flex: 1 }}
               />
             ) : (
@@ -336,6 +395,18 @@ const styles = StyleSheet.create({
     ...(shadowSoft as object),
   },
   userRowInList: { marginHorizontal: spacing.lg },
+  termRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.white,
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    marginBottom: spacing.sm,
+    ...(shadowSoft as object),
+  },
+  termText: { flex: 1, fontFamily: fonts.bold, fontSize: 15, color: colors.cocoa },
   name: { fontFamily: fonts.bold, fontSize: 15.5, color: colors.cocoa },
   bio: { fontFamily: fonts.semi, fontSize: 12.5, color: colors.cocoaFaint, marginTop: 2 },
   clearBtn: {
