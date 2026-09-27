@@ -506,13 +506,13 @@ export function CommentsScreen({ navigation, route }: any) {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   kav: { flex: 1 },
+  // No dim — the sheet just overlays the feed. Still tappable to close.
   backdrop: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: colors.overlay,
   },
   spacer: { flex: 1.3 },
   sheet: { flex: 6 },
