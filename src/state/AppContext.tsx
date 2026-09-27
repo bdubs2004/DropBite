@@ -1,14 +1,19 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, {
   createContext,
   useCallback,
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import { getDataService } from '../services';
 import { syncMealtimeNotifications } from '../services/notifications';
 import { NotificationPrefs, Post, Streak, User } from '../types';
+
+/** Posts the viewer has reported/hidden, so their photos stop showing. */
+const HIDDEN_KEY = 'niblgo.hiddenPosts';
 
 interface AppState {
   booted: boolean;
@@ -21,6 +26,8 @@ interface AppState {
   refreshMe: () => Promise<void>;
   setUser: (u: User | null) => void;
   setPrefs: (p: NotificationPrefs) => Promise<void>;
+  /** Hide a post from the feed (e.g. after reporting it). Persists. */
+  hidePost: (postId: string) => Promise<void>;
 }
 
 const Ctx = createContext<AppState | null>(null);
@@ -37,18 +44,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     lunch: true,
     dinner: true,
   });
+  // Posts the viewer reported/hid. Kept in a ref (not state) so refreshFeed can
+  // read the current set without being rebuilt every time it changes; loaded
+  // from storage on boot so a hidden post stays hidden across app launches.
+  const hidden = useRef<Set<string>>(new Set());
 
   const refreshFeed = useCallback(async () => {
     if (!user) return;
     setFeedLoading(true);
     try {
       const [posts, s] = await Promise.all([svc.getFeed(), svc.getStreak(user.id)]);
-      setFeed(posts);
+      setFeed(posts.filter((p) => !hidden.current.has(p.id)));
       setStreak(s);
     } finally {
       setFeedLoading(false);
     }
   }, [user, svc]);
+
+  const hidePost = useCallback(async (postId: string) => {
+    hidden.current.add(postId);
+    // Drop it from the feed we're already showing so the photo disappears now,
+    // without waiting for a refresh.
+    setFeed((prev) => prev.filter((p) => p.id !== postId));
+    try {
+      await AsyncStorage.setItem(HIDDEN_KEY, JSON.stringify([...hidden.current]));
+    } catch {
+      // A failed write just means the post reappears on next launch — not worth
+      // interrupting the report flow over.
+    }
+  }, []);
 
   const refreshMe = useCallback(async () => {
     const u = await svc.getCurrentUser();
@@ -58,6 +82,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     (async () => {
       try {
+        // Restore hidden posts before the first feed load so they never flash in.
+        try {
+          const raw = await AsyncStorage.getItem(HIDDEN_KEY);
+          if (raw) hidden.current = new Set<string>(JSON.parse(raw));
+        } catch {
+          // Ignore a corrupt/missing store — start with nothing hidden.
+        }
         const u = await svc.getCurrentUser();
         setUser(u);
         const p = await svc.getNotificationPrefs();
@@ -112,8 +143,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       refreshMe,
       setUser,
       setPrefs,
+      hidePost,
     }),
-    [booted, user, feed, feedLoading, streak, prefs, refreshFeed, refreshMe, setPrefs],
+    [booted, user, feed, feedLoading, streak, prefs, refreshFeed, refreshMe, setPrefs, hidePost],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

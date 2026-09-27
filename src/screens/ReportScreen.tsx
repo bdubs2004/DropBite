@@ -12,6 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Input, Muted } from '../components/ui';
 import { getDataService } from '../services';
+import { useApp } from '../state/AppContext';
 import { colors, fonts, radius, spacing } from '../theme';
 import { ReportReason } from '../types';
 
@@ -62,6 +63,7 @@ export function ReportScreen({ navigation, route }: any) {
   };
   const noun = NOUN[kind];
   const svc = getDataService();
+  const { hidePost } = useApp();
   const insets = useSafeAreaInsets();
 
   const [reason, setReason] = useState<ReportReason | null>(null);
@@ -83,7 +85,12 @@ export function ReportScreen({ navigation, route }: any) {
       if (kind === 'message') await svc.reportMessage(messageId!, reason, detail);
       else if (kind === 'comment') await svc.reportComment(commentId!, reason, detail);
       else if (kind === 'account') await svc.reportUser(reportedUserId!, reason, detail);
-      else await svc.reportPost(postId!, reason, detail);
+      else {
+        await svc.reportPost(postId!, reason, detail);
+        // Reporting a post hides it — you should not have to keep seeing the
+        // photo you just flagged.
+        await hidePost(postId!);
+      }
       setDone(true);
     } catch (e: any) {
       setError(e?.message ?? 'Could not send that report. Please try again.');
