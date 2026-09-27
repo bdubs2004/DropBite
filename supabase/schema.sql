@@ -199,7 +199,9 @@ create table if not exists public.conversations (
   id uuid primary key default gen_random_uuid(),
   created_at timestamptz not null default now(),
   -- Bumped on every message so the inbox can sort without a join.
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  -- Optional custom name for a group thread; null = show the members' names.
+  title text constraint conversations_title_len check (title is null or char_length(title) <= 60)
 );
 
 create table if not exists public.conversation_members (

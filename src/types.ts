@@ -224,6 +224,8 @@ export interface Conversation {
   others: User[];
   /** True once the thread has more than one other member. */
   is_group: boolean;
+  /** A custom group name, or null to fall back to the members' names. */
+  title: string | null;
   last_message: Message | null;
   unread_count: number;
   updated_at: string;

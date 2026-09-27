@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ActionSheet } from '../components/ActionSheet';
 import { Avatar } from '../components/Avatar';
 import { PostThumb } from '../components/PostThumb';
+import { RenameGroupSheet } from '../components/RenameGroupSheet';
 import { Muted } from '../components/ui';
 import { pickImage } from '../lib/pickImage';
 import { relativeTime } from '../lib/time';
@@ -34,16 +35,40 @@ const SHARED_W = Math.min(320, Math.round(Dimensions.get('window').width * 0.78)
 
 /** One DM thread. Messages can be text, a shared post, or both. */
 export function ChatScreen({ navigation, route }: any) {
-  const { conversationId, title, isGroup } = route.params as {
+  const {
+    conversationId,
+    title: initialTitle,
+    isGroup,
+    fallbackTitle,
+  } = route.params as {
     conversationId: string;
     title?: string;
     isGroup?: boolean;
+    /** Members' names, to revert to if the custom name is cleared. */
+    fallbackTitle?: string;
   };
   const svc = getDataService();
   const { user } = useApp();
   const insets = useSafeAreaInsets();
   const keyboardUp = useKeyboardVisible();
   const listRef = useRef<FlatList<Message>>(null);
+
+  // Header title lives in state so renaming updates it without a reload.
+  const [title, setTitle] = useState(initialTitle ?? 'Chat');
+  const [renaming, setRenaming] = useState(false);
+  const fallback = fallbackTitle ?? 'Group';
+
+  const saveName = async (name: string) => {
+    setRenaming(false);
+    const prev = title;
+    const trimmed = name.trim();
+    setTitle(trimmed || fallback);
+    try {
+      await svc.renameConversation(conversationId, trimmed);
+    } catch {
+      setTitle(prev); // put it back if the write failed
+    }
+  };
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
@@ -116,9 +141,23 @@ export function ChatScreen({ navigation, route }: any) {
           <Ionicons name="chevron-back" size={22} color={colors.amberDark} />
           <Text style={styles.back}>Back</Text>
         </Pressable>
-        <Text style={styles.title} numberOfLines={1}>
-          {title ?? 'Chat'}
-        </Text>
+        {isGroup ? (
+          <Pressable
+            testID="chat-title"
+            onPress={() => setRenaming(true)}
+            style={styles.titleWrap}
+            hitSlop={8}
+          >
+            <Text style={styles.title} numberOfLines={1}>
+              {title}
+            </Text>
+            <Ionicons name="pencil" size={13} color={colors.cocoaFaint} />
+          </Pressable>
+        ) : (
+          <Text style={[styles.title, { flex: 1 }]} numberOfLines={1}>
+            {title}
+          </Text>
+        )}
         <View style={{ width: 60 }} />
       </View>
 
@@ -319,6 +358,13 @@ export function ChatScreen({ navigation, route }: any) {
           <Ionicons name="arrow-up" size={20} color={colors.white} />
         </Pressable>
       </View>
+
+      <RenameGroupSheet
+        visible={renaming}
+        initial={title === fallback ? '' : title}
+        onCancel={() => setRenaming(false)}
+        onSave={saveName}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -334,7 +380,8 @@ const styles = StyleSheet.create({
   },
   backBtn: { flexDirection: 'row', alignItems: 'center', gap: 2, width: 60, marginLeft: -4 },
   back: { fontFamily: fonts.bold, color: colors.amberDark, fontSize: 15 },
-  title: { fontFamily: fonts.display, fontSize: 17, color: colors.cocoa, flex: 1, textAlign: 'center' },
+  title: { fontFamily: fonts.display, fontSize: 17, color: colors.cocoa, textAlign: 'center' },
+  titleWrap: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 },
   bubbleWrap: { marginBottom: spacing.md, maxWidth: '88%' },
   wrapMine: { alignSelf: 'flex-end', alignItems: 'flex-end' },
   wrapTheirs: { alignSelf: 'flex-start', alignItems: 'flex-start' },

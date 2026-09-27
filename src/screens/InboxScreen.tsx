@@ -16,7 +16,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ActionSheet } from '../components/ActionSheet';
 import { Avatar } from '../components/Avatar';
 import { Muted } from '../components/ui';
-import { conversationTitle } from '../lib/conversationName';
+import { RenameGroupSheet } from '../components/RenameGroupSheet';
+import { conversationDisplayName, conversationTitle } from '../lib/conversationName';
 import { relativeTime } from '../lib/time';
 import { getDataService } from '../services';
 import { colors, fonts, radius, shadowSoft, spacing } from '../theme';
@@ -31,6 +32,21 @@ export function InboxScreen({ navigation }: any) {
   const [refreshing, setRefreshing] = useState(false);
   const [menuFor, setMenuFor] = useState<Conversation | null>(null);
   const [confirming, setConfirming] = useState<Conversation | null>(null);
+  const [renaming, setRenaming] = useState<Conversation | null>(null);
+
+  const saveName = async (conv: Conversation, name: string) => {
+    setRenaming(null);
+    const trimmed = name.trim();
+    // Optimistically reflect the new name in the list.
+    setConversations((prev) =>
+      prev.map((c) => (c.id === conv.id ? { ...c, title: trimmed || null } : c)),
+    );
+    try {
+      await svc.renameConversation(conv.id, trimmed);
+    } catch {
+      load(); // restore from the server if it failed
+    }
+  };
 
   const load = useCallback(async () => {
     setConversations(await svc.getConversations());
@@ -127,8 +143,9 @@ export function InboxScreen({ navigation }: any) {
               onPress={() =>
                 navigation.navigate('Chat', {
                   conversationId: item.id,
-                  title: conversationTitle(item.others),
+                  title: conversationDisplayName(item),
                   isGroup: item.is_group,
+                  fallbackTitle: conversationTitle(item.others),
                 })
               }
             >
@@ -141,7 +158,7 @@ export function InboxScreen({ navigation }: any) {
               )}
               <View style={{ flex: 1, marginLeft: spacing.md }}>
                 <Text style={styles.name} numberOfLines={1}>
-                  {conversationTitle(item.others)}
+                  {conversationDisplayName(item)}
                 </Text>
                 <Text
                   style={[styles.preview, item.unread_count > 0 && styles.previewUnread]}
@@ -178,9 +195,24 @@ export function InboxScreen({ navigation }: any) {
 
       <ActionSheet
         visible={menuFor !== null}
-        title={menuFor ? conversationTitle(menuFor.others) : undefined}
+        title={menuFor ? conversationDisplayName(menuFor) : undefined}
         onClose={() => setMenuFor(null)}
         actions={[
+          ...(menuFor?.is_group
+            ? [
+                {
+                  key: 'rename-group',
+                  label: menuFor.title ? 'Rename group' : 'Name group',
+                  hint: 'Give this group chat a name',
+                  icon: 'create-outline',
+                  onPress: () => {
+                    const target = menuFor;
+                    setMenuFor(null);
+                    if (target) setRenaming(target);
+                  },
+                },
+              ]
+            : []),
           {
             key: 'delete-conversation',
             label: 'Delete conversation',
@@ -190,6 +222,13 @@ export function InboxScreen({ navigation }: any) {
             onPress: () => menuFor && askDelete(menuFor),
           },
         ]}
+      />
+
+      <RenameGroupSheet
+        visible={renaming !== null}
+        initial={renaming?.title ?? ''}
+        onCancel={() => setRenaming(null)}
+        onSave={(name) => renaming && saveName(renaming, name)}
       />
 
       {confirming ? (

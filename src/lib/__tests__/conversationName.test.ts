@@ -3,7 +3,11 @@
  *
  * Run with: npm run test:convname
  */
-import { conversationTitle, isGroupConversation } from '../conversationName';
+import {
+  conversationDisplayName,
+  conversationTitle,
+  isGroupConversation,
+} from '../conversationName';
 
 let failures = 0;
 function check(label: string, pass: boolean) {
@@ -45,6 +49,22 @@ check(
   conversationTitle([{}]) === 'Someone',
 );
 check('no members reads as Someone', conversationTitle([]) === 'Someone');
+
+// A custom group name wins; without one, fall back to the members.
+check(
+  'a custom title is used when set',
+  conversationDisplayName({ title: 'The Cooks', others: [{ display_name: 'Alice' }, { display_name: 'Bob' }] }) ===
+    'The Cooks',
+);
+check(
+  'a blank title falls back to the members',
+  conversationDisplayName({ title: '   ', others: [{ display_name: 'Alice' }, { display_name: 'Bob' }] }) ===
+    'Alice & Bob',
+);
+check(
+  'a null title falls back to the members',
+  conversationDisplayName({ title: null, others: [{ display_name: 'Alice' }] }) === 'Alice',
+);
 
 check('one other is not a group', !isGroupConversation(1));
 check('two others is a group', isGroupConversation(2));

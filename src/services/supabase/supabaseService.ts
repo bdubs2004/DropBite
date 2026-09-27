@@ -725,7 +725,7 @@ export class SupabaseService implements DataService {
     // My memberships carry last_read_at, which drives the unread count.
     const { data: memberships, error } = await this.sb
       .from('conversation_members')
-      .select('conversation_id, last_read_at, conversations(id, updated_at)')
+      .select('conversation_id, last_read_at, conversations(id, updated_at, title)')
       .eq('user_id', meId);
     if (error) throw error;
 
@@ -790,6 +790,7 @@ export class SupabaseService implements DataService {
           other: others[0],
           others,
           is_group: others.length > 1,
+          title: r.conversations?.title ?? null,
           last_message: last ? this.hydrateMessageRow(last) : null,
           unread_count: list.filter(
             (m) => m.sender_id !== meId && m.created_at > r.last_read_at,
@@ -979,6 +980,19 @@ export class SupabaseService implements DataService {
   async sharePostToGroup(postId: string, userIds: string[]): Promise<void> {
     const convId = await this.startGroupConversation(userIds);
     await this.sendMessage(convId, { sharedPostId: postId });
+  }
+
+  async renameConversation(conversationId: string, title: string): Promise<void> {
+    // Any member may name the thread — the "touch own conversations" update
+    // policy already scopes this to members. Empty clears back to the members'
+    // names; RLS returns nothing for a thread you are not in, so a patched
+    // client cannot rename someone else's.
+    const trimmed = title.trim().slice(0, 60);
+    const { error } = await this.sb
+      .from('conversations')
+      .update({ title: trimmed.length ? trimmed : null })
+      .eq('id', conversationId);
+    if (error) throw new Error(error.message || 'Could not rename the group.');
   }
 
   async deleteConversation(conversationId: string): Promise<void> {

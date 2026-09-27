@@ -142,6 +142,8 @@ export interface DataService {
   sharePostToUsers(postId: string, userIds: string[]): Promise<void>;
   /** Send one post into a single group thread with everyone selected. */
   sharePostToGroup(postId: string, userIds: string[]): Promise<void>;
+  /** Set (or clear, with an empty string) a group thread's custom name. */
+  renameConversation(conversationId: string, title: string): Promise<void>;
   markConversationRead(conversationId: string): Promise<void>;
   /**
    * Remove a thread from YOUR inbox by leaving it. The other person keeps
