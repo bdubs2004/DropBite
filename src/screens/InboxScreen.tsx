@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ActionSheet } from '../components/ActionSheet';
 import { Avatar } from '../components/Avatar';
 import { Muted } from '../components/ui';
+import { conversationTitle } from '../lib/conversationName';
 import { relativeTime } from '../lib/time';
 import { getDataService } from '../services';
 import { colors, fonts, radius, shadowSoft, spacing } from '../theme';
@@ -67,7 +68,7 @@ export function InboxScreen({ navigation }: any) {
       return;
     }
     Alert.alert(
-      `Delete conversation with ${c.other.display_name}?`,
+      `Delete conversation with ${conversationTitle(c.others)}?`,
       'It disappears from your inbox. They keep their copy of the thread.',
       [
         { text: 'Cancel', style: 'cancel' },
@@ -126,13 +127,22 @@ export function InboxScreen({ navigation }: any) {
               onPress={() =>
                 navigation.navigate('Chat', {
                   conversationId: item.id,
-                  title: item.other.display_name,
+                  title: conversationTitle(item.others),
+                  isGroup: item.is_group,
                 })
               }
             >
-              <Avatar user={item.other} size={48} />
+              {item.is_group ? (
+                <View style={styles.groupAvatar}>
+                  <Ionicons name="people" size={24} color={colors.amberDark} />
+                </View>
+              ) : (
+                <Avatar user={item.other} size={48} />
+              )}
               <View style={{ flex: 1, marginLeft: spacing.md }}>
-                <Text style={styles.name}>{item.other.display_name}</Text>
+                <Text style={styles.name} numberOfLines={1}>
+                  {conversationTitle(item.others)}
+                </Text>
                 <Text
                   style={[styles.preview, item.unread_count > 0 && styles.previewUnread]}
                   numberOfLines={1}
@@ -168,7 +178,7 @@ export function InboxScreen({ navigation }: any) {
 
       <ActionSheet
         visible={menuFor !== null}
-        title={menuFor ? menuFor.other.display_name : undefined}
+        title={menuFor ? conversationTitle(menuFor.others) : undefined}
         onClose={() => setMenuFor(null)}
         actions={[
           {
@@ -241,6 +251,14 @@ const styles = StyleSheet.create({
     ...(shadowSoft as object),
   },
   name: { fontFamily: fonts.bold, fontSize: 15.5, color: colors.cocoa },
+  groupAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.cream,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   preview: {
     fontFamily: fonts.semi,
     fontSize: 13.5,

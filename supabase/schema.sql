@@ -329,11 +329,13 @@ begin
     raise exception 'You cannot message this person.';
   end if;
 
-  select m1.conversation_id into conv
-  from public.conversation_members m1
-  join public.conversation_members m2
-    on m2.conversation_id = m1.conversation_id
-  where m1.user_id = me and m2.user_id = target
+  -- Reuse only a strictly 1:1 thread (exactly the two of us), never a group.
+  select mc.conversation_id into conv
+  from public.conversation_members mc
+  group by mc.conversation_id
+  having array_agg(mc.user_id order by mc.user_id) = (
+    select array_agg(u order by u) from (select me as u union select target) s
+  )
   limit 1;
   if conv is not null then return conv; end if;
 
@@ -345,6 +347,72 @@ begin
   return conv;
 end;
 $$;
+
+-- Start (or reuse) a group thread with several people at once. Same opt-in
+-- rules as start_conversation, applied to every target; reuses a thread only
+-- when its member set is exactly {you} + targets, so a group never collides
+-- with a 1:1.
+create or replace function public.start_group_conversation(targets uuid[])
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  me uuid := auth.uid();
+  t uuid;
+  wanted uuid[];
+  conv uuid;
+begin
+  if me is null then raise exception 'Not authenticated'; end if;
+
+  foreach t in array coalesce(targets, '{}'::uuid[]) loop
+    if t is null or t = me then continue; end if;
+    if not exists (select 1 from public.users where id = t) then
+      raise exception 'One of those accounts no longer exists.';
+    end if;
+    if not exists (
+      select 1 from public.follows where follower_id = me and followee_id = t
+    ) then
+      raise exception 'You can only message people you follow. Follow them first.';
+    end if;
+    if public.is_blocked_pair(me, t) then
+      raise exception 'You cannot message one of those people.';
+    end if;
+  end loop;
+
+  select array_agg(u order by u) into wanted
+  from (
+    select distinct unnest(array_append(coalesce(targets, '{}'::uuid[]), me)) as u
+  ) s
+  where u is not null;
+
+  if array_length(wanted, 1) is null or array_length(wanted, 1) < 2 then
+    raise exception 'Pick at least one person to message.';
+  end if;
+
+  select mc.conversation_id into conv
+  from public.conversation_members mc
+  group by mc.conversation_id
+  having array_agg(mc.user_id order by mc.user_id) = wanted
+  limit 1;
+  if conv is not null then return conv; end if;
+
+  insert into public.conversations default values returning id into conv;
+  insert into public.conversation_members (conversation_id, user_id, last_read_at)
+    values (conv, me, now());
+  foreach t in array wanted loop
+    if t <> me then
+      insert into public.conversation_members (conversation_id, user_id)
+        values (conv, t);
+    end if;
+  end loop;
+  return conv;
+end;
+$$;
+
+revoke all on function public.start_group_conversation(uuid[]) from public, anon;
+grant execute on function public.start_group_conversation(uuid[]) to authenticated;
 
 
 -- ---------------------------------------------------- comment_reactions

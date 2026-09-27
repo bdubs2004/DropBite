@@ -34,9 +34,10 @@ const SHARED_W = Math.min(320, Math.round(Dimensions.get('window').width * 0.78)
 
 /** One DM thread. Messages can be text, a shared post, or both. */
 export function ChatScreen({ navigation, route }: any) {
-  const { conversationId, title } = route.params as {
+  const { conversationId, title, isGroup } = route.params as {
     conversationId: string;
     title?: string;
+    isGroup?: boolean;
   };
   const svc = getDataService();
   const { user } = useApp();
@@ -152,6 +153,12 @@ export function ChatScreen({ navigation, route }: any) {
               delayLongPress={350}
               style={[styles.bubbleWrap, mine ? styles.wrapMine : styles.wrapTheirs]}
             >
+              {isGroup && !mine ? (
+                <Text style={styles.senderName} numberOfLines={1}>
+                  {item.sender?.display_name ??
+                    (item.sender?.handle ? '@' + item.sender.handle : 'Someone')}
+                </Text>
+              ) : null}
               <View
                 style={[
                   styles.bubble,
@@ -331,6 +338,13 @@ const styles = StyleSheet.create({
   bubbleWrap: { marginBottom: spacing.md, maxWidth: '88%' },
   wrapMine: { alignSelf: 'flex-end', alignItems: 'flex-end' },
   wrapTheirs: { alignSelf: 'flex-start', alignItems: 'flex-start' },
+  senderName: {
+    fontFamily: fonts.bold,
+    fontSize: 12,
+    color: colors.amberDark,
+    marginBottom: 3,
+    marginLeft: spacing.sm,
+  },
   bubble: {
     borderRadius: radius.lg,
     paddingHorizontal: spacing.md,

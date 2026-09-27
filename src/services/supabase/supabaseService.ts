@@ -748,9 +748,13 @@ export class SupabaseService implements DataService {
         .order('created_at', { ascending: true }),
     ]);
 
-    const otherByConv = new Map<string, User>();
+    const othersByConv = new Map<string, User[]>();
     for (const o of (others ?? []) as any[]) {
-      if (o.users) otherByConv.set(o.conversation_id, o.users as User);
+      if (o.users) {
+        const list = othersByConv.get(o.conversation_id) ?? [];
+        list.push(o.users as User);
+        othersByConv.set(o.conversation_id, list);
+      }
     }
     const msgsByConv = new Map<string, any[]>();
     for (const m of (msgs ?? []) as any[]) {
@@ -763,23 +767,29 @@ export class SupabaseService implements DataService {
       .map((r) => {
         // Keep the thread visible even if the other side left or deleted
         // their account, rather than silently losing the history.
-        const other =
-          otherByConv.get(r.conversation_id) ??
-          ({
-            id: `gone-${r.conversation_id}`,
-            handle: 'unavailable',
-            display_name: 'Someone',
-            avatar_url: null,
-            avatar_emoji: null,
-            bio: null,
-            timezone: 'UTC',
-            created_at: new Date(0).toISOString(),
-          } as User);
+        const membersOther = othersByConv.get(r.conversation_id) ?? [];
+        const others: User[] =
+          membersOther.length > 0
+            ? membersOther
+            : [
+                {
+                  id: `gone-${r.conversation_id}`,
+                  handle: 'unavailable',
+                  display_name: 'Someone',
+                  avatar_url: null,
+                  avatar_emoji: null,
+                  bio: null,
+                  timezone: 'UTC',
+                  created_at: new Date(0).toISOString(),
+                } as User,
+              ];
         const list = msgsByConv.get(r.conversation_id) ?? [];
         const last = list.length ? list[list.length - 1] : null;
         return {
           id: r.conversation_id,
-          other,
+          other: others[0],
+          others,
+          is_group: others.length > 1,
           last_message: last ? this.hydrateMessageRow(last) : null,
           unread_count: list.filter(
             (m) => m.sender_id !== meId && m.created_at > r.last_read_at,
@@ -852,6 +862,17 @@ export class SupabaseService implements DataService {
     const { data, error } = await this.sb.rpc('start_conversation', { target: userId });
     if (error) throw new Error(error.message || 'Could not start the conversation.');
     if (!data) throw new Error('Could not start the conversation.');
+    return data as string;
+  }
+
+  async startGroupConversation(userIds: string[]): Promise<string> {
+    // Same server-side, RLS-safe pattern as startConversation, for a whole
+    // group at once. The RPC validates every member and reuses an existing
+    // thread with exactly this set. Its RAISE messages are user-facing.
+    const targets = [...new Set(userIds)];
+    const { data, error } = await this.sb.rpc('start_group_conversation', { targets });
+    if (error) throw new Error(error.message || 'Could not start the group chat.');
+    if (!data) throw new Error('Could not start the group chat.');
     return data as string;
   }
 
@@ -953,6 +974,11 @@ export class SupabaseService implements DataService {
       const convId = await this.startConversation(userId);
       await this.sendMessage(convId, { sharedPostId: postId });
     }
+  }
+
+  async sharePostToGroup(postId: string, userIds: string[]): Promise<void> {
+    const convId = await this.startGroupConversation(userIds);
+    await this.sendMessage(convId, { sharedPostId: postId });
   }
 
   async deleteConversation(conversationId: string): Promise<void> {

@@ -553,23 +553,39 @@ export class MockService implements DataService {
       .map((membership) => {
         const conv = db.conversations.find((c) => c.id === membership.conversation_id);
         if (!conv) return null;
-        const otherId = db.conversationMembers.find(
-          (m) => m.conversation_id === conv.id && m.user_id !== me.id,
-        )?.user_id;
+        const otherIds = db.conversationMembers
+          .filter((m) => m.conversation_id === conv.id && m.user_id !== me.id)
+          .map((m) => m.user_id);
         // If the other side left or deleted their account, keep the thread
         // visible with a placeholder rather than silently losing the history.
-        const other =
-          db.users.find((u) => u.id === otherId) ??
-          ({
-            id: otherId ?? `gone-${conv.id}`,
-            handle: 'unavailable',
-            display_name: 'Someone',
-            avatar_url: null,
-            avatar_emoji: null,
-            bio: null,
-            timezone: 'UTC',
-            created_at: conv.created_at,
-          } as User);
+        const others: User[] =
+          otherIds.length > 0
+            ? otherIds.map(
+                (id) =>
+                  db.users.find((u) => u.id === id) ??
+                  ({
+                    id,
+                    handle: 'unavailable',
+                    display_name: 'Someone',
+                    avatar_url: null,
+                    avatar_emoji: null,
+                    bio: null,
+                    timezone: 'UTC',
+                    created_at: conv.created_at,
+                  } as User),
+              )
+            : [
+                {
+                  id: `gone-${conv.id}`,
+                  handle: 'unavailable',
+                  display_name: 'Someone',
+                  avatar_url: null,
+                  avatar_emoji: null,
+                  bio: null,
+                  timezone: 'UTC',
+                  created_at: conv.created_at,
+                } as User,
+              ];
 
         const msgs = db.messages
           .filter((m) => m.conversation_id === conv.id)
@@ -577,9 +593,11 @@ export class MockService implements DataService {
         const last = msgs.length ? msgs[msgs.length - 1] : null;
         return {
           id: conv.id,
-          other,
+          other: others[0],
+          others,
+          is_group: others.length > 1,
           last_message: last ? this.hydrateMessage(db, last, me.id) : null,
-          // Unread = messages from the other person since I last opened it.
+          // Unread = messages from others since I last opened it.
           unread_count: msgs.filter(
             (m) => m.sender_id !== me.id && m.created_at > membership.last_read_at,
           ).length,
@@ -640,16 +658,10 @@ export class MockService implements DataService {
     const me = await this.me();
     if (userId === me.id) throw new Error('You cannot message yourself.');
 
-    // Reuse the existing 1:1 thread rather than stacking duplicates.
-    // (Checked before the follow rule so an existing thread keeps working
-    //  even after you unfollow, which is how RLS behaves too.)
-    const mine = new Set(
-      db.conversationMembers.filter((m) => m.user_id === me.id).map((m) => m.conversation_id),
-    );
-    const existing = db.conversationMembers.find(
-      (m) => m.user_id === userId && mine.has(m.conversation_id),
-    );
-    if (existing) return existing.conversation_id;
+    // Reuse an existing strictly-1:1 thread (exactly the two of us) rather than
+    // stacking duplicates — and never a group we happen to share.
+    const existing = this.findConversationWithMembers(db, [me.id, userId]);
+    if (existing) return existing;
 
     // DMs are opt-in: you can only open a thread with someone you follow.
     // The database enforces this in RLS; this mirrors it so demo mode behaves
@@ -668,6 +680,56 @@ export class MockService implements DataService {
     db.conversationMembers.push({ conversation_id: id, user_id: userId, last_read_at: '1970-01-01T00:00:00.000Z' });
     await this.save();
     return id;
+  }
+
+  async startGroupConversation(userIds: string[]): Promise<string> {
+    const db = this.dmTables(await this.load());
+    const me = await this.me();
+    const targets = [...new Set(userIds)].filter((id) => id && id !== me.id);
+    if (targets.length < 1) throw new Error('Pick at least one person to message.');
+
+    for (const t of targets) {
+      const follows = db.follows.some((f) => f.follower_id === me.id && f.followee_id === t);
+      if (!follows) {
+        throw new Error('You can only message people you follow. Follow them first.');
+      }
+    }
+
+    const wanted = [me.id, ...targets];
+    const existing = this.findConversationWithMembers(db, wanted);
+    if (existing) return existing;
+
+    const now = new Date().toISOString();
+    const id = uid('conv-');
+    db.conversations.push({ id, created_at: now, updated_at: now });
+    db.conversationMembers.push({ conversation_id: id, user_id: me.id, last_read_at: now });
+    for (const t of targets) {
+      db.conversationMembers.push({
+        conversation_id: id,
+        user_id: t,
+        last_read_at: '1970-01-01T00:00:00.000Z',
+      });
+    }
+    await this.save();
+    return id;
+  }
+
+  /** Find a thread whose member set is exactly `memberIds` (order-independent). */
+  private findConversationWithMembers(
+    db: ReturnType<MockService['dmTables']>,
+    memberIds: string[],
+  ): string | null {
+    const want = [...new Set(memberIds)].sort().join(',');
+    const byConv = new Map<string, string[]>();
+    for (const m of db.conversationMembers) {
+      const list = byConv.get(m.conversation_id) ?? [];
+      list.push(m.user_id);
+      byConv.set(m.conversation_id, list);
+    }
+    for (const [convId, ids] of byConv) {
+      if ([...new Set(ids)].sort().join(',') === want) return convId;
+    }
+    return null;
   }
 
   async sendFeedback(input: { kind: FeedbackKind; message: string }): Promise<void> {
@@ -796,6 +858,11 @@ export class MockService implements DataService {
       const convId = await this.startConversation(userId);
       await this.sendMessage(convId, { sharedPostId: postId });
     }
+  }
+
+  async sharePostToGroup(postId: string, userIds: string[]): Promise<void> {
+    const convId = await this.startGroupConversation(userIds);
+    await this.sendMessage(convId, { sharedPostId: postId });
   }
 
   async deleteConversation(conversationId: string): Promise<void> {
