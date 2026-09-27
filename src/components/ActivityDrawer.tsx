@@ -103,12 +103,14 @@ export function ActivityDrawer({
    */
   const dragging = useRef(false);
 
-  const pan = useRef(
+  // One responder config, instantiated on two views: the panel itself and a
+  // wrapper filling the scroll area. A ScrollView on iOS claims touches that
+  // start on its own empty space before the parent's capture is consulted, so
+  // a panel-only responder worked on the menu rows but felt dead on the cream
+  // gaps. Giving the scroll content its own responder covers that empty space,
+  // while its horizontal-only claim leaves vertical scrolling untouched.
+  const buildDrag = () =>
     PanResponder.create({
-      // Claim only clear horizontal drags, so a vertical scroll inside the
-      // panel still scrolls. Capture as well as bubble: capturing lets the
-      // panel win a horizontal drag that starts on top of the scroll list or a
-      // menu row, which is what made the old edge-only handle feel dead.
       onMoveShouldSetPanResponder: (_e, g) => isHorizontalDrag(g.dx, g.dy),
       onMoveShouldSetPanResponderCapture: (_e, g) => isHorizontalDrag(g.dx, g.dy),
       onPanResponderGrant: () => {
@@ -135,8 +137,10 @@ export function ActivityDrawer({
           dragging.current = false;
         }, 120);
       },
-    }),
-  ).current;
+    });
+
+  const panelPan = useRef(buildDrag()).current;
+  const listPan = useRef(buildDrag()).current;
 
   const backdropOpacity = slide.interpolate({
     inputRange: [0, PANEL_WIDTH],
@@ -153,7 +157,7 @@ export function ActivityDrawer({
 
         <Animated.View
           testID="activity-drawer"
-          {...pan.panHandlers}
+          {...panelPan.panHandlers}
           style={[
             styles.panel,
             { paddingTop: insets.top + spacing.md, transform: [{ translateX: slide }] },
@@ -175,7 +179,13 @@ export function ActivityDrawer({
             </Pressable>
           </View>
 
-          <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + spacing.xl }}>
+          <ScrollView
+            contentContainerStyle={{ flexGrow: 1, paddingBottom: insets.bottom + spacing.xl }}
+          >
+            {/* This wrapper fills the whole scroll area — including the cream
+                space below the last row — and carries its own copy of the drag
+                gesture, so a slide that starts on empty space works too. */}
+            <View style={{ flexGrow: 1 }} {...listPan.panHandlers}>
             {sections.map((section) => (
               <View key={section.title} style={styles.section}>
                 <Text style={styles.sectionTitle}>{section.title}</Text>
@@ -211,6 +221,7 @@ export function ActivityDrawer({
                 ))}
               </View>
             ))}
+            </View>
           </ScrollView>
         </Animated.View>
       </View>
