@@ -9,10 +9,16 @@ import { colors, fonts, MEAL_SLOT_META, radius, shadow, spacing } from '../theme
 import { Post } from '../types';
 
 /**
- * Instagram-style long-press peek: a floating preview of a post with quick
- * actions, opened by holding a thumbnail in any grid. Tapping the backdrop or
- * "Open post" dismisses it; the quick actions like/comment/share/save without
+ * Instagram-style long-press peek: a floating preview of a post, opened by
+ * holding a thumbnail in any grid. Tapping the backdrop dismisses it; tapping
+ * anywhere on the card opens the full post, except the author row, which goes
+ * to their profile. The quick actions like/comment/share/save in place without
  * leaving the grid you were browsing.
+ *
+ * The card is one big Pressable, with the author row and each action as nested
+ * Pressables. A press on a child is consumed by that child and never reaches
+ * the card, so tapping a button does its own thing while tapping the photo,
+ * blurb, or any gap opens the post — no explicit "Open post" button needed.
  */
 export function PostPeekScreen({ navigation, route }: any) {
   const postId: string = route.params.postId;
@@ -69,7 +75,11 @@ export function PostPeekScreen({ navigation, route }: any) {
             <ActivityIndicator color={colors.amber} />
           </View>
         ) : (
-          <View style={styles.sheet}>
+          <Pressable
+            testID="peek-open"
+            style={styles.sheet}
+            onPress={() => goTo('PostDetail', { postId })}
+          >
             {/* author */}
             <View style={styles.header}>
               <Pressable
@@ -138,16 +148,7 @@ export function PostPeekScreen({ navigation, route }: any) {
                 />
               </Pressable>
             </View>
-
-            <Pressable
-              testID="peek-open"
-              style={styles.openBtn}
-              onPress={() => goTo('PostDetail', { postId })}
-            >
-              <Text style={styles.openText}>Open post</Text>
-              <Ionicons name="chevron-forward" size={16} color={colors.white} />
-            </Pressable>
-          </View>
+          </Pressable>
         )}
       </View>
     </View>
@@ -196,17 +197,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.lg,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md + spacing.xs,
   },
   action: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   actionLabel: { fontFamily: fonts.bold, fontSize: 14, color: colors.cocoaSoft },
-  openBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    backgroundColor: colors.amber,
-    paddingVertical: 14,
-  },
-  openText: { fontFamily: fonts.bold, fontSize: 15, color: colors.white },
 });
