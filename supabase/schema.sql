@@ -414,6 +414,33 @@ $$;
 revoke all on function public.start_group_conversation(uuid[]) from public, anon;
 grant execute on function public.start_group_conversation(uuid[]) to authenticated;
 
+-- Public preview for a shared post link. Read (before sign-in) by the web page
+-- behind niblgo.com/post/<id> to render a rich preview card. Returns only the
+-- card's fields for one post looked up by its unguessable UUID — no listing or
+-- enumeration, just the post whose id the share link already handed over.
+create or replace function public.get_post_preview(pid uuid)
+returns table (
+  photo_url text,
+  blurb text,
+  display_name text,
+  handle text,
+  meal_slot text
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select p.photo_url, p.blurb, u.display_name, u.handle, p.meal_slot::text
+  from public.posts p
+  join public.users u on u.id = p.user_id
+  where p.id = pid
+  limit 1;
+$$;
+
+revoke all on function public.get_post_preview(uuid) from public;
+grant execute on function public.get_post_preview(uuid) to anon, authenticated;
+
 
 -- ---------------------------------------------------- comment_reactions
 -- Likes on comments. Same shape as post reactions: one row per (comment, user)

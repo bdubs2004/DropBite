@@ -11,9 +11,12 @@ export type ShareResult = 'shared' | 'copied' | 'failed';
 export async function sharePost(post: Post, link?: string): Promise<ShareResult> {
   const who = post.user?.display_name ? `${post.user.display_name} on NiblGo` : 'A meal on NiblGo';
   const place = post.restaurant_name ? ` (at ${post.restaurant_name})` : '';
-  // The link is what makes an external share useful: it deep-links back
-  // into the app rather than dumping plain text.
-  const message = `${post.blurb}${place}\n\n${link ? `${link}\n\n` : ''}Shared from NiblGo`;
+  // Keep the text short and let the link's preview card carry the photo,
+  // caption and branding: the URL resolves to niblgo.com/post/<id>, which
+  // renders a rich Open Graph card and an "Open in NiblGo" button. A short
+  // caption line still gives context in apps that don't unfurl links.
+  const caption = post.blurb ? `${post.blurb}${place}` : `A meal on NiblGo${place}`;
+  const message = link ? `${caption}\n${link}` : caption;
 
   try {
     if (Platform.OS === 'web') {
