@@ -22,3 +22,15 @@ export function conversationTitle(
 export function isGroupConversation(othersCount: number): boolean {
   return othersCount > 1;
 }
+
+/**
+ * What to show as a thread's name: its custom group title if one was set,
+ * otherwise the members' names.
+ */
+export function conversationDisplayName(conv: {
+  title?: string | null;
+  others: { display_name?: string | null; handle?: string | null }[];
+}): string {
+  const custom = conv.title?.trim();
+  return custom || conversationTitle(conv.others);
+}

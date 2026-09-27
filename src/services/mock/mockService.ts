@@ -596,6 +596,7 @@ export class MockService implements DataService {
           other: others[0],
           others,
           is_group: others.length > 1,
+          title: (conv as any).title ?? null,
           last_message: last ? this.hydrateMessage(db, last, me.id) : null,
           // Unread = messages from others since I last opened it.
           unread_count: msgs.filter(
@@ -863,6 +864,19 @@ export class MockService implements DataService {
   async sharePostToGroup(postId: string, userIds: string[]): Promise<void> {
     const convId = await this.startGroupConversation(userIds);
     await this.sendMessage(convId, { sharedPostId: postId });
+  }
+
+  async renameConversation(conversationId: string, title: string): Promise<void> {
+    const db = this.dmTables(await this.load());
+    const me = await this.me();
+    const isMember = db.conversationMembers.some(
+      (m) => m.conversation_id === conversationId && m.user_id === me.id,
+    );
+    if (!isMember) throw new Error('Not part of that conversation.');
+    const trimmed = title.trim().slice(0, 60);
+    const conv = db.conversations.find((c) => c.id === conversationId);
+    if (conv) (conv as any).title = trimmed.length ? trimmed : null;
+    await this.save();
   }
 
   async deleteConversation(conversationId: string): Promise<void> {

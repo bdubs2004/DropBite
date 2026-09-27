@@ -58,6 +58,7 @@ export function NewMessageScreen({ navigation }: any) {
           conversationId: id,
           title: conversationTitle(chosen),
           isGroup: true,
+          fallbackTitle: conversationTitle(chosen),
         });
       } else {
         const target = people.find((p) => p.id === ids[0]);
