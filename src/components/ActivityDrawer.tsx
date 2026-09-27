@@ -27,8 +27,8 @@ type Item = {
 type Section = { title: string; items: Item[] };
 
 const PANEL_WIDTH = Math.min(Dimensions.get('window').width * 0.82, 360);
-/** Drag this far right, or flick fast enough, and the panel closes. */
-const DISMISS_DISTANCE = PANEL_WIDTH * 0.35;
+/** Let go past the halfway point, or flick fast enough, and the panel closes. */
+const DISMISS_DISTANCE = PANEL_WIDTH * 0.5;
 const DISMISS_VELOCITY = 0.5;
 
 /**
@@ -111,9 +111,10 @@ export function ActivityDrawer({
         dragging.current = true;
       },
       onPanResponderMove: (_e, g) => {
-        // Follow the finger right to close; give a small rubber-band the other
-        // way so it feels springy instead of hitting a hard wall at "open".
-        slide.setValue(g.dx >= 0 ? g.dx : g.dx * 0.18);
+        // Track the finger 1:1, exactly like dragging the comments sheet: follow
+        // it right toward closed, and follow it back left, clamping at 0 so it
+        // never pulls past fully-open. Hold and slide it over and back freely.
+        slide.setValue(Math.max(0, g.dx));
       },
       onPanResponderRelease: (_e, g) => {
         if (g.dx > DISMISS_DISTANCE || g.vx > DISMISS_VELOCITY) dismiss();
