@@ -15,14 +15,20 @@
  * it here, not there. Cloudflare Pages picks up a _worker.js at the site root
  * automatically (advanced mode) on a Direct Upload — no build command needed.
  *
- * Two Pages environment variables make the per-post photo work
- * (Pages project -> Settings -> Environment variables):
- *   SUPABASE_URL       e.g. https://xxxx.supabase.co
- *   SUPABASE_ANON_KEY  the project's public anon key (safe to expose; it is
- *                      already shipped inside the mobile app)
- * Without them the page still renders — just with the NiblGo logo instead of
- * the real photo.
+ * The Supabase URL + public anon key make the per-post photo work. They are
+ * baked in at build time from your .env by scripts/build-site.js (the two
+ * BUILD_* constants below), so there is nothing to configure in Cloudflare. If
+ * they are ever left blank, the worker falls back to Cloudflare Pages
+ * environment variables of the same name, and failing that still renders the
+ * card with the NiblGo logo instead of the real photo. The anon key is
+ * public-safe — it already ships inside the mobile app.
  */
+
+// Filled in by build-site.js from EXPO_PUBLIC_SUPABASE_URL / _ANON_KEY. Left
+// blank in source on purpose: the real values live in your local .env, never
+// in the repo.
+const BUILD_SUPABASE_URL = "";
+const BUILD_SUPABASE_ANON_KEY = "";
 
 const MEAL_LABEL = {
   breakfast: 'Breakfast',
@@ -44,15 +50,18 @@ export default {
 };
 
 async function renderPost(id, url, env) {
+  // Prefer the values baked in at build time; fall back to Pages env vars.
+  const supabaseUrl = BUILD_SUPABASE_URL || (env && env.SUPABASE_URL) || '';
+  const anonKey = BUILD_SUPABASE_ANON_KEY || (env && env.SUPABASE_ANON_KEY) || '';
   let post = null;
   try {
-    if (env.SUPABASE_URL && env.SUPABASE_ANON_KEY) {
-      const res = await fetch(env.SUPABASE_URL + '/rest/v1/rpc/get_post_preview', {
+    if (supabaseUrl && anonKey) {
+      const res = await fetch(supabaseUrl + '/rest/v1/rpc/get_post_preview', {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
-          apikey: env.SUPABASE_ANON_KEY,
-          authorization: 'Bearer ' + env.SUPABASE_ANON_KEY,
+          apikey: anonKey,
+          authorization: 'Bearer ' + anonKey,
         },
         body: JSON.stringify({ pid: id }),
       });

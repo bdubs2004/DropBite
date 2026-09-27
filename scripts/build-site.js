@@ -18,6 +18,37 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const OUT = path.join(ROOT, 'website');
 
+/**
+ * Minimal .env reader — just enough to pull the Supabase values into the
+ * preview worker at build time. No dependency, no interpolation: KEY=VALUE
+ * lines, ignoring blanks and comments, quotes trimmed. Missing file is fine.
+ */
+function readDotEnv(file) {
+  const out = {};
+  let text;
+  try {
+    text = fs.readFileSync(file, 'utf8');
+  } catch {
+    return out;
+  }
+  for (const raw of text.split('\n')) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) continue;
+    const eq = line.indexOf('=');
+    if (eq === -1) continue;
+    const key = line.slice(0, eq).trim();
+    let val = line.slice(eq + 1).trim();
+    if (
+      (val.startsWith('"') && val.endsWith('"')) ||
+      (val.startsWith("'") && val.endsWith("'"))
+    ) {
+      val = val.slice(1, -1);
+    }
+    out[key] = val;
+  }
+  return out;
+}
+
 const PAGES = [
   {
     src: 'legal/PRIVACY_POLICY.md',
@@ -416,8 +447,29 @@ console.log('  assets/icon.png       -> website/icon.png');
 // post link (/post/<id>). Copied to the site root as _worker.js, which Pages
 // picks up automatically on upload. All non-/post paths fall through to the
 // static files above, so the rest of the site is unaffected.
-fs.copyFileSync(path.join(__dirname, 'post-preview-worker.js'), path.join(OUT, '_worker.js'));
-console.log('  post-preview-worker.js -> website/_worker.js');
+//
+// Bake the Supabase URL + public anon key straight into the copy from your
+// local .env, so the preview photo works with NO Cloudflare environment
+// variables to set. Reads .env (and the current process env) for the same
+// EXPO_PUBLIC_* names the app uses. If neither is present the worker still
+// ships — it just falls back to Pages env vars, then to a photo-less card.
+{
+  const env = readDotEnv(path.join(ROOT, '.env'));
+  const supaUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || env.EXPO_PUBLIC_SUPABASE_URL || '';
+  const supaKey =
+    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+  let worker = fs.readFileSync(path.join(__dirname, 'post-preview-worker.js'), 'utf8');
+  worker = worker
+    .replace("const BUILD_SUPABASE_URL = '';", `const BUILD_SUPABASE_URL = ${JSON.stringify(supaUrl)};`)
+    .replace(
+      "const BUILD_SUPABASE_ANON_KEY = '';",
+      `const BUILD_SUPABASE_ANON_KEY = ${JSON.stringify(supaKey)};`,
+    );
+  fs.writeFileSync(path.join(OUT, '_worker.js'), worker);
+  console.log(
+    `  post-preview-worker.js -> website/_worker.js${supaUrl && supaKey ? ' (Supabase baked in)' : ' (no .env keys — set Cloudflare vars or add .env)'}`,
+  );
+}
 
 for (const p of PAGES) {
   const md = fs.readFileSync(path.join(ROOT, p.src), 'utf8');
