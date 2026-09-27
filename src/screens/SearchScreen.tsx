@@ -23,6 +23,7 @@ import {
   removeRecentTerm,
 } from '../lib/recentSearches';
 import { getDataService } from '../services';
+import { useApp } from '../state/AppContext';
 import { colors, fonts, radius, shadowSoft, spacing } from '../theme';
 import { Post, User } from '../types';
 
@@ -41,6 +42,7 @@ const DEBOUNCE_MS = 250;
  */
 export function SearchScreen({ navigation }: any) {
   const svc = getDataService();
+  const { hiddenIds } = useApp();
   const insets = useSafeAreaInsets();
 
   const [tab, setTab] = useState<Tab>('dishes');
@@ -128,9 +130,10 @@ export function SearchScreen({ navigation }: any) {
   }, [tab, query, run]);
 
   const gridData: (Post | null)[] = (() => {
-    const remainder = posts.length % GRID_COLUMNS;
-    if (remainder === 0) return posts;
-    return [...posts, ...Array(GRID_COLUMNS - remainder).fill(null)];
+    const visible = posts.filter((p) => !hiddenIds.has(p.id));
+    const remainder = visible.length % GRID_COLUMNS;
+    if (remainder === 0) return visible;
+    return [...visible, ...Array(GRID_COLUMNS - remainder).fill(null)];
   })();
 
   const hasQuery = query.trim().length > 0;
