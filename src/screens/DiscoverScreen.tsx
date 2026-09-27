@@ -33,7 +33,7 @@ const GRID_GAP = 2;
  */
 export function DiscoverScreen({ navigation }: any) {
   const svc = getDataService();
-  const { refreshFeed } = useApp();
+  const { refreshFeed, hiddenIds } = useApp();
   const insets = useSafeAreaInsets();
 
   const [tab, setTab] = useState<Tab>('posts');
@@ -96,9 +96,11 @@ export function DiscoverScreen({ navigation }: any) {
    * width instead of staying a third.
    */
   const gridData: (Post | null)[] = (() => {
-    const remainder = posts.length % GRID_COLUMNS;
-    if (remainder === 0) return posts;
-    return [...posts, ...Array(GRID_COLUMNS - remainder).fill(null)];
+    // Drop anything the viewer has reported/hidden.
+    const visible = posts.filter((p) => !hiddenIds.has(p.id));
+    const remainder = visible.length % GRID_COLUMNS;
+    if (remainder === 0) return visible;
+    return [...visible, ...Array(GRID_COLUMNS - remainder).fill(null)];
   })();
   const openProfile = (userId: string) => navigation.navigate('UserProfile', { userId });
 

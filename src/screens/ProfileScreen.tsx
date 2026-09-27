@@ -29,7 +29,7 @@ const GRID_COLUMNS = 3;
 const GRID_GAP = 2;
 
 export function ProfileScreen({ navigation, route }: any) {
-  const { user: me, refreshFeed } = useApp();
+  const { user: me, refreshFeed, hiddenIds } = useApp();
   const svc = getDataService();
   const insets = useSafeAreaInsets();
 
@@ -142,9 +142,10 @@ export function ProfileScreen({ navigation, route }: any) {
 
   /** Pad to whole rows so a lone final tile stays a third wide. */
   const gridData: (Post | null)[] = (() => {
-    const remainder = posts.length % GRID_COLUMNS;
-    if (remainder === 0) return posts;
-    return [...posts, ...Array(GRID_COLUMNS - remainder).fill(null)];
+    const visible = posts.filter((p) => !hiddenIds.has(p.id));
+    const remainder = visible.length % GRID_COLUMNS;
+    if (remainder === 0) return visible;
+    return [...visible, ...Array(GRID_COLUMNS - remainder).fill(null)];
   })();
 
   const header = (

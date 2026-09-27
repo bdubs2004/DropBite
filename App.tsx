@@ -44,6 +44,7 @@ import { SettingsScreen } from './src/screens/SettingsScreen';
 import { UserListScreen } from './src/screens/UserListScreen';
 import { AppProvider, useApp } from './src/state/AppContext';
 import { APP_LINK_BASE } from './src/config';
+import { parseAuthParams, sessionTokens } from './src/lib/authLink';
 import { LINK_PATHS } from './src/lib/links';
 import { colors, fonts, radius, shadow } from './src/theme';
 
@@ -155,24 +156,6 @@ function Tabs() {
   );
 }
 
-/** Pull the params out of a URL's #fragment (Supabase returns auth tokens there). */
-function parseHashParams(url: string): Record<string, string> {
-  const i = url.indexOf('#');
-  if (i < 0) return {};
-  const out: Record<string, string> = {};
-  for (const pair of url.slice(i + 1).split('&')) {
-    if (!pair) continue;
-    const eq = pair.indexOf('=');
-    const k = eq < 0 ? pair : pair.slice(0, eq);
-    const v = eq < 0 ? '' : pair.slice(eq + 1);
-    try {
-      out[decodeURIComponent(k)] = decodeURIComponent(v);
-    } catch {
-      out[k] = v;
-    }
-  }
-  return out;
-}
 
 /** The deep-link target (host + path, trimmed), e.g. "reset" or "auth/confirm". */
 function linkTarget(url: string): string {
@@ -213,20 +196,26 @@ function Root() {
     let mounted = true;
     const handle = async (url: string | null) => {
       if (!url) return;
-      const p = parseHashParams(url);
+      const p = parseAuthParams(url);
 
       // Email confirmation: the browser verified the account and handed the
-      // session tokens back through the deep link. Set the session and pull the
-      // profile so the app opens straight on the home feed — no second sign-in.
+      // session tokens back through the deep link (in the fragment, or the
+      // query if the confirm page forwarded them there). Set the session and
+      // pull the profile so the app opens straight on the home feed — no second
+      // sign-in.
       if (isConfirmLink(url)) {
-        if (p.access_token && p.refresh_token) {
+        const tokens = sessionTokens(url);
+        if (tokens) {
           try {
-            await svc.setSessionFromTokens(p.access_token, p.refresh_token);
-            await refreshMe(); // user becomes set -> Root renders the app, not AuthScreen
+            await svc.setSessionFromTokens(tokens.access_token, tokens.refresh_token);
           } catch {
             // Fall back to the sign-in screen; they can log in by hand.
           }
         }
+        // Always re-pull: the verify step may already have signed them in, and
+        // a null-token link should still refresh rather than strand them on the
+        // "check your email" screen.
+        await refreshMe(); // user becomes set -> Root renders the app, not AuthScreen
         return;
       }
 

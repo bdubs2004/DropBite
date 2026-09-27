@@ -44,8 +44,14 @@ text-decoration:none;font-weight:700;font-size:16px;padding:13px 26px;border-rad
 </main>
 <script>
   try {
-    var h = new URLSearchParams((location.hash || '').replace(/^#/, ''));
-    // Supabase appends #error=...&error_description=... when a link is expired
+    // Supabase returns the session in the URL fragment (#access_token=...), but
+    // read the query too in case an intermediary moved it there. Whatever it is,
+    // carry it through verbatim to the app.
+    var frag = (location.hash || '').replace(/^#/, '');
+    var qry = (location.search || '').replace(/^\?/, '');
+    var carry = location.hash || location.search || '';
+    var h = new URLSearchParams(frag || qry);
+    // Supabase appends error=...&error_description=... when a link is expired
     // or already used. Show the recovery message instead of a false "all set".
     if (h.get('error') || h.get('error_code')) {
       document.getElementById('ok').hidden = true;
@@ -55,11 +61,13 @@ text-decoration:none;font-weight:700;font-size:16px;padding:13px 26px;border-rad
       if (d) document.getElementById('errmsg').textContent =
         decodeURIComponent(d.replace(/\+/g, ' '));
     } else {
-      // Forward the session tokens (in the URL fragment) into the app's deep
-      // link, so tapping "Open NiblGo" signs the user in and lands them on the
-      // home feed instead of the sign-in screen.
+      // Forward the session into the app's deep link so tapping "Open NiblGo"
+      // signs the user in and lands them on the home feed, not the sign-in
+      // screen. Also fire it automatically, so most people never have to tap.
+      var target = 'niblgo://auth/confirm' + carry;
       var btn = document.getElementById('openBtn');
-      if (btn) btn.href = 'niblgo://auth/confirm' + (location.hash || '');
+      if (btn) btn.href = target;
+      setTimeout(function () { try { location.href = target; } catch (_) {} }, 400);
     }
   } catch (_) {}
 </script>

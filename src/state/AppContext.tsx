@@ -26,8 +26,10 @@ interface AppState {
   refreshMe: () => Promise<void>;
   setUser: (u: User | null) => void;
   setPrefs: (p: NotificationPrefs) => Promise<void>;
-  /** Hide a post from the feed (e.g. after reporting it). Persists. */
+  /** Hide a post everywhere (e.g. after reporting it). Persists. */
   hidePost: (postId: string) => Promise<void>;
+  /** Ids of posts the viewer has hidden, so every list can filter them out. */
+  hiddenIds: Set<string>;
 }
 
 const Ctx = createContext<AppState | null>(null);
@@ -44,17 +46,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     lunch: true,
     dinner: true,
   });
-  // Posts the viewer reported/hid. Kept in a ref (not state) so refreshFeed can
-  // read the current set without being rebuilt every time it changes; loaded
+  // Posts the viewer reported/hid, so they stop showing ANYWHERE — feed,
+  // Discover, profiles, search, and the post screen itself. State-backed so
+  // every screen re-renders the moment one is hidden; a mirroring ref lets
+  // refreshFeed read the current set without being rebuilt each change. Loaded
   // from storage on boot so a hidden post stays hidden across app launches.
-  const hidden = useRef<Set<string>>(new Set());
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
+  const hiddenRef = useRef(hiddenIds);
+  hiddenRef.current = hiddenIds;
 
   const refreshFeed = useCallback(async () => {
     if (!user) return;
     setFeedLoading(true);
     try {
       const [posts, s] = await Promise.all([svc.getFeed(), svc.getStreak(user.id)]);
-      setFeed(posts.filter((p) => !hidden.current.has(p.id)));
+      setFeed(posts.filter((p) => !hiddenRef.current.has(p.id)));
       setStreak(s);
     } finally {
       setFeedLoading(false);
@@ -62,12 +68,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [user, svc]);
 
   const hidePost = useCallback(async (postId: string) => {
-    hidden.current.add(postId);
+    let nextArr: string[] = [];
+    setHiddenIds((prev) => {
+      const next = new Set(prev);
+      next.add(postId);
+      nextArr = [...next];
+      return next;
+    });
     // Drop it from the feed we're already showing so the photo disappears now,
     // without waiting for a refresh.
     setFeed((prev) => prev.filter((p) => p.id !== postId));
     try {
-      await AsyncStorage.setItem(HIDDEN_KEY, JSON.stringify([...hidden.current]));
+      await AsyncStorage.setItem(HIDDEN_KEY, JSON.stringify(nextArr));
     } catch {
       // A failed write just means the post reappears on next launch — not worth
       // interrupting the report flow over.
@@ -85,7 +97,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // Restore hidden posts before the first feed load so they never flash in.
         try {
           const raw = await AsyncStorage.getItem(HIDDEN_KEY);
-          if (raw) hidden.current = new Set<string>(JSON.parse(raw));
+          if (raw) setHiddenIds(new Set<string>(JSON.parse(raw)));
         } catch {
           // Ignore a corrupt/missing store — start with nothing hidden.
         }
@@ -144,8 +156,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setUser,
       setPrefs,
       hidePost,
+      hiddenIds,
     }),
-    [booted, user, feed, feedLoading, streak, prefs, refreshFeed, refreshMe, setPrefs, hidePost],
+    [booted, user, feed, feedLoading, streak, prefs, refreshFeed, refreshMe, setPrefs, hidePost, hiddenIds],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

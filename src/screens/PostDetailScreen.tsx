@@ -29,8 +29,14 @@ import { Post } from '../types';
 export function PostDetailScreen({ navigation, route }: any) {
   const postId: string = route.params.postId;
   const svc = getDataService();
-  const { user } = useApp();
+  const { user, hiddenIds } = useApp();
   const insets = useSafeAreaInsets();
+
+  // If this post gets hidden (you just reported it), don't sit here staring at
+  // it — step back to wherever you came from.
+  useEffect(() => {
+    if (hiddenIds.has(postId)) navigation.goBack();
+  }, [hiddenIds, postId, navigation]);
 
   const [post, setPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState(true);
