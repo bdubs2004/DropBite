@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -57,6 +57,18 @@ export function PostDetailScreen({ navigation, route }: any) {
       firstLoad.current = false;
     }, [load]),
   );
+
+  // When opened from the long-press peek's comment button, slide the comments
+  // sheet up over this post once. A ref guard keeps it from reopening every
+  // time the screen regains focus (e.g. after closing the comments).
+  const openedComments = useRef(false);
+  useEffect(() => {
+    if (route.params?.openComments && !openedComments.current) {
+      openedComments.current = true;
+      navigation.navigate('Comments', { postId });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const pullRefresh = async () => {
     setRefreshing(true);

@@ -392,6 +392,12 @@ export function CommentsScreen({ navigation, route }: any) {
               { paddingBottom: keyboardUp ? spacing.md : Math.max(insets.bottom, spacing.md) },
             ]}
           >
+            {/* The composer's background runs on down behind the keyboard, so
+                there's no transparent sliver showing the feed between the bar
+                and the keyboard (or in the corners) when the keyboard is up.
+                It's anchored at the composer's bottom edge, so with the keyboard
+                down it sits off the bottom of the screen and never shows. */}
+            <View pointerEvents="none" style={styles.kbFill} />
             <Avatar user={user} size={32} />
             <Pressable
               testID="comment-attach"
@@ -644,6 +650,14 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     borderTopWidth: 1,
     borderColor: colors.hairline,
+    backgroundColor: colors.white,
+  },
+  kbFill: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: '100%',
+    height: 900,
     backgroundColor: colors.white,
   },
   input: {

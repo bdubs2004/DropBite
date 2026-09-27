@@ -51,6 +51,15 @@ export function PostPeekScreen({ navigation, route }: any) {
     navigation.navigate(screen, params);
   };
 
+  // Comments open *over the post*, not over the grid: dismiss the peek, open the
+  // post, and let PostDetail slide the comments sheet up on top of it. So
+  // backing out of comments lands you on the post, the way it does everywhere
+  // else — not straight back to the grid.
+  const openComments = () => {
+    navigation.goBack();
+    navigation.navigate('PostDetail', { postId, openComments: true });
+  };
+
   const like = () => {
     const next = !liked;
     setLiked(next);
@@ -125,7 +134,7 @@ export function PostPeekScreen({ navigation, route }: any) {
               <Pressable
                 testID="peek-comment"
                 style={styles.action}
-                onPress={() => goTo('Comments', { postId })}
+                onPress={openComments}
                 hitSlop={8}
               >
                 <Ionicons name="chatbubble-outline" size={22} color={colors.cocoaSoft} />
