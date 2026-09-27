@@ -23,14 +23,14 @@ import { relativeTime } from '../lib/time';
 import { useKeyboardVisible } from '../lib/useKeyboardVisible';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
-import { colors, fonts, radius, spacing } from '../theme';
+import { colors, fonts, MEAL_SLOT_META, radius, spacing } from '../theme';
 import { Message } from '../types';
 
 /** Bubble width for an attached photo, and the height of its 4:5 frame. */
 const PHOTO_W = 190;
 
 /** A shared-post card fills most of the bubble so it doesn't leave dead space. */
-const SHARED_W = Math.min(300, Math.round(Dimensions.get('window').width * 0.72));
+const SHARED_W = Math.min(320, Math.round(Dimensions.get('window').width * 0.78));
 
 /** One DM thread. Messages can be text, a shared post, or both. */
 export function ChatScreen({ navigation, route }: any) {
@@ -186,9 +186,15 @@ export function ChatScreen({ navigation, route }: any) {
                       </Text>
                     </Pressable>
                     <PostThumb post={item.shared_post} radius={0} style={styles.sharedThumb} />
-                    {item.shared_post.blurb ? (
+                    {item.shared_post.blurb || item.shared_post.meal_slot ? (
                       <View style={styles.sharedMeta}>
                         <Text style={styles.sharedBlurb} numberOfLines={2}>
+                          {item.shared_post.meal_slot ? (
+                            <Text style={styles.sharedTag}>
+                              {MEAL_SLOT_META[item.shared_post.meal_slot].label}
+                              {item.shared_post.blurb ? '  ' : ''}
+                            </Text>
+                          ) : null}
                           {item.shared_post.blurb}
                         </Text>
                       </View>
@@ -322,7 +328,7 @@ const styles = StyleSheet.create({
   backBtn: { flexDirection: 'row', alignItems: 'center', gap: 2, width: 60, marginLeft: -4 },
   back: { fontFamily: fonts.bold, color: colors.amberDark, fontSize: 15 },
   title: { fontFamily: fonts.display, fontSize: 17, color: colors.cocoa, flex: 1, textAlign: 'center' },
-  bubbleWrap: { marginBottom: spacing.md, maxWidth: '82%' },
+  bubbleWrap: { marginBottom: spacing.md, maxWidth: '88%' },
   wrapMine: { alignSelf: 'flex-end', alignItems: 'flex-end' },
   wrapTheirs: { alignSelf: 'flex-start', alignItems: 'flex-start' },
   bubble: {
@@ -357,13 +363,17 @@ const styles = StyleSheet.create({
     fontSize: 14.5,
     color: colors.cocoa,
   },
-  sharedThumb: { width: SHARED_W, height: Math.round(SHARED_W * 0.9) },
+  sharedThumb: { width: SHARED_W, height: SHARED_W },
   sharedMeta: { paddingHorizontal: 12, paddingVertical: 11 },
   sharedBlurb: {
     fontFamily: fonts.semi,
     fontSize: 13.5,
     lineHeight: 19,
     color: colors.cocoa,
+  },
+  sharedTag: {
+    fontFamily: fonts.bold,
+    color: colors.amberDark,
   },
   time: { fontSize: 11, marginTop: 3 },
   photo: {
