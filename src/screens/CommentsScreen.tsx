@@ -62,6 +62,9 @@ export function CommentsScreen({ navigation, route }: any) {
 
   const close = () => navigation.goBack();
 
+  // Tapping a commenter's avatar or handle opens their profile, like Instagram.
+  const openProfile = (userId: string) => navigation.navigate('UserProfile', { userId });
+
   // Drag the sheet down to dismiss.
   const translateY = useRef(new Animated.Value(0)).current;
   const dragDown = useRef(
@@ -225,10 +228,22 @@ export function CommentsScreen({ navigation, route }: any) {
       onLongPress={() => (c.can_delete || c.user_id !== user?.id) && setMenuFor(c)}
       delayLongPress={350}
     >
-      <Avatar user={c.user} size={indented ? 28 : 34} />
+      <Pressable
+        testID={`comment-avatar-${c.id}`}
+        onPress={() => c.user_id && openProfile(c.user_id)}
+        hitSlop={6}
+      >
+        <Avatar user={c.user} size={indented ? 28 : 34} />
+      </Pressable>
       <View style={styles.body}>
         <Text style={styles.text}>
-          <Text style={styles.handle}>{c.user?.handle ?? 'unknown'} </Text>
+          <Text
+            style={styles.handle}
+            onPress={() => c.user_id && openProfile(c.user_id)}
+            suppressHighlighting
+          >
+            {c.user?.handle ?? 'unknown'}
+          </Text>{' '}
           {c.text}
         </Text>
         {c.image_url ? (

@@ -37,7 +37,7 @@ export function ActionSheet({
   const insets = useSafeAreaInsets();
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
         {/* Swallow taps inside the sheet so it doesn't dismiss itself. */}
         <Pressable
