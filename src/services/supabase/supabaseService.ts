@@ -396,6 +396,15 @@ export class SupabaseService implements DataService {
     return (data ?? []).map((r: any) => r.users as User).filter(Boolean);
   }
 
+  async getCommentLikers(commentId: string): Promise<User[]> {
+    const { data } = await this.sb
+      .from('comment_reactions')
+      .select('users(*)')
+      .eq('comment_id', commentId)
+      .order('created_at', { ascending: false });
+    return (data ?? []).map((r: any) => r.users as User).filter(Boolean);
+  }
+
   private hydrateRow(row: any, meId: string): Post {
     return {
       ...(row as Post),

@@ -14,20 +14,24 @@ import { User } from '../types';
  * notice instead of the names.
  */
 export function UserListScreen({ navigation, route }: any) {
-  const { userId, mode, displayName, isPrivate, isMe } = route.params as {
-    userId: string;
-    mode: 'followers' | 'following';
-    displayName: string;
-    isPrivate: boolean;
-    isMe: boolean;
+  const { userId, mode, displayName, isPrivate, isMe, commentId } = route.params as {
+    userId?: string;
+    mode: 'followers' | 'following' | 'comment_likes';
+    displayName?: string;
+    isPrivate?: boolean;
+    isMe?: boolean;
+    /** Set when mode is 'comment_likes'. */
+    commentId?: string;
   };
   const svc = getDataService();
   const insets = useSafeAreaInsets();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const gated = isPrivate && !isMe;
-  const title = mode === 'followers' ? 'Followers' : 'Following';
+  // Only follower/following lists can be private; comment likes are public.
+  const gated = mode !== 'comment_likes' && !!isPrivate && !isMe;
+  const title =
+    mode === 'followers' ? 'Followers' : mode === 'following' ? 'Following' : 'Likes';
 
   const load = useCallback(async () => {
     if (gated) {
@@ -35,12 +39,14 @@ export function UserListScreen({ navigation, route }: any) {
       return;
     }
     const list =
-      mode === 'followers'
-        ? await svc.getFollowers(userId)
-        : await svc.getFollowingUsers(userId);
+      mode === 'comment_likes'
+        ? await svc.getCommentLikers(commentId!)
+        : mode === 'followers'
+          ? await svc.getFollowers(userId!)
+          : await svc.getFollowingUsers(userId!);
     setUsers(list);
     setLoading(false);
-  }, [svc, userId, mode, gated]);
+  }, [svc, userId, mode, gated, commentId]);
 
   useEffect(() => {
     load();
@@ -54,7 +60,13 @@ export function UserListScreen({ navigation, route }: any) {
         </Pressable>
         <View>
           <Text style={styles.title}>{title}</Text>
-          <Muted>{isMe ? 'You' : displayName}</Muted>
+          <Muted>
+            {mode === 'comment_likes'
+              ? 'People who liked this comment'
+              : isMe
+                ? 'You'
+                : displayName}
+          </Muted>
         </View>
         <View style={{ width: 30 }} />
       </View>
@@ -91,7 +103,13 @@ export function UserListScreen({ navigation, route }: any) {
             </Pressable>
           )}
           ListEmptyComponent={
-            loading ? null : (
+            loading ? null : mode === 'comment_likes' ? (
+              <View style={styles.empty}>
+                <Ionicons name="heart-outline" size={44} color={colors.cocoaFaint} />
+                <Text style={styles.emptyTitle}>No likes yet</Text>
+                <Muted style={styles.emptyBody}>Be the first to like this comment.</Muted>
+              </View>
+            ) : (
               // Give the empty case the same weight as the private one: an
               // icon, a headline, and a line telling you what to do next.
               <View style={styles.empty}>

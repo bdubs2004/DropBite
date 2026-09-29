@@ -1188,6 +1188,14 @@ export class MockService implements DataService {
     await this.save();
   }
 
+  async getCommentLikers(commentId: string): Promise<User[]> {
+    const db = await this.load();
+    const ids = (db.commentReactions ?? [])
+      .filter((r) => r.comment_id === commentId)
+      .map((r) => r.user_id);
+    return ids.map((id) => db.users.find((u) => u.id === id)).filter(Boolean) as User[];
+  }
+
   async addComment(
     postId: string,
     text: string,
