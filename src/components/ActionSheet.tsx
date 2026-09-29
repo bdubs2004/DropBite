@@ -86,8 +86,9 @@ export function ActionSheet({
 }
 
 const styles = StyleSheet.create({
-  // No dim behind the sheet — just the popup itself over the screen.
-  backdrop: { flex: 1, backgroundColor: 'transparent', justifyContent: 'flex-end' },
+  // A dim behind the sheet that fades in with it (Modal animationType="fade"),
+  // Instagram-style: the shadow just appears rather than the sheet sliding up.
+  backdrop: { flex: 1, backgroundColor: colors.overlay, justifyContent: 'flex-end' },
   sheet: {
     backgroundColor: colors.cream,
     borderTopLeftRadius: radius.xl,
