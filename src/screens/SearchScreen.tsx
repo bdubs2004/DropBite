@@ -142,7 +142,7 @@ export function SearchScreen({ navigation }: any) {
   const header = (
     <View style={styles.header}>
       <ScreenTitle>Search</ScreenTitle>
-      <Muted>Find people and dishes.</Muted>
+      <Muted>Find people and dishes</Muted>
       <View style={{ marginTop: spacing.md }}>
         <View>
           <Input
@@ -271,8 +271,8 @@ export function SearchScreen({ navigation }: any) {
         <Ionicons name={tab === 'dishes' ? 'restaurant-outline' : 'people-outline'} size={40} color={colors.cocoaFaint} />
         <Muted style={styles.emptyText}>
           {tab === 'dishes'
-            ? 'Search for a dish or an ingredient, like chicken, pancakes, or gochujang.'
-            : 'Search for someone by name or handle.'}
+            ? 'Search for a dish or an ingredient, like chicken, pancakes, or gochujang'
+            : 'Search for someone by name or handle'}
         </Muted>
       </View>
     )
@@ -281,7 +281,7 @@ export function SearchScreen({ navigation }: any) {
   ) : (
     <View style={styles.empty}>
       <Muted style={styles.emptyText}>
-        Nothing matched “{query.trim()}”. Try a different word.
+        Nothing matched “{query.trim()}”. Try a different word
       </Muted>
     </View>
   );
