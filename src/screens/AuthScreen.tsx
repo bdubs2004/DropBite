@@ -11,8 +11,10 @@ import {
 } from 'react-native';
 import { DEMO_MODE, PRIVACY_URL, TERMS_URL } from '../config';
 import { LogoMark } from '../components/Logo';
+import { PasswordChecklist } from '../components/PasswordChecklist';
 import { Button, Input, Muted } from '../components/ui';
 import { LIMITS } from '../lib/limits';
+import { passwordMeetsAll } from '../lib/passwordRules';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
 import { colors, fonts, radius, spacing } from '../theme';
@@ -34,7 +36,9 @@ function authErrorMessage(e: any, mode: 'signin' | 'signup'): string {
   if (/already registered|already exists|user already/i.test(raw)) {
     return 'That email cannot be used. Try signing in instead.';
   }
-  if (/password/i.test(raw)) return `Password must be at least ${LIMITS.passwordMin} characters.`;
+  if (/password/i.test(raw)) {
+    return `Your password needs at least ${LIMITS.passwordMin} characters, a number, and a special character.`;
+  }
   if (/rate|too many/i.test(raw)) return 'Too many attempts. Please wait a minute and try again.';
   return 'Could not create the account. Please check your details and try again.';
 }
@@ -159,8 +163,13 @@ export function AuthScreen() {
 
   const valid =
     EMAIL_RE.test(email.trim()) &&
-    password.length >= LIMITS.passwordMin &&
-    (mode === 'signin' || (handle.trim().length >= 2 && displayName.trim().length >= 1));
+    // Sign-in only needs a non-trivial password (existing accounts predate the
+    // rules); sign-up must satisfy the full checklist.
+    (mode === 'signin'
+      ? password.length >= LIMITS.passwordMin
+      : passwordMeetsAll(password) &&
+        handle.trim().length >= 2 &&
+        displayName.trim().length >= 1);
 
   // Sign-in blocked because the account was never confirmed. Offer a resend
   // instead of a dead end — their original link may have expired or been eaten
@@ -333,7 +342,7 @@ export function AuthScreen() {
           />
           <Input
             label="Password"
-            placeholder={`At least ${LIMITS.passwordMin} characters`}
+            placeholder={mode === 'signup' ? 'Create a password' : 'Your password'}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -341,6 +350,8 @@ export function AuthScreen() {
             autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
             maxLength={128}
           />
+
+          {mode === 'signup' ? <PasswordChecklist password={password} /> : null}
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
 

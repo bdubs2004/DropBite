@@ -8,8 +8,9 @@ import {
   View,
 } from 'react-native';
 import { LogoMark } from '../components/Logo';
+import { PasswordChecklist } from '../components/PasswordChecklist';
 import { Button, Input, Muted } from '../components/ui';
-import { LIMITS } from '../lib/limits';
+import { passwordMeetsAll } from '../lib/passwordRules';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
 import { colors, fonts, radius, spacing } from '../theme';
@@ -38,7 +39,7 @@ export function ResetPasswordScreen({
   const [formError, setFormError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
-  const valid = password.length >= LIMITS.passwordMin && password === confirm;
+  const valid = passwordMeetsAll(password) && password === confirm;
 
   const submit = async () => {
     setBusy(true);
@@ -110,7 +111,7 @@ export function ResetPasswordScreen({
       </Muted>
       <Input
         label="New password"
-        placeholder={`At least ${LIMITS.passwordMin} characters`}
+        placeholder="Create a new password"
         value={password}
         onChangeText={setPassword}
         secureTextEntry
@@ -118,6 +119,7 @@ export function ResetPasswordScreen({
         autoComplete="new-password"
         maxLength={128}
       />
+      <PasswordChecklist password={password} />
       <Input
         label="Confirm password"
         placeholder="Type it again"
