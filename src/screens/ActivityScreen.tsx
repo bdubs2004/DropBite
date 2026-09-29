@@ -4,6 +4,7 @@ import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PostCard } from '../components/PostCard';
+import { PostThumb } from '../components/PostThumb';
 import { Muted } from '../components/ui';
 import { usePostActions } from '../lib/usePostActions';
 import { getDataService } from '../services';
@@ -12,6 +13,10 @@ import { colors, fonts, radius, shadowSoft, spacing } from '../theme';
 import { Post } from '../types';
 
 export type ActivityTab = 'liked' | 'saved' | 'commented';
+type Layout = 'grid' | 'list';
+
+const GRID_COLUMNS = 3;
+const GRID_GAP = 2;
 
 const TABS: { key: ActivityTab; label: string; icon: any; empty: string }[] = [
   {
@@ -48,6 +53,9 @@ export function ActivityScreen({ navigation, route }: any) {
   const [tab, setTab] = useState<ActivityTab>(route.params?.tab ?? 'liked');
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  // Grid (Instagram-style) or the richer list. Grid by default — it's what the
+  // save area is really for: scanning a wall of photos.
+  const [layout, setLayout] = useState<Layout>('grid');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -74,6 +82,20 @@ export function ActivityScreen({ navigation, route }: any) {
   );
   const active = TABS.find((t) => t.key === tab)!;
 
+  // Pad the last grid row so a lone item stays a third-width, not full-width.
+  const gridData: (Post | null)[] = (() => {
+    const remainder = posts.length % GRID_COLUMNS;
+    if (remainder === 0) return posts;
+    return [...posts, ...Array(GRID_COLUMNS - remainder).fill(null)];
+  })();
+
+  const emptyState = (
+    <View style={styles.empty}>
+      <Ionicons name={active.icon} size={40} color={colors.cocoaFaint} />
+      <Muted style={{ textAlign: 'center', paddingHorizontal: spacing.xl }}>{active.empty}</Muted>
+    </View>
+  );
+
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <View style={styles.header}>
@@ -82,7 +104,32 @@ export function ActivityScreen({ navigation, route }: any) {
           <Text style={styles.back}>Back</Text>
         </Pressable>
         <Text style={styles.title}>Your activity</Text>
-        <View style={{ width: 60 }} />
+        <View style={styles.layoutToggle}>
+          <Pressable
+            testID="layout-grid"
+            onPress={() => setLayout('grid')}
+            hitSlop={6}
+            style={[styles.layoutBtn, layout === 'grid' && styles.layoutBtnActive]}
+          >
+            <Ionicons
+              name="grid"
+              size={16}
+              color={layout === 'grid' ? colors.amberDark : colors.cocoaFaint}
+            />
+          </Pressable>
+          <Pressable
+            testID="layout-list"
+            onPress={() => setLayout('list')}
+            hitSlop={6}
+            style={[styles.layoutBtn, layout === 'list' && styles.layoutBtnActive]}
+          >
+            <Ionicons
+              name="list"
+              size={18}
+              color={layout === 'list' ? colors.amberDark : colors.cocoaFaint}
+            />
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.tabs}>
@@ -105,8 +152,33 @@ export function ActivityScreen({ navigation, route }: any) {
 
       {loading ? (
         <ActivityIndicator color={colors.amber} style={{ marginTop: spacing.xl }} />
+      ) : layout === 'grid' ? (
+        <FlatList
+          // key forces a remount when switching columns count.
+          key="grid"
+          testID="activity-grid"
+          data={gridData}
+          keyExtractor={(p, i) => p?.id ?? `spacer-${i}`}
+          numColumns={GRID_COLUMNS}
+          columnWrapperStyle={{ gap: GRID_GAP }}
+          contentContainerStyle={{ gap: GRID_GAP, paddingTop: spacing.md, paddingBottom: 120 }}
+          renderItem={({ item }) =>
+            item ? (
+              <PostThumb
+                post={item}
+                onPress={() => navigation.navigate('PostDetail', { postId: item.id })}
+                onLongPress={() => navigation.navigate('PostPeek', { postId: item.id })}
+                style={{ flex: 1 }}
+              />
+            ) : (
+              <View style={{ flex: 1 }} />
+            )
+          }
+          ListEmptyComponent={emptyState}
+        />
       ) : (
         <FlatList
+          key="list"
           testID="activity-list"
           data={posts}
           keyExtractor={(p) => p.id}
@@ -125,14 +197,7 @@ export function ActivityScreen({ navigation, route }: any) {
               isMine={item.user_id === user?.id}
             />
           )}
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <Ionicons name={active.icon} size={40} color={colors.cocoaFaint} />
-              <Muted style={{ textAlign: 'center', paddingHorizontal: spacing.xl }}>
-                {active.empty}
-              </Muted>
-            </View>
-          }
+          ListEmptyComponent={emptyState}
         />
       )}
     </View>
@@ -151,6 +216,23 @@ const styles = StyleSheet.create({
   backBtn: { flexDirection: 'row', alignItems: 'center', gap: 2, width: 60, marginLeft: -4 },
   back: { fontFamily: fonts.bold, color: colors.amberDark, fontSize: 15 },
   title: { fontFamily: fonts.display, fontSize: 18, color: colors.cocoa },
+  layoutToggle: {
+    flexDirection: 'row',
+    gap: 2,
+    backgroundColor: colors.creamDark,
+    borderRadius: radius.pill,
+    padding: 3,
+    width: 60,
+    justifyContent: 'flex-end',
+  },
+  layoutBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  layoutBtnActive: { backgroundColor: colors.white, ...(shadowSoft as object) },
   tabs: {
     flexDirection: 'row',
     backgroundColor: colors.creamDark,
