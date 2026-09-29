@@ -484,6 +484,17 @@ export class MockService implements DataService {
       .map((p) => this.hydrate(db, p, meId));
   }
 
+  async getReposts(userId: string): Promise<Post[]> {
+    const db = await this.load();
+    const meId = db.sessionUserId ?? '';
+    return db.reposts
+      .filter((r) => r.user_id === userId)
+      .sort((a, b) => (b as any).created_at?.localeCompare?.((a as any).created_at) ?? 0)
+      .map((r) => db.posts.find((p) => p.id === r.post_id))
+      .filter((p): p is NonNullable<typeof p> => Boolean(p))
+      .map((p) => this.hydrate(db, p, meId));
+  }
+
   async createPost(input: NewPostInput): Promise<Post> {
     const db = await this.load();
     const me = await this.me();

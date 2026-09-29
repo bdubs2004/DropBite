@@ -619,6 +619,28 @@ export class SupabaseService implements DataService {
     return (data ?? []).map((row: any) => this.hydrateRow(row, meId));
   }
 
+  async getReposts(userId: string): Promise<Post[]> {
+    const meId = await this.myId();
+    const { data: reposts } = await this.sb
+      .from('reposts')
+      .select('post_id, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    const ids = (reposts ?? []).map((r: any) => r.post_id);
+    if (!ids.length) return [];
+    const { data: postsData } = await this.sb
+      .from('posts')
+      .select(this.POST_SELECT)
+      .in('id', ids);
+    const byId = new Map<string, Post>(
+      (postsData ?? []).map((row: any) => [row.id, this.hydrateRow(row, meId)]),
+    );
+    // Keep the newest-first repost order; skip any deleted/hidden post.
+    return (reposts ?? [])
+      .map((r: any) => byId.get(r.post_id))
+      .filter((p: Post | undefined): p is Post => Boolean(p));
+  }
+
   /** Upload a local photo URI to the "photos" bucket, return its public URL. */
   private async uploadPhoto(localUri: string, meId: string): Promise<string> {
     const path = `${meId}/${Date.now()}.jpg`;
