@@ -120,7 +120,7 @@ export function DiscoverScreen({ navigation }: any) {
     <View style={styles.header}>
       <ScreenTitle>Discover</ScreenTitle>
       <Muted>
-        {tab === 'posts' ? 'What everyone is eating right now.' : 'People worth following.'}
+        {tab === 'posts' ? 'What everyone is eating right now' : 'People worth following'}
       </Muted>
       <View style={styles.tabs}>
         <TabButton label="Posts" active={tab === 'posts'} onPress={() => setTab('posts')} />

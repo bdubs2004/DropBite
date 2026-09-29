@@ -1,6 +1,7 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PostCard } from '../components/PostCard';
@@ -17,6 +18,8 @@ type Layout = 'grid' | 'list';
 
 const GRID_COLUMNS = 3;
 const GRID_GAP = 2;
+/** Remembers the viewer's grid/list preference across visits. */
+const LAYOUT_KEY = 'niblgo.activityLayout';
 
 const TABS: { key: ActivityTab; label: string; icon: any; empty: string }[] = [
   {
@@ -54,8 +57,22 @@ export function ActivityScreen({ navigation, route }: any) {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   // Grid (Instagram-style) or the richer list. Grid by default — it's what the
-  // save area is really for: scanning a wall of photos.
-  const [layout, setLayout] = useState<Layout>('grid');
+  // save area is really for: scanning a wall of photos — but the last choice is
+  // remembered across visits.
+  const [layout, setLayoutState] = useState<Layout>('grid');
+
+  useEffect(() => {
+    AsyncStorage.getItem(LAYOUT_KEY)
+      .then((v) => {
+        if (v === 'grid' || v === 'list') setLayoutState(v);
+      })
+      .catch(() => {});
+  }, []);
+
+  const setLayout = (l: Layout) => {
+    setLayoutState(l);
+    AsyncStorage.setItem(LAYOUT_KEY, l).catch(() => {});
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
