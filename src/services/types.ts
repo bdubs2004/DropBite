@@ -91,6 +91,8 @@ export interface DataService {
   // posts
   getFeed(): Promise<Post[]>; // me + people I follow, newest first
   getUserPosts(userId: string): Promise<Post[]>;
+  /** Posts a user has reposted, most recently reposted first. */
+  getReposts(userId: string): Promise<Post[]>;
   getPost(postId: string): Promise<Post | null>;
   /** Everyone's posts, newest first — the Discover grid, not just your feed. */
   getDiscoverPosts(): Promise<Post[]>;

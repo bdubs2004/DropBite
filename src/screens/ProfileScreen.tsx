@@ -42,6 +42,8 @@ export function ProfileScreen({ navigation, route }: any) {
   // name shows the moment Settings updates it.
   const profile = isMe ? me : otherProfile;
   const [posts, setPosts] = useState<Post[]>([]);
+  const [reposts, setReposts] = useState<Post[]>([]);
+  const [tab, setTab] = useState<'posts' | 'reposts'>('posts');
   const [streak, setStreak] = useState<Streak | null>(null);
   const [counts, setCounts] = useState({ followers: 0, following: 0 });
   const [following, setFollowing] = useState(false);
@@ -66,13 +68,15 @@ export function ProfileScreen({ navigation, route }: any) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [userPosts, s, c, followingIds] = await Promise.all([
+      const [userPosts, userReposts, s, c, followingIds] = await Promise.all([
         svc.getUserPosts(userId),
+        svc.getReposts(userId),
         svc.getStreak(userId),
         svc.getFollowCounts(userId),
         svc.getFollowingIds(),
       ]);
       setPosts(userPosts);
+      setReposts(userReposts);
       setStreak(s);
       setCounts(c);
       setFollowing(followingIds.includes(userId));
@@ -141,8 +145,9 @@ export function ProfileScreen({ navigation, route }: any) {
   };
 
   /** Pad to whole rows so a lone final tile stays a third wide. */
+  const source = tab === 'posts' ? posts : reposts;
   const gridData: (Post | null)[] = (() => {
-    const visible = posts.filter((p) => !hiddenIds.has(p.id));
+    const visible = source.filter((p) => !hiddenIds.has(p.id));
     const remainder = visible.length % GRID_COLUMNS;
     if (remainder === 0) return visible;
     return [...visible, ...Array(GRID_COLUMNS - remainder).fill(null)];
@@ -279,7 +284,36 @@ export function ProfileScreen({ navigation, route }: any) {
           </View>
         )}
       </View>
-      {posts.length ? <Text style={styles.sectionTitle}>Posts</Text> : null}
+      <View style={styles.profileTabs}>
+        <Pressable
+          testID="profile-tab-posts"
+          onPress={() => setTab('posts')}
+          style={[styles.profileTab, tab === 'posts' && styles.profileTabActive]}
+        >
+          <Ionicons
+            name="grid"
+            size={16}
+            color={tab === 'posts' ? colors.amberDark : colors.cocoaSoft}
+          />
+          <Text style={[styles.profileTabText, tab === 'posts' && styles.profileTabTextActive]}>
+            Posts
+          </Text>
+        </Pressable>
+        <Pressable
+          testID="profile-tab-reposts"
+          onPress={() => setTab('reposts')}
+          style={[styles.profileTab, tab === 'reposts' && styles.profileTabActive]}
+        >
+          <Ionicons
+            name="repeat"
+            size={18}
+            color={tab === 'reposts' ? colors.amberDark : colors.cocoaSoft}
+          />
+          <Text style={[styles.profileTabText, tab === 'reposts' && styles.profileTabTextActive]}>
+            Reposts
+          </Text>
+        </Pressable>
+      </View>
     </View>
   );
 
@@ -318,7 +352,11 @@ export function ProfileScreen({ navigation, route }: any) {
         ListEmptyComponent={
           loading ? null : (
             <Muted style={{ textAlign: 'center', marginTop: spacing.xl }}>
-              No posts yet.
+              {tab === 'posts'
+                ? 'No posts yet'
+                : isMe
+                  ? 'Posts you repost show up here'
+                  : 'No reposts yet'}
             </Muted>
           )
         }
@@ -617,4 +655,25 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     marginLeft: spacing.xs,
   },
+  profileTabs: {
+    flexDirection: 'row',
+    backgroundColor: colors.creamDark,
+    borderRadius: radius.pill,
+    padding: 4,
+    gap: 4,
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  profileTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 9,
+    borderRadius: radius.pill,
+  },
+  profileTabActive: { backgroundColor: colors.white, ...(shadowSoft as object) },
+  profileTabText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.cocoaSoft },
+  profileTabTextActive: { color: colors.amberDark },
 });
