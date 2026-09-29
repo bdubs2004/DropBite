@@ -257,9 +257,15 @@ export function CommentsScreen({ navigation, route }: any) {
         <View style={styles.metaRow}>
           <Text style={styles.time}>{relativeTime(c.created_at)}</Text>
           {c.like_count ? (
-            <Text style={styles.metaCount}>
-              {c.like_count} {c.like_count === 1 ? 'like' : 'likes'}
-            </Text>
+            <Pressable
+              testID={`comment-likes-${c.id}`}
+              onPress={() => navigation.navigate('UserList', { mode: 'comment_likes', commentId: c.id })}
+              hitSlop={8}
+            >
+              <Text style={styles.metaCount}>
+                {c.like_count} {c.like_count === 1 ? 'like' : 'likes'}
+              </Text>
+            </Pressable>
           ) : null}
           <Pressable testID={`comment-reply-${c.id}`} onPress={() => startReply(c)} hitSlop={8}>
             <Text style={styles.metaAction}>Reply</Text>

@@ -114,6 +114,8 @@ export interface DataService {
   ): Promise<Comment>;
   /** Like/unlike a comment. Idempotent per user. */
   toggleCommentLike(commentId: string): Promise<void>;
+  /** The people who liked a comment, most recent first. */
+  getCommentLikers(commentId: string): Promise<User[]>;
   /** Delete a comment you wrote, or any comment on a post you own. */
   deleteComment(commentId: string): Promise<void>;
   toggleRepost(postId: string): Promise<void>;
