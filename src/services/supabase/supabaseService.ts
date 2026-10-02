@@ -881,7 +881,23 @@ export class SupabaseService implements DataService {
       .update({ updated_at: new Date().toISOString() })
       .eq('id', conversationId);
 
+    // Fire a push to the other (un-muted) members. Fire-and-forget: a failed or
+    // slow push must never slow down or fail sending the message.
+    this.sb.functions
+      .invoke('notify-message', { body: { conversationId, messageId: (data as any).id } })
+      .catch(() => {});
+
     return this.hydrateMessageRow(data);
+  }
+
+  async savePushToken(token: string, platform: string): Promise<void> {
+    const meId = await this.myId();
+    await this.sb
+      .from('push_tokens')
+      .upsert(
+        { user_id: meId, token, platform, updated_at: new Date().toISOString() },
+        { onConflict: 'user_id,token' },
+      );
   }
 
   async startConversation(userId: string): Promise<string> {
@@ -1011,6 +1027,33 @@ export class SupabaseService implements DataService {
   async sharePostToGroup(postId: string, userIds: string[]): Promise<void> {
     const convId = await this.startGroupConversation(userIds);
     await this.sendMessage(convId, { sharedPostId: postId });
+  }
+
+  async getConversationMembers(conversationId: string): Promise<User[]> {
+    const { data } = await this.sb
+      .from('conversation_members')
+      .select('users(*)')
+      .eq('conversation_id', conversationId);
+    return (data ?? []).map((r: any) => r.users as User).filter(Boolean);
+  }
+
+  async getConversationMuted(conversationId: string): Promise<boolean> {
+    const meId = await this.myId();
+    const { data } = await this.sb
+      .from('conversation_members')
+      .select('muted')
+      .match({ conversation_id: conversationId, user_id: meId })
+      .maybeSingle();
+    return Boolean((data as { muted?: boolean } | null)?.muted);
+  }
+
+  async setConversationMuted(conversationId: string, muted: boolean): Promise<void> {
+    const meId = await this.myId();
+    const { error } = await this.sb
+      .from('conversation_members')
+      .update({ muted })
+      .match({ conversation_id: conversationId, user_id: meId });
+    if (error) throw error;
   }
 
   async renameConversation(conversationId: string, title: string): Promise<void> {

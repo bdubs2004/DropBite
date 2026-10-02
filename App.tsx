@@ -10,7 +10,11 @@ import {
   useFonts,
 } from '@expo-google-fonts/nunito';
 import { Ionicons } from '@expo/vector-icons';
-import { NavigationContainer, LinkingOptions } from '@react-navigation/native';
+import {
+  NavigationContainer,
+  LinkingOptions,
+  createNavigationContainerRef,
+} from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -83,6 +87,9 @@ const linking: LinkingOptions<any> = {
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
+
+/** Lets a push-notification tap navigate without threading a ref through props. */
+export const navigationRef = createNavigationContainerRef<any>();
 
 function TabBar({ state, navigation }: any) {
   const insets = useSafeAreaInsets();
@@ -250,6 +257,41 @@ function Root() {
     };
   }, [svc, refreshMe]);
 
+  // Tapping a DM push opens that conversation. Handles both a warm tap and a
+  // cold start (the app was launched by the notification).
+  useEffect(() => {
+    let sub: { remove: () => void } | undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const Notifications = await import('expo-notifications');
+        const openFromData = (data: any) => {
+          const conversationId = data?.conversationId;
+          if (!conversationId || !navigationRef.isReady()) return;
+          navigationRef.navigate('Chat', {
+            conversationId,
+            title: data.title ?? 'Chat',
+            isGroup: Boolean(data.isGroup),
+          });
+        };
+        const last = await Notifications.getLastNotificationResponseAsync();
+        if (!cancelled && last) {
+          openFromData(last.notification.request.content.data);
+        }
+        const s = Notifications.addNotificationResponseReceivedListener((resp) => {
+          openFromData(resp.notification.request.content.data);
+        });
+        sub = s;
+      } catch {
+        // No notifications module / web — nothing to wire up.
+      }
+    })();
+    return () => {
+      cancelled = true;
+      sub?.remove();
+    };
+  }, []);
+
   if (!booted) {
     return (
       <View style={styles.splash}>
@@ -339,7 +381,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AppProvider>
-        <NavigationContainer linking={linking}>
+        <NavigationContainer ref={navigationRef} linking={linking}>
           <StatusBar style="dark" />
           <Root />
         </NavigationContainer>

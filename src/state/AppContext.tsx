@@ -8,6 +8,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import { registerPushToken } from '../lib/push';
 import { getDataService } from '../services';
 import { syncMealtimeNotifications } from '../services/notifications';
 import { NotificationPrefs, Post, Streak, User } from '../types';
@@ -134,6 +135,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!booted || !user) return;
     syncMealtimeNotifications(prefs);
   }, [booted, user?.id, prefs]);
+
+  // Register this device for DM push once signed in (best-effort, never blocks).
+  useEffect(() => {
+    if (!booted || !user) return;
+    registerPushToken((token, platform) => svc.savePushToken(token, platform)).catch(() => {});
+  }, [booted, user?.id, svc]);
 
   const setPrefs = useCallback(
     async (p: NotificationPrefs) => {
