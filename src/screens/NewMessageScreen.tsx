@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '../components/Avatar';
 import { Button, Muted } from '../components/ui';
@@ -79,7 +79,9 @@ export function NewMessageScreen({ navigation }: any) {
   };
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
+    // iOS page-sheet modals already sit below the status bar; adding the inset
+    // too left a big empty band above the header.
+    <View style={[styles.root, { paddingTop: Platform.OS === 'ios' ? 0 : insets.top }]}>
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} hitSlop={10}>
           <Text style={styles.cancel}>Cancel</Text>
@@ -170,7 +172,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
   },
   cancel: { fontFamily: fonts.bold, color: colors.cocoaSoft, fontSize: 15, width: 56 },
   title: { fontFamily: fonts.display, fontSize: 18, color: colors.cocoa },
