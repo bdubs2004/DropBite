@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Dimensions,
@@ -36,15 +36,11 @@ const PANEL_WIDTH = Math.min(Dimensions.get('window').width * 0.82, 360);
 /**
  * The side panel behind the profile's menu button.
  *
- * Slides in from the right, and the grab handle on its left edge drags it back
- * out — the panel follows your finger and snaps open or closed on release
- * depending on distance and flick speed.
- *
- * The gesture lives on the handle rather than the whole panel on purpose. When
- * the whole panel was draggable, starting a drag on top of a menu row also
- * fired that row (react-native-web does not cancel a child Pressable when the
- * responder is claimed), so you would get dragged somewhere you never tapped.
- * A dedicated handle makes that impossible.
+ * Slides in from the right. A sideways drag from anywhere (a row, the empty
+ * space around and between rows, the header, or the dimmed area to its left)
+ * slides it back out: the panel follows your finger and snaps open or closed on
+ * release depending on distance and flick speed. The `dragging` guard below
+ * keeps a drag that started on a row from also firing that row.
  *
  * Built on a Modal plus PanResponder rather than a drawer navigator, which
  * would mean restructuring the whole tab tree for a panel one screen opens.
@@ -103,16 +99,24 @@ export function ActivityDrawer({
    */
   const dragging = useRef(false);
 
-  // One responder config, instantiated on two views: the panel itself and a
-  // wrapper filling the scroll area. A ScrollView on iOS claims touches that
-  // start on its own empty space before the parent's capture is consulted, so
-  // a panel-only responder worked on the menu rows but felt dead on the cream
-  // gaps. Giving the scroll content its own responder covers that empty space,
-  // while its horizontal-only claim leaves vertical scrolling untouched.
-  const buildDrag = () =>
+  // ONE responder on the root (the dimmed area to the left + the whole panel),
+  // claiming clear horizontal drags in the capture phase so it wins over
+  // whatever owns the touch underneath.
+  //
+  // Why empty space used to feel dead: a row is a Pressable, so it OWNS the
+  // touch from touch-down, and this capture can take it over on the first
+  // sideways move — that's why rows always dragged. Empty space owned nothing,
+  // so on iOS the menu's native ScrollView grabbed the finger and cancelled the
+  // JS touch before a sideways move was ever seen. The fix is `touchSink`
+  // below: empty space now claims the touch at touch-down exactly like a row
+  // does (and readily hands it over), so it behaves like a row.
+  const drag = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_e, g) => isHorizontalDrag(g.dx, g.dy),
       onMoveShouldSetPanResponderCapture: (_e, g) => isHorizontalDrag(g.dx, g.dy),
+      // Once you're sliding the drawer, keep it — don't let anything else
+      // (a row, the scroll view) take the finger back mid-drag.
+      onPanResponderTerminationRequest: () => false,
       onPanResponderGrant: () => {
         dragging.current = true;
       },
@@ -137,10 +141,22 @@ export function ActivityDrawer({
           dragging.current = false;
         }, 120);
       },
-    });
+    }),
+  ).current;
 
-  const panelPan = useRef(buildDrag()).current;
-  const listPan = useRef(buildDrag()).current;
+  // Only wrap the menu in a ScrollView when it's taller than the space it has
+  // (a small phone). Otherwise it's a plain View, so nothing native competes
+  // with the drag. Measured: the box's height vs the content's height.
+  const [boxH, setBoxH] = useState(0);
+  const [contentH, setContentH] = useState(0);
+  const needsScroll = boxH > 0 && contentH > boxH + 1;
+
+  // Makes a plain area own the touch from touch-down (like a row does) while
+  // happily handing it to the drawer drag or the scroll view. See `drag` above.
+  const touchSink = {
+    onStartShouldSetResponder: () => true,
+    onResponderTerminationRequest: () => true,
+  };
 
   const backdropOpacity = slide.interpolate({
     inputRange: [0, PANEL_WIDTH],
@@ -150,24 +166,32 @@ export function ActivityDrawer({
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={dismiss}>
-      <View style={styles.root}>
+      <View testID="drawer-root" style={styles.root} {...drag.panHandlers}>
         <Animated.View style={[styles.backdropFill, { opacity: backdropOpacity }]}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={dismiss} />
+          <Pressable
+            testID="drawer-backdrop"
+            style={StyleSheet.absoluteFill}
+            onPress={() => {
+              // A drag that started here slid the drawer; don't also dismiss.
+              if (dragging.current) return;
+              dismiss();
+            }}
+          />
         </Animated.View>
 
         <Animated.View
           testID="activity-drawer"
-          {...panelPan.panHandlers}
+          {...touchSink}
           style={[
             styles.panel,
             { paddingTop: insets.top + spacing.md, transform: [{ translateX: slide }] },
           ]}
         >
-          {/* Drag horizontally anywhere on the panel to slide it — same feel as
-              the comments sheet, just sideways. The whole panel is the handle;
-              the tab on the left edge is the visible affordance. A vertical
-              gesture still scrolls the list; the dragging guard keeps a drag
-              that ends on a row from also firing it. */}
+          {/* Drag horizontally anywhere — on the panel, between rows, or on the
+              dimmed area to its left — to slide it, same feel as the comments
+              sheet but sideways. The tab on the left edge is just the visible
+              affordance. The dragging guard keeps a drag that ends on a row
+              from also firing it. */}
           <View style={styles.grabZone} pointerEvents="none">
             <View style={styles.grabBar} />
           </View>
@@ -179,13 +203,15 @@ export function ActivityDrawer({
             </Pressable>
           </View>
 
-          <ScrollView
-            contentContainerStyle={{ flexGrow: 1, paddingBottom: insets.bottom + spacing.xl }}
-          >
-            {/* This wrapper fills the whole scroll area — including the cream
-                space below the last row — and carries its own copy of the drag
-                gesture, so a slide that starts on empty space works too. */}
-            <View style={{ flexGrow: 1 }} {...listPan.panHandlers}>
+          <View style={{ flex: 1 }} onLayout={(e) => setBoxH(e.nativeEvent.layout.height)}>
+          {(() => {
+            const content = (
+              <View
+                testID="drawer-content"
+                {...touchSink}
+                onLayout={(e) => setContentH(e.nativeEvent.layout.height)}
+                style={{ paddingBottom: insets.bottom + spacing.xl }}
+              >
             {sections.map((section) => (
               <View key={section.title} style={styles.section}>
                 <Text style={styles.sectionTitle}>{section.title}</Text>
@@ -221,8 +247,11 @@ export function ActivityDrawer({
                 ))}
               </View>
             ))}
-            </View>
-          </ScrollView>
+              </View>
+            );
+            return needsScroll ? <ScrollView>{content}</ScrollView> : content;
+          })()}
+          </View>
         </Animated.View>
       </View>
     </Modal>
