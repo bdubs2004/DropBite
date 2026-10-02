@@ -1,5 +1,6 @@
+import { Image } from 'expo-image';
 import React from 'react';
-import { Image, Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { colors, fonts } from '../theme';
 import { Post } from '../types';
 
@@ -50,7 +51,13 @@ export function PostThumb({
         <Image
           source={{ uri: post.photo_url }}
           style={[StyleSheet.absoluteFill, { borderRadius: radius }]}
-          resizeMode="cover"
+          contentFit="cover"
+          // Disk+memory cache so a thumb loads instantly the second time, and
+          // decodes off the main thread. recyclingKey stops a recycled grid
+          // cell from briefly showing the previous photo while the new loads.
+          cachePolicy="memory-disk"
+          recyclingKey={post.id}
+          transition={120}
         />
       ) : (
         <View

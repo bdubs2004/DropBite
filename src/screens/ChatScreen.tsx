@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Dimensions,
   FlatList,
-  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -256,7 +256,9 @@ export function ChatScreen({ navigation, route }: any) {
                     testID={`chat-photo-${item.id}`}
                     source={{ uri: item.image_url }}
                     style={styles.photo}
-                    resizeMode="cover"
+                    contentFit="cover"
+                    cachePolicy="memory-disk"
+                    transition={120}
                   />
                 ) : null}
 
@@ -304,7 +306,7 @@ export function ChatScreen({ navigation, route }: any) {
 
       {photo ? (
         <View style={styles.staged}>
-          <Image source={{ uri: photo }} style={styles.stagedThumb} resizeMode="cover" />
+          <Image source={{ uri: photo }} style={styles.stagedThumb} contentFit="cover" />
           <Text style={styles.stagedLabel}>Photo ready to send</Text>
           <Pressable
             testID="chat-photo-remove"
