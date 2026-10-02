@@ -1,5 +1,6 @@
+import { Image } from 'expo-image';
 import React from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { colors, fonts } from '../theme';
 import { User } from '../types';
 
@@ -16,7 +17,15 @@ export function Avatar({ user, size = 44 }: { user?: User | null; size?: number 
     borderRadius: size / 2,
   };
   if (user?.avatar_url) {
-    return <Image source={{ uri: user.avatar_url }} style={[styles.img, style]} />;
+    return (
+      <Image
+        source={{ uri: user.avatar_url }}
+        style={[styles.img, style]}
+        contentFit="cover"
+        cachePolicy="memory-disk"
+        transition={120}
+      />
+    );
   }
   return (
     <View style={[styles.fallback, style]}>

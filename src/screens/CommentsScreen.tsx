@@ -1,11 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Animated,
   FlatList,
-  Image,
   KeyboardAvoidingView,
   PanResponder,
   Platform,
@@ -251,7 +251,9 @@ export function CommentsScreen({ navigation, route }: any) {
             testID={`comment-photo-${c.id}`}
             source={{ uri: c.image_url }}
             style={styles.commentPhoto}
-            resizeMode="cover"
+            contentFit="cover"
+            cachePolicy="memory-disk"
+            transition={120}
           />
         ) : null}
         <View style={styles.metaRow}>
@@ -394,7 +396,7 @@ export function CommentsScreen({ navigation, route }: any) {
 
           {photo ? (
             <View style={styles.staged}>
-              <Image source={{ uri: photo }} style={styles.stagedThumb} resizeMode="cover" />
+              <Image source={{ uri: photo }} style={styles.stagedThumb} contentFit="cover" />
               <Text style={styles.stagedLabel}>Photo ready to post</Text>
               <Pressable
                 testID="comment-photo-remove"

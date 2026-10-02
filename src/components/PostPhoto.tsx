@@ -1,5 +1,6 @@
+import { Image } from 'expo-image';
 import React from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme';
 import { Post } from '../types';
 
@@ -34,7 +35,9 @@ export function PostPhoto({ post, ratio = 1.15 }: { post: Post; ratio?: number }
       <Image
         source={{ uri: post.photo_url }}
         style={[styles.photo, { aspectRatio: 1 / ratio }]}
-        resizeMode="cover"
+        contentFit="cover"
+        cachePolicy="memory-disk"
+        transition={150}
       />
     );
   }
