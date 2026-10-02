@@ -459,17 +459,21 @@ export class SupabaseService implements DataService {
     const rowsById = new Map<string, any>();
     for (const row of (origRes.data ?? []) as any[]) rowsById.set(row.id, row);
 
-    // Dedupe reposts by post (newest repost wins — the query is newest-first).
-    const repostRows: any[] = [];
-    const seen = new Set<string>();
+    // Group reposts by post, keeping ALL the reposters (you follow) newest
+    // first, so the card can show stacked avatars + a count. The query is
+    // already newest-first, so first-seen order is newest-first.
+    const repostsByPost = new Map<string, { users: User[]; latest: string }>();
     for (const r of (repostRes.data ?? []) as any[]) {
-      if (seen.has(r.post_id)) continue;
-      seen.add(r.post_id);
-      repostRows.push(r);
+      const entry = repostsByPost.get(r.post_id) ?? { users: [] as User[], latest: r.created_at };
+      if (r.users && !entry.users.some((u) => u.id === r.users.id)) {
+        entry.users.push(r.users as User);
+      }
+      if (r.created_at > entry.latest) entry.latest = r.created_at;
+      repostsByPost.set(r.post_id, entry);
     }
 
     // Fetch any reposted post we didn't already pull with the originals.
-    const missing = repostRows.map((r) => r.post_id).filter((id) => !rowsById.has(id));
+    const missing = [...repostsByPost.keys()].filter((id) => !rowsById.has(id));
     if (missing.length) {
       const { data: extra } = await this.sb
         .from('posts')
@@ -485,14 +489,17 @@ export class SupabaseService implements DataService {
       const post = this.hydrateRow(row, meId);
       merged.set(post.id, { post, ts: post.created_at });
     }
-    for (const r of repostRows) {
-      const row = rowsById.get(r.post_id);
+    for (const [postId, entry] of repostsByPost) {
+      const row = rowsById.get(postId);
       if (!row) continue; // deleted or not visible
-      if (row.user_id === r.user_id) continue; // reposting your own post
+      // Don't credit the author for reposting their own post.
+      const reposters = entry.users.filter((u) => u.id !== row.user_id);
+      if (!reposters.length) continue;
       const post = this.hydrateRow(row, meId);
-      post.reposter = r.users as User;
-      post.repost_at = r.created_at;
-      merged.set(post.id, { post, ts: r.created_at });
+      post.reposters = reposters;
+      post.reposter = reposters[0];
+      post.repost_at = entry.latest;
+      merged.set(post.id, { post, ts: entry.latest });
     }
 
     return [...merged.values()]

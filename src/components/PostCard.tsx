@@ -9,6 +9,7 @@ import { ActionSheet } from './ActionSheet';
 import { Avatar } from './Avatar';
 import { PostPhoto } from './PostPhoto';
 import { RecipeCardView } from './RecipeCardView';
+import { RepostBubble } from './RepostBubble';
 
 export function PostCard({
   post,
@@ -53,6 +54,9 @@ export function PostCard({
   const [reposted, setReposted] = useState(!!post.reposted_by_me);
   const [repostCount, setRepostCount] = useState(post.repost_count ?? 0);
   const [saved, setSaved] = useState(!!post.saved_by_me);
+  // Photo size, so the draggable repost bubble can be clamped to the image.
+  const [photoSize, setPhotoSize] = useState({ w: 0, h: 0 });
+  const reposters = post.reposters ?? (post.reposter ? [post.reposter] : []);
   useEffect(() => {
     setLiked(!!post.reacted_by_me);
     setLikeCount(post.reaction_count ?? 0);
@@ -170,22 +174,6 @@ export function PostCard({
       onLongPress={() => menuActions.length > 0 && setMenuOpen(true)}
       delayLongPress={350}
     >
-      {/* "reposted" label — shown when this post is in the feed because someone
-          you follow reposted it, TikTok-style. Taps through to the reposter. */}
-      {post.reposter ? (
-        <Pressable
-          testID="post-repost-tag"
-          style={styles.repostTag}
-          onPress={() => post.reposter && onPressUser?.(post.reposter.id)}
-          hitSlop={6}
-        >
-          <Ionicons name="repeat" size={13} color={colors.success} />
-          <Text style={styles.repostTagText} numberOfLines={1}>
-            {post.reposter.display_name} reposted
-          </Text>
-        </Pressable>
-      ) : null}
-
       {/* header */}
       <View style={styles.header}>
         <Pressable style={styles.userRow} onPress={() => onPressUser?.(post.user_id)}>
@@ -240,8 +228,24 @@ export function PostCard({
         </View>
       ) : null}
 
-      {/* photo */}
-      <PostPhoto post={post} />
+      {/* photo, with a draggable "reposted" bubble over it when this post is in
+          the feed because people you follow reposted it */}
+      <View
+        style={styles.photoWrap}
+        onLayout={(e) =>
+          setPhotoSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })
+        }
+      >
+        <PostPhoto post={post} />
+        {reposters.length > 0 && photoSize.w > 0 ? (
+          <RepostBubble
+            reposters={reposters}
+            containerW={photoSize.w}
+            containerH={photoSize.h}
+            onPressUser={onPressUser}
+          />
+        ) : null}
+      </View>
 
       {/* actions + blurb */}
       <View style={styles.body}>
@@ -371,25 +375,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     ...(shadow as object),
   },
-  repostTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    alignSelf: 'flex-start',
-    marginTop: spacing.md,
-    marginLeft: spacing.lg,
-    marginBottom: -spacing.xs,
-    backgroundColor: '#E7F4EA',
-    borderRadius: radius.pill,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  repostTagText: {
-    fontFamily: fonts.bold,
-    fontSize: 12,
-    color: colors.success,
-    maxWidth: 240,
-  },
+  photoWrap: { position: 'relative' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

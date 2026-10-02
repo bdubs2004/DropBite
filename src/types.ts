@@ -84,6 +84,9 @@ export interface Post {
    * `repost_at` is the repost time, used to order it in the feed.
    */
   reposter?: User | null;
+  /** Everyone (you follow) who reposted it, newest first — for the stacked
+   *  avatars + count on the repost bubble. reposter is reposters[0]. */
+  reposters?: User[] | null;
   repost_at?: string;
 }
 
