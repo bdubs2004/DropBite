@@ -76,7 +76,12 @@ interface Db {
   saves: { post_id: string; user_id: string }[];
   commentReactions: { comment_id: string; user_id: string }[];
   conversations: { id: string; created_at: string; updated_at: string }[];
-  conversationMembers: { conversation_id: string; user_id: string; last_read_at: string }[];
+  conversationMembers: {
+    conversation_id: string;
+    user_id: string;
+    last_read_at: string;
+    muted?: boolean;
+  }[];
   messages: Message[];
   blocks: { blocker_id: string; blocked_id: string }[];
   reports: Report[];
@@ -890,6 +895,34 @@ export class MockService implements DataService {
     await this.save();
   }
 
+  async getConversationMembers(conversationId: string): Promise<User[]> {
+    const db = this.dmTables(await this.load());
+    return db.conversationMembers
+      .filter((m) => m.conversation_id === conversationId)
+      .map((m) => db.users.find((u) => u.id === m.user_id))
+      .filter((u): u is User => Boolean(u));
+  }
+
+  async getConversationMuted(conversationId: string): Promise<boolean> {
+    const db = this.dmTables(await this.load());
+    const me = await this.me();
+    return Boolean(
+      db.conversationMembers.find(
+        (m) => m.conversation_id === conversationId && m.user_id === me.id,
+      )?.muted,
+    );
+  }
+
+  async setConversationMuted(conversationId: string, muted: boolean): Promise<void> {
+    const db = this.dmTables(await this.load());
+    const me = await this.me();
+    const row = db.conversationMembers.find(
+      (m) => m.conversation_id === conversationId && m.user_id === me.id,
+    );
+    if (row) row.muted = muted;
+    await this.save();
+  }
+
   async deleteConversation(conversationId: string): Promise<void> {
     const db = this.dmTables(await this.load());
     const me = await this.me();
@@ -915,6 +948,10 @@ export class MockService implements DataService {
   async getUnreadCount(): Promise<number> {
     const convs = await this.getConversations();
     return convs.reduce((sum, c) => sum + c.unread_count, 0);
+  }
+
+  async savePushToken(): Promise<void> {
+    // Demo mode has no server to push from.
   }
 
   // ------------------------------------------------------------- blocking

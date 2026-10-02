@@ -16,6 +16,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ActionSheet } from '../components/ActionSheet';
 import { Avatar } from '../components/Avatar';
+import { ConversationDetailsSheet } from '../components/ConversationDetailsSheet';
 import { PostThumb } from '../components/PostThumb';
 import { RenameGroupSheet } from '../components/RenameGroupSheet';
 import { Muted } from '../components/ui';
@@ -25,7 +26,7 @@ import { useKeyboardVisible } from '../lib/useKeyboardVisible';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
 import { colors, fonts, MEAL_SLOT_META, radius, spacing } from '../theme';
-import { Message } from '../types';
+import { Message, User } from '../types';
 
 /** Bubble width for an attached photo, and the height of its 4:5 frame. */
 const PHOTO_W = 190;
@@ -67,6 +68,37 @@ export function ChatScreen({ navigation, route }: any) {
       await svc.renameConversation(conversationId, trimmed);
     } catch {
       setTitle(prev); // put it back if the write failed
+    }
+  };
+
+  // Details sheet: who's in the thread + mute toggle.
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [members, setMembers] = useState<User[]>([]);
+  const [muted, setMuted] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    Promise.all([
+      svc.getConversationMembers(conversationId),
+      svc.getConversationMuted(conversationId),
+    ])
+      .then(([m, mu]) => {
+        if (!alive) return;
+        setMembers(m);
+        setMuted(mu);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [svc, conversationId]);
+
+  const toggleMute = async (next: boolean) => {
+    setMuted(next); // optimistic
+    try {
+      await svc.setConversationMuted(conversationId, next);
+    } catch {
+      setMuted(!next);
     }
   };
 
@@ -158,7 +190,15 @@ export function ChatScreen({ navigation, route }: any) {
             {title}
           </Text>
         )}
-        <View style={{ width: 60 }} />
+        <Pressable
+          testID="chat-details"
+          onPress={() => setDetailsOpen(true)}
+          hitSlop={10}
+          style={styles.detailsBtn}
+          accessibilityLabel="Conversation details"
+        >
+          <Ionicons name="ellipsis-horizontal" size={20} color={colors.cocoaSoft} />
+        </Pressable>
       </View>
 
       <FlatList
@@ -367,6 +407,20 @@ export function ChatScreen({ navigation, route }: any) {
         onCancel={() => setRenaming(false)}
         onSave={saveName}
       />
+
+      <ConversationDetailsSheet
+        visible={detailsOpen}
+        title={title}
+        isGroup={!!isGroup}
+        members={members}
+        muted={muted}
+        onToggleMute={toggleMute}
+        onOpenProfile={(uid) => {
+          setDetailsOpen(false);
+          navigation.navigate('UserProfile', { userId: uid });
+        }}
+        onClose={() => setDetailsOpen(false)}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -381,6 +435,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cream,
   },
   backBtn: { flexDirection: 'row', alignItems: 'center', gap: 2, width: 60, marginLeft: -4 },
+  detailsBtn: { width: 60, alignItems: 'flex-end' },
   back: { fontFamily: fonts.bold, color: colors.amberDark, fontSize: 15 },
   title: { fontFamily: fonts.display, fontSize: 17, color: colors.cocoa, textAlign: 'center' },
   titleWrap: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 },

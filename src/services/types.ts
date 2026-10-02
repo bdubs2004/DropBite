@@ -148,6 +148,12 @@ export interface DataService {
   sharePostToGroup(postId: string, userIds: string[]): Promise<void>;
   /** Set (or clear, with an empty string) a group thread's custom name. */
   renameConversation(conversationId: string, title: string): Promise<void>;
+  /** Everyone in a thread, including you. */
+  getConversationMembers(conversationId: string): Promise<User[]>;
+  /** Whether you've muted this thread's notifications. */
+  getConversationMuted(conversationId: string): Promise<boolean>;
+  /** Mute or unmute this thread's notifications for you. */
+  setConversationMuted(conversationId: string, muted: boolean): Promise<void>;
   markConversationRead(conversationId: string): Promise<void>;
   /**
    * Remove a thread from YOUR inbox by leaving it. The other person keeps
@@ -156,6 +162,8 @@ export interface DataService {
   deleteConversation(conversationId: string): Promise<void>;
   /** Total unread messages across all threads, for the inbox badge. */
   getUnreadCount(): Promise<number>;
+  /** Register this device's Expo push token so DMs can notify it. */
+  savePushToken(token: string, platform: string): Promise<void>;
 
   // moderation
   /**

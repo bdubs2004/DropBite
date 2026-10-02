@@ -209,9 +209,29 @@ create table if not exists public.conversation_members (
   user_id uuid not null references public.users (id) on delete cascade,
   -- When this member last opened the thread; drives the unread badge.
   last_read_at timestamptz not null default 'epoch',
+  -- Per-member mute: suppresses this member's DM push for this thread.
+  muted boolean not null default false,
   primary key (conversation_id, user_id)
 );
 create index if not exists conversation_members_user_idx on public.conversation_members (user_id);
+
+-- Expo push tokens, so the server can push a DM to a recipient's device. The
+-- notify-message edge function reads these with the service role; users manage
+-- only their own.
+create table if not exists public.push_tokens (
+  user_id uuid not null references public.users (id) on delete cascade,
+  token text not null,
+  platform text,
+  updated_at timestamptz not null default now(),
+  primary key (user_id, token)
+);
+create index if not exists push_tokens_user_idx on public.push_tokens (user_id);
+alter table public.push_tokens enable row level security;
+drop policy if exists "manage own push tokens" on public.push_tokens;
+create policy "manage own push tokens" on public.push_tokens
+  for all to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
 
 create table if not exists public.messages (
   id uuid primary key default gen_random_uuid(),
