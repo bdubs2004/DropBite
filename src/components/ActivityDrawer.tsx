@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: colors.overlay,
+    // No dim: just a tap-outside-to-close area. The panel's shadow sets it apart.
   },
   grabZone: {
     position: 'absolute',

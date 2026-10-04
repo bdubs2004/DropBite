@@ -95,6 +95,22 @@ const Tab = createBottomTabNavigator();
 /** Lets a push-notification tap navigate without threading a ref through props. */
 export const navigationRef = createNavigationContainerRef<any>();
 
+/**
+ * How the "pop-up" screens (new post, share, report, feedback, new message)
+ * open: full screen, sliding up from the bottom, swipe down to close.
+ *
+ * Not iOS's card-style modal on purpose: that one shrinks the screen behind
+ * it and fills the gap with black, which read as a dark dim behind every
+ * pop-up. This keeps the same slide-up feel with nothing dimmed.
+ */
+const SLIDE_UP = {
+  // 'vertical' also turns on slide_from_bottom and a swipe-down-anywhere to
+  // dismiss (react-native-screens sets those as its defaults).
+  gestureDirection: 'vertical',
+  animation: 'slide_from_bottom',
+  fullScreenGestureEnabled: true,
+} as const;
+
 function TabBar({ state, navigation }: any) {
   const insets = useSafeAreaInsets();
   const tabs = [
@@ -319,7 +335,7 @@ function Root() {
       <Stack.Screen
         name="Compose"
         component={ComposeScreen}
-        options={{ presentation: 'modal' }}
+        options={SLIDE_UP}
       />
       <Stack.Screen
         name="Comments"
@@ -334,7 +350,7 @@ function Root() {
       <Stack.Screen
         name="Report"
         component={ReportScreen}
-        options={{ presentation: 'modal' }}
+        options={SLIDE_UP}
       />
       <Stack.Screen name="PostDetail" component={PostDetailScreen} />
       <Stack.Screen
@@ -347,19 +363,19 @@ function Root() {
       <Stack.Screen
         name="Feedback"
         component={FeedbackScreen}
-        options={{ presentation: 'modal' }}
+        options={SLIDE_UP}
       />
       <Stack.Screen name="Inbox" component={InboxScreen} />
       <Stack.Screen name="Chat" component={ChatScreen} />
       <Stack.Screen
         name="NewMessage"
         component={NewMessageScreen}
-        options={{ presentation: 'modal' }}
+        options={SLIDE_UP}
       />
       <Stack.Screen
         name="ShareSheet"
         component={ShareSheetScreen}
-        options={{ presentation: 'modal' }}
+        options={SLIDE_UP}
       />
       <Stack.Screen name="UserProfile" component={ProfileScreen} />
       <Stack.Screen name="UserList" component={UserListScreen} />

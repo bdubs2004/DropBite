@@ -2,9 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -149,19 +147,7 @@ export function CollectionScreen({ navigation, route }: any) {
   };
 
   const askDelete = () => {
-    // Alert.alert is a no-op on web, so web confirms inline instead.
-    if (Platform.OS === 'web') {
-      setConfirmingDelete(true);
-      return;
-    }
-    Alert.alert(
-      `Delete ${name}?`,
-      'The collection goes away. The posts in it stay on your profile.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: runDelete },
-      ],
-    );
+    setConfirmingDelete(true);
   };
 
   const visible = posts.filter((p) => !hiddenIds.has(p.id));

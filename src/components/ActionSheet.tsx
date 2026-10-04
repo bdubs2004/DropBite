@@ -90,9 +90,10 @@ export function ActionSheet({
 }
 
 const styles = StyleSheet.create({
-  // A dim behind the sheet that fades in with it (Modal animationType="fade"),
-  // Instagram-style: the shadow just appears rather than the sheet sliding up.
-  backdrop: { flex: 1, backgroundColor: colors.overlay, justifyContent: 'flex-end' },
+  // No dim: the screen behind stays exactly as it was. This full-screen
+  // layer is only there so a tap outside the sheet closes it; the sheet's own
+  // shadow is what sets it apart.
+  backdrop: { flex: 1, justifyContent: 'flex-end' },
   sheet: {
     backgroundColor: colors.cream,
     borderTopLeftRadius: radius.xl,

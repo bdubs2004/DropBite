@@ -126,7 +126,10 @@ export function ReportScreen({ navigation, route }: any) {
     >
       <ScrollView
         keyboardDismissMode="on-drag"
-        contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 40 }]}
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingTop: insets.top + spacing.sm, paddingBottom: insets.bottom + 40 },
+        ]}
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.headerRow}>

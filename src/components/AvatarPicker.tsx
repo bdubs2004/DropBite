@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -17,9 +16,8 @@ import { Avatar } from './Avatar';
 /**
  * Tappable profile picture with a "+" badge.
  *
- * Tapping offers Camera or Library (native gets an action sheet, web an inline
- * pair of buttons, since Alert.alert is a no-op under react-native-web). The
- * chosen image is cropped square, downscaled, and handed to onPick, which
+ * Tapping offers Camera or Library as an inline pair of buttons, everywhere:
+ * no system alert, so nothing dims the screen behind it. The chosen image is cropped square, downscaled, and handed to onPick, which
  * uploads it.
  */
 export function AvatarPicker({
@@ -56,15 +54,7 @@ export function AvatarPicker({
 
   const open = () => {
     if (busy) return;
-    if (Platform.OS === 'web') {
-      setChoosing((v) => !v);
-      return;
-    }
-    Alert.alert('Profile photo', 'Choose a new picture', [
-      { text: 'Take photo', onPress: () => run(true) },
-      { text: 'Choose from library', onPress: () => run(false) },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
+    setChoosing((v) => !v);
   };
 
   return (

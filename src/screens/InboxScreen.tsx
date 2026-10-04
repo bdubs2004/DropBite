@@ -3,9 +3,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
-  Platform,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -79,18 +77,7 @@ export function InboxScreen({ navigation }: any) {
   };
 
   const askDelete = (c: Conversation) => {
-    if (Platform.OS === 'web') {
-      setConfirming(c);
-      return;
-    }
-    Alert.alert(
-      `Delete conversation with ${conversationTitle(c.others)}?`,
-      'It disappears from your inbox. They keep their copy of the thread.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => removeConversation(c) },
-      ],
-    );
+    setConfirming(c);
   };
 
   const preview = (c: Conversation) => {

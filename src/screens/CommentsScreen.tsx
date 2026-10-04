@@ -3,7 +3,6 @@ import { Image } from 'expo-image';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Animated,
   FlatList,
   KeyboardAvoidingView,
@@ -473,14 +472,7 @@ export function CommentsScreen({ navigation, route }: any) {
                   onPress: () => {
                     const target = menuFor;
                     if (!target) return;
-                    if (Platform.OS === 'web') {
-                      setConfirming(target);
-                      return;
-                    }
-                    Alert.alert('Delete comment?', 'This cannot be undone.', [
-                      { text: 'Cancel', style: 'cancel' },
-                      { text: 'Delete', style: 'destructive', onPress: () => removeComment(target) },
-                    ]);
+                    setConfirming(target);
                   },
                 },
               ]

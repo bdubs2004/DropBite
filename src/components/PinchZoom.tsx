@@ -72,12 +72,6 @@ export function ZoomHost({ children }: { children: ReactNode }) {
     [scale, tx, ty],
   );
 
-  // The screen dims behind the photo as it grows, like Instagram.
-  const dim = scale.interpolate({
-    inputRange: [1, 2.5],
-    outputRange: [0, 0.6],
-    extrapolate: 'clamp',
-  });
 
   return (
     <ZoomContext.Provider value={host}>
@@ -86,8 +80,7 @@ export function ZoomHost({ children }: { children: ReactNode }) {
           {children}
           {active ? (
             <View testID="zoom-overlay" pointerEvents="none" style={StyleSheet.absoluteFill}>
-              <Animated.View style={[StyleSheet.absoluteFill, styles.dim, { opacity: dim }]} />
-              <Animated.View
+                <Animated.View
                 testID="zoom-photo"
                 style={{
                   position: 'absolute',
@@ -357,7 +350,3 @@ export function PinchZoom({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  dim: { backgroundColor: '#000' },
-});

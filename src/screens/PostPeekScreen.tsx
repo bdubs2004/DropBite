@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: colors.overlay,
+    // No dim: tapping outside the preview still closes it.
   },
   card: { width: '100%', maxWidth: 420, alignItems: 'stretch' },
   loading: { padding: spacing.xxl, alignItems: 'center' },

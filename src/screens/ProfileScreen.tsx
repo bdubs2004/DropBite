@@ -1,8 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Alert,
   FlatList,
-  Platform,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -156,18 +154,7 @@ export function ProfileScreen({ navigation, route }: any) {
 
   /** Blocking is reversible but surprising, so confirm first. */
   const confirmBlock = () => {
-    if (Platform.OS === 'web') {
-      setConfirmingBlock(true);
-      return;
-    }
-    Alert.alert(
-      `Block @${profile?.handle ?? ''}?`,
-      'You will not see their posts and they will not see yours. Any follow between you is removed, and neither of you can message the other.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Block', style: 'destructive', onPress: doBlock },
-      ],
-    );
+    setConfirmingBlock(true);
   };
 
   /** Pad to whole rows so a lone final tile stays a third wide. */
