@@ -18,6 +18,7 @@ import { LogoLockup } from '../components/Logo';
 import { useZooming } from '../components/PinchZoom';
 import { PostCard } from '../components/PostCard';
 import { Muted } from '../components/ui';
+import { HeaderScrollState, nextHeaderState } from '../lib/autoHideHeader';
 import { usePostActions } from '../lib/usePostActions';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
@@ -49,20 +50,23 @@ export function FeedScreen({ navigation }: any) {
 
   const listRef = useRef<FlatList<any>>(null);
 
-  // Auto-hiding header: slides out of the way as you scroll down and comes
-  // straight back the moment you scroll up, so the feed gets the full screen
-  // without the header being hard to reach.
+  // Auto-hiding header: slides completely off the screen as you scroll down
+  // and comes back as soon as you scroll up a little, so the feed gets the
+  // full screen without the header being hard to reach.
+  //
+  // It slides by its real, measured height. It used to slide a fixed 58pt,
+  // but on Dynamic Island iPhones the header is taller than that (the status
+  // bar inset is ~59pt), so the logo row was left parked between the clock
+  // and the battery.
   const headerY = useRef(new Animated.Value(0)).current;
-  const lastY = useRef(0);
-  const hidden = useRef(false);
+  const headerHeight = useRef(insets.top + HEADER_HEIGHT);
+  const scrollState = useRef<HeaderScrollState>({ lastY: 0, travel: 0, hidden: false });
 
   const setHeaderHidden = useCallback(
     (next: boolean) => {
-      if (hidden.current === next) return;
-      hidden.current = next;
       Animated.timing(headerY, {
-        toValue: next ? -HEADER_HEIGHT : 0,
-        duration: 180,
+        toValue: next ? -headerHeight.current : 0,
+        duration: 200,
         useNativeDriver: true,
       }).start();
     },
@@ -71,14 +75,15 @@ export function FeedScreen({ navigation }: any) {
 
   const onScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const y = e.nativeEvent.contentOffset.y;
-      const dy = y - lastY.current;
-      // Ignore rubber-banding at the top and sub-pixel jitter.
-      if (y <= 0) setHeaderHidden(false);
-      else if (Math.abs(dy) > 6) setHeaderHidden(dy > 0);
-      lastY.current = y;
+      const prev = scrollState.current;
+      // Stays put until you've scrolled past the header itself.
+      const next = nextHeaderState(prev, e.nativeEvent.contentOffset.y, {
+        topZone: headerHeight.current - insets.top,
+      });
+      scrollState.current = next;
+      if (next.hidden !== prev.hidden) setHeaderHidden(next.hidden);
     },
-    [setHeaderHidden],
+    [setHeaderHidden, insets.top],
   );
 
   // Tapping Home while already on Home jumps to the top and pulls fresh posts,
@@ -86,6 +91,7 @@ export function FeedScreen({ navigation }: any) {
   // App.tsx, which emits `tabPress` itself.
   const jumpToTopAndRefresh = useCallback(() => {
     listRef.current?.scrollToOffset({ offset: 0, animated: true });
+    scrollState.current = { lastY: 0, travel: 0, hidden: false };
     setHeaderHidden(false);
     refreshFeed();
   }, [refreshFeed, setHeaderHidden]);
@@ -102,8 +108,18 @@ export function FeedScreen({ navigation }: any) {
 
   return (
     <View style={styles.root}>
+      {/* A solid strip behind the clock and battery, so posts never scroll
+          underneath them; the header slides away beneath it. */}
+      <View
+        testID="status-bar-cover"
+        pointerEvents="none"
+        style={[styles.statusCover, { height: insets.top }]}
+      />
       <Animated.View
         testID="feed-header"
+        onLayout={(e) => {
+          headerHeight.current = e.nativeEvent.layout.height;
+        }}
         style={[
           styles.header,
           { paddingTop: insets.top, transform: [{ translateY: headerY }] },
@@ -247,6 +263,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,
+    backgroundColor: colors.cream,
+  },
+  statusCover: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 3,
     backgroundColor: colors.cream,
   },
   headerRight: {
