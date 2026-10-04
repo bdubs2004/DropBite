@@ -233,6 +233,8 @@ export interface DataService {
   markNotificationsRead(): Promise<void>;
   /** Clear the list. */
   clearNotifications(): Promise<void>;
+  /** Remove just these from your list (the ones you ticked). Only ever yours. */
+  deleteNotifications(ids: string[]): Promise<void>;
 
   // streaks
   getStreak(userId: string): Promise<Streak>;

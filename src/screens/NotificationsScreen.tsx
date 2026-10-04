@@ -33,6 +33,9 @@ const KIND: Record<NotificationType, { icon: any; color: string; verb: string }>
  * what actually happened — the app never creates a notification itself. Opening
  * the screen marks them read, but the unread highlight stays for this render so
  * you can still see what was new.
+ *
+ * "Clear" doesn't wipe everything at once: it switches to picking, with a
+ * circle on every row. Tick the ones to go (or Select all) and hit the trash.
  */
 export function NotificationsScreen({ navigation }: any) {
   const svc = getDataService();
@@ -63,9 +66,44 @@ export function NotificationsScreen({ navigation }: any) {
     }
   };
 
-  const clearAll = async () => {
-    setItems([]);
-    await svc.clearNotifications();
+  // Picking mode: a circle on each row, Select all, and a trash bar.
+  const [selecting, setSelecting] = useState(false);
+  const [chosen, setChosen] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
+  const allChosen = items.length > 0 && chosen.size === items.length;
+
+  const startSelecting = () => {
+    setChosen(new Set());
+    setSelecting(true);
+  };
+  const stopSelecting = () => {
+    setSelecting(false);
+    setChosen(new Set());
+  };
+  const flip = (id: string) =>
+    setChosen((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const toggleAll = () => setChosen(allChosen ? new Set() : new Set(items.map((n) => n.id)));
+
+  const deleteChosen = async () => {
+    if (!chosen.size || deleting) return;
+    const ids = [...chosen];
+    setDeleting(true);
+    // Gone from the list straight away; put back if the delete fails.
+    const before = items;
+    setItems((prev) => prev.filter((n) => !chosen.has(n.id)));
+    stopSelecting();
+    try {
+      await svc.deleteNotifications(ids);
+    } catch {
+      setItems(before);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const open = (n: AppNotification) => {
@@ -82,17 +120,34 @@ export function NotificationsScreen({ navigation }: any) {
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={10} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={22} color={colors.amberDark} />
-          <Text style={styles.back}>Back</Text>
-        </Pressable>
-        <Text style={styles.title}>Activity</Text>
-        {items.length > 0 ? (
-          <Pressable testID="notifications-clear" onPress={clearAll} hitSlop={10}>
-            <Text style={styles.clear}>Clear</Text>
+        {selecting ? (
+          <Pressable
+            testID="notifications-cancel"
+            onPress={stopSelecting}
+            hitSlop={10}
+            style={styles.backBtn}
+          >
+            <Text style={styles.cancel}>Cancel</Text>
           </Pressable>
         ) : (
-          <View style={{ width: 46 }} />
+          <Pressable onPress={() => navigation.goBack()} hitSlop={10} style={styles.backBtn}>
+            <Ionicons name="chevron-back" size={22} color={colors.amberDark} />
+            <Text style={styles.back}>Back</Text>
+          </Pressable>
+        )}
+        <Text testID="notifications-title" style={styles.title}>
+          {selecting ? (chosen.size ? `${chosen.size} selected` : 'Select items') : 'Activity'}
+        </Text>
+        {selecting ? (
+          <Pressable testID="notifications-select-all" onPress={toggleAll} hitSlop={10}>
+            <Text style={styles.headerAction}>{allChosen ? 'Deselect all' : 'Select all'}</Text>
+          </Pressable>
+        ) : items.length > 0 ? (
+          <Pressable testID="notifications-clear" onPress={startSelecting} hitSlop={10}>
+            <Text style={styles.headerAction}>Clear</Text>
+          </Pressable>
+        ) : (
+          <View style={{ width: 66 }} />
         )}
       </View>
 
@@ -103,7 +158,7 @@ export function NotificationsScreen({ navigation }: any) {
           testID="notifications-list"
           data={items}
           keyExtractor={(n) => n.id}
-          contentContainerStyle={{ padding: spacing.lg, paddingBottom: 120 }}
+          contentContainerStyle={{ padding: spacing.lg, paddingBottom: 140 }}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -114,11 +169,21 @@ export function NotificationsScreen({ navigation }: any) {
           }
           renderItem={({ item }) => {
             const kind = KIND[item.type];
+            const on = chosen.has(item.id);
             return (
               <View
                 testID={`notification-${item.id}`}
-                style={[styles.row, !item.read_at && styles.rowUnread]}
+                style={[styles.row, !item.read_at && styles.rowUnread, on && styles.rowChosen]}
               >
+                {selecting ? (
+                  <Ionicons
+                    testID={`notification-check-${item.id}`}
+                    name={on ? 'checkmark-circle' : 'ellipse-outline'}
+                    size={24}
+                    color={on ? colors.amberDark : colors.cocoaFaint}
+                    style={styles.check}
+                  />
+                ) : null}
                 {/* Avatar → the person's profile. */}
                 <Pressable
                   testID={`notification-actor-${item.id}`}
@@ -154,6 +219,18 @@ export function NotificationsScreen({ navigation }: any) {
                     <PostThumb post={item.post} radius={8} style={styles.thumb} />
                   ) : null}
                 </Pressable>
+
+                {/* While picking, the whole row is one big tick target (so a
+                    tap never wanders off to a profile or post). */}
+                {selecting ? (
+                  <Pressable
+                    testID={`notification-select-${item.id}`}
+                    onPress={() => flip(item.id)}
+                    style={StyleSheet.absoluteFill}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: on }}
+                  />
+                ) : null}
               </View>
             );
           }}
@@ -162,12 +239,29 @@ export function NotificationsScreen({ navigation }: any) {
               <Ionicons name="notifications-outline" size={40} color={colors.cocoaFaint} />
               <Text style={styles.emptyTitle}>Nothing yet</Text>
               <Muted style={{ textAlign: 'center' }}>
-                When someone likes, comments on, or shares one of your posts, it shows up here.
+                When someone likes, comments on, or shares one of your posts, it shows up here
               </Muted>
             </View>
           }
         />
       )}
+
+      {selecting ? (
+        <View style={[styles.trashBar, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
+          <Pressable
+            testID="notifications-delete"
+            onPress={deleteChosen}
+            disabled={!chosen.size || deleting}
+            style={[styles.trashBtn, (!chosen.size || deleting) && { opacity: 0.4 }]}
+            accessibilityLabel="Delete selected"
+          >
+            <Ionicons name="trash-outline" size={19} color={colors.white} />
+            <Text style={styles.trashText}>
+              {chosen.size ? `Delete (${chosen.size})` : 'Delete'}
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -184,7 +278,37 @@ const styles = StyleSheet.create({
   backBtn: { flexDirection: 'row', alignItems: 'center', gap: 2, width: 66, marginLeft: -4 },
   back: { fontFamily: fonts.bold, color: colors.amberDark, fontSize: 15 },
   title: { fontFamily: fonts.display, fontSize: 18, color: colors.cocoa },
-  clear: { fontFamily: fonts.bold, color: colors.cocoaSoft, fontSize: 14, width: 46, textAlign: 'right' },
+  headerAction: {
+    fontFamily: fonts.bold,
+    color: colors.amberDark,
+    fontSize: 14,
+    minWidth: 66,
+    textAlign: 'right',
+  },
+  cancel: { fontFamily: fonts.bold, color: colors.cocoaSoft, fontSize: 15 },
+  check: { marginRight: spacing.sm },
+  rowChosen: { borderColor: colors.amber },
+  trashBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    backgroundColor: colors.white,
+    borderTopWidth: 1,
+    borderColor: colors.hairline,
+  },
+  trashBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.danger,
+    borderRadius: radius.pill,
+    paddingVertical: 13,
+  },
+  trashText: { fontFamily: fonts.bold, fontSize: 15, color: colors.white },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -192,6 +316,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     padding: spacing.md,
     marginBottom: spacing.sm,
+    // Always there (clear) so ticking a row doesn't nudge it by a pixel.
+    borderWidth: 1.5,
+    borderColor: 'transparent',
   },
   // Unread rows get a warm wash rather than a dot: easier to scan a whole list.
   rowUnread: { backgroundColor: colors.creamDark },
