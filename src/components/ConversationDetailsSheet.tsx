@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, fonts, radius, spacing } from '../theme';
+import { colors, fonts, radius, shadow, spacing } from '../theme';
 import { User } from '../types';
 import { Avatar } from './Avatar';
 import { Muted } from './ui';
@@ -109,13 +109,16 @@ export function ConversationDetailsSheet({
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: colors.overlay, justifyContent: 'flex-end' },
+  // No dim: tapping above the sheet still closes it.
+  backdrop: { flex: 1, justifyContent: 'flex-end' },
   sheet: {
     backgroundColor: colors.cream,
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
+    // With nothing dimmed behind it, the shadow is what lifts the sheet.
+    ...(shadow as object),
   },
   grabber: {
     alignSelf: 'center',

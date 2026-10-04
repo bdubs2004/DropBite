@@ -93,9 +93,9 @@ export function TimePickerModal({
 const ROW_HEIGHT = 48;
 
 const styles = StyleSheet.create({
+  // No dim: tapping outside the card still closes it.
   backdrop: {
     flex: 1,
-    backgroundColor: colors.overlay,
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.lg,
@@ -107,6 +107,10 @@ const styles = StyleSheet.create({
     maxWidth: 360,
     paddingBottom: spacing.sm,
     overflow: 'hidden',
+    // A shadow would be clipped by overflow: hidden, so a hairline edge sets
+    // the card apart from the screen behind it instead.
+    borderWidth: 1,
+    borderColor: colors.hairline,
   },
   header: {
     flexDirection: 'row',

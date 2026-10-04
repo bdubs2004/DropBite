@@ -29,8 +29,8 @@ import { PostPhoto } from './PostPhoto';
  *  - `selected` + `onChangeSelected`: while writing a new post, which doesn't
  *    exist yet. Just tracks the choice; Compose files it after posting.
  *
- * Draws its own dimmed backdrop, so it can sit inside a Modal or be a whole
- * transparent screen.
+ * Draws its own tap-outside-to-close area (no dim: the screen behind stays as
+ * it was), so it can sit inside a Modal or be a whole transparent screen.
  */
 export function CollectionPicker({
   postId,
@@ -256,7 +256,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: colors.overlay,
   },
   sheet: {
     backgroundColor: colors.cream,

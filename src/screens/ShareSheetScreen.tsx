@@ -35,9 +35,9 @@ export function ShareSheetScreen({ navigation, route }: any) {
   const isProfile = !!profileId && !postId;
   const svc = getDataService();
   const insets = useSafeAreaInsets();
-  // On iOS this is a page-sheet modal, which already sits below the status bar,
-  // so adding the top inset as well left a big empty band above the header.
-  const topPad = Platform.OS === 'ios' ? 0 : insets.top;
+  // A full-screen page now (see SLIDE_UP in App.tsx), so it clears the status
+  // bar itself.
+  const topPad = insets.top;
 
   const [post, setPost] = useState<Post | null>(null);
   const [people, setPeople] = useState<User[]>([]);

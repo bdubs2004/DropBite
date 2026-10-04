@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  Alert,
   LayoutChangeEvent,
   Platform,
   Pressable,
@@ -109,18 +108,7 @@ export function SettingsScreen({ navigation, route }: any) {
   };
 
   const askDelete = () => {
-    if (Platform.OS === 'web') {
-      setConfirmDelete(true);
-      return;
-    }
-    Alert.alert(
-      'Delete account?',
-      'This permanently removes your profile, posts, recipes, and streaks. There is no undo.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete everything', style: 'destructive', onPress: deleteAccount },
-      ],
-    );
+    setConfirmDelete(true);
   };
 
   return (

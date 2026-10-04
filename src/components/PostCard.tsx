@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { LOCATION_TAGGING_ENABLED } from '../config';
 import { relativeTime } from '../lib/time';
 import { colors, fonts, MEAL_SLOT_META, radius, shadow, spacing } from '../theme';
@@ -110,20 +110,7 @@ export function PostCard({
 
 
   const askDelete = () => {
-    // Alert.alert is a no-op on react-native-web, so web gets an inline
-    // confirmation bar instead (same pattern as Settings > Delete account).
-    if (Platform.OS === 'web') {
-      setConfirmingDelete(true);
-      return;
-    }
-    Alert.alert(
-      'Delete post?',
-      'This removes the photo, recipe card, likes, and comments. There is no undo.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: runDelete },
-      ],
-    );
+    setConfirmingDelete(true);
   };
 
   const runDelete = async () => {
@@ -238,7 +225,8 @@ export function PostCard({
         ) : null}
       </View>
 
-      {/* inline delete confirmation (web) */}
+      {/* inline delete confirmation (an in-app bar, not a system alert, so
+          nothing dims the screen) */}
       {confirmingDelete ? (
         <View style={styles.confirmBar}>
           <Text style={styles.confirmText}>

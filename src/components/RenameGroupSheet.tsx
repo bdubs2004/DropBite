@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, fonts, radius, spacing } from '../theme';
+import { colors, fonts, radius, shadow, spacing } from '../theme';
 
 /**
  * A small centred sheet for naming something: one field, two buttons.
@@ -101,13 +101,16 @@ export function RenameGroupSheet({
 
 const styles = StyleSheet.create({
   root: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
-  backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: colors.overlay },
+  // No dim: tapping outside the card still closes it.
+  backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   card: {
     width: '100%',
     maxWidth: 420,
     backgroundColor: colors.white,
     borderRadius: radius.xl,
     padding: spacing.lg,
+    // With nothing dimmed behind it, the shadow is what lifts the card.
+    ...(shadow as object),
   },
   title: { fontFamily: fonts.display, fontSize: 18, color: colors.cocoa, marginBottom: spacing.md },
   input: {

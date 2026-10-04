@@ -30,8 +30,8 @@ export const MAX_TAGS = 20;
  *  - `selected` + `onChangeSelected`: while writing a new post, which doesn't
  *    exist yet. Compose tags them when it posts.
  *
- * Draws its own dimmed backdrop, so it can sit inside a Modal or be a whole
- * transparent screen.
+ * Draws its own tap-outside-to-close area (no dim: the screen behind stays as
+ * it was), so it can sit inside a Modal or be a whole transparent screen.
  */
 export function TagPeoplePicker({
   postId,
@@ -257,7 +257,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: colors.overlay,
   },
   sheet: {
     backgroundColor: colors.cream,
