@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
     // The message, for the preview text.
     const { data: msg } = await admin
       .from('messages')
-      .select('text, shared_post_id, image_url, sender_id')
+      .select('text, shared_post_id, shared_user_id, image_url, sender_id')
       .eq('id', messageId)
       .maybeSingle();
     if (!msg || msg.sender_id !== senderId) return json({ error: 'no such message' }, 404);
@@ -99,9 +99,11 @@ Deno.serve(async (req) => {
       ? msg.text.trim()
       : msg.shared_post_id
         ? 'Shared a post'
-        : msg.image_url
-          ? 'Sent a photo'
-          : 'New message';
+        : msg.shared_user_id
+          ? 'Shared a profile'
+          : msg.image_url
+            ? 'Sent a photo'
+            : 'New message';
     const isGroup = (recipients ?? []).length + 1 > 2;
     const title = conv?.title ? `${senderName} · ${conv.title}` : senderName;
     // Header title to show if the recipient taps through: the group's name, else

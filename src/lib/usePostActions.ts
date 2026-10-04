@@ -66,6 +66,14 @@ export function usePostActions(navigation: any, refresh: () => void) {
     [navigation],
   );
 
+  // Your own posts only: who's tagged in it.
+  const tagPeople = useCallback(
+    (post: Post) => {
+      navigation.navigate('TagPeople', { postId: post.id });
+    },
+    [navigation],
+  );
+
   const remove = useCallback(
     async (post: Post) => {
       await svc.deletePost(post.id);
@@ -74,5 +82,5 @@ export function usePostActions(navigation: any, refresh: () => void) {
     [svc, refresh],
   );
 
-  return { like, comment, share, repost, save, remove, report, addToCollection };
+  return { like, comment, share, repost, save, remove, report, addToCollection, tagPeople };
 }

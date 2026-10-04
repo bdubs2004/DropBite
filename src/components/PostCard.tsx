@@ -24,6 +24,7 @@ export function PostCard({
   onDelete,
   onReport,
   onAddToCollection,
+  onTagPeople,
   isMine,
 }: {
   post: Post;
@@ -39,6 +40,8 @@ export function PostCard({
   onReport?: (post: Post) => void;
   /** Your own posts: put it in one of your collections. Omit to hide it. */
   onAddToCollection?: (post: Post) => void;
+  /** Your own posts: change who's tagged. Omit to hide it. */
+  onTagPeople?: (post: Post) => void;
   /** True when the signed-in user wrote this post. */
   isMine?: boolean;
 }) {
@@ -159,6 +162,17 @@ export function PostCard({
             hint: 'Put it in one of your collections, or start a new one',
             icon: 'albums-outline' as const,
             onPress: () => onAddToCollection(post),
+          },
+        ]
+      : []),
+    ...(isMine && onTagPeople
+      ? [
+          {
+            key: 'tag-people',
+            label: 'Tag people',
+            hint: post.tagged?.length ? 'Change who is tagged' : 'Tag who you ate with',
+            icon: 'pricetag-outline' as const,
+            onPress: () => onTagPeople(post),
           },
         ]
       : []),
@@ -368,6 +382,27 @@ export function PostCard({
           {post.blurb}
         </Text>
 
+        {/* Who they ate with: "with Dan, Lily and Carol", each name a link. */}
+        {post.tagged?.length ? (
+          <Text testID="post-tagged" style={styles.tagged}>
+            <Ionicons name="pricetag-outline" size={13} color={colors.cocoaSoft} />
+            {' with '}
+            {post.tagged.map((u, i, all) => (
+              <Text key={u.id}>
+                <Text
+                  testID={`post-tagged-${u.id}`}
+                  style={styles.taggedName}
+                  onPress={() => onPressUser?.(u.id)}
+                  suppressHighlighting
+                >
+                  {u.display_name}
+                </Text>
+                {i < all.length - 2 ? ', ' : i === all.length - 2 ? ' and ' : ''}
+              </Text>
+            ))}
+          </Text>
+        ) : null}
+
         {post.recipe ? (
           <Pressable onPress={() => setShowRecipe((v) => !v)} style={styles.recipeToggle}>
             <Ionicons name="book-outline" size={14} color={colors.amberDark} />
@@ -530,6 +565,14 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
     color: colors.cocoa,
   },
+  tagged: {
+    marginTop: spacing.xs,
+    fontFamily: fonts.semi,
+    fontSize: 13.5,
+    lineHeight: 19,
+    color: colors.cocoaSoft,
+  },
+  taggedName: { fontFamily: fonts.bold, color: colors.cocoa },
   recipeToggle: {
     marginTop: spacing.md,
     alignSelf: 'flex-start',

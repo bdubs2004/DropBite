@@ -535,6 +535,13 @@ export function ProfileScreen({ navigation, route }: any) {
         onClose={() => setOtherMenuOpen(false)}
         actions={[
           {
+            key: 'share-profile',
+            label: 'Share profile',
+            hint: 'Send it to friends or a group chat in NiblGo',
+            icon: 'paper-plane-outline',
+            onPress: () => navigation.navigate('ShareSheet', { userId }),
+          },
+          {
             key: 'report-account',
             label: 'Report account',
             hint: 'Send this profile to our moderation team',
@@ -640,6 +647,13 @@ export function ProfileScreen({ navigation, route }: any) {
                 hint: 'Photo, name, and bio',
                 icon: 'person-outline',
                 onPress: () => navigation.navigate('Settings', { section: 'profile' }),
+              },
+              {
+                key: 'share-profile',
+                label: 'Share your profile',
+                hint: 'Send it to friends or a group chat',
+                icon: 'paper-plane-outline',
+                onPress: () => navigation.navigate('ShareSheet', { userId }),
               },
               {
                 key: 'notifications',

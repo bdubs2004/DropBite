@@ -45,7 +45,7 @@ export function FeedScreen({ navigation }: any) {
       };
     }, [svc]),
   );
-  const { like, comment, share, repost, save, remove, report, addToCollection } =
+  const { like, comment, share, repost, save, remove, report, addToCollection, tagPeople } =
     usePostActions(navigation, refreshFeed);
 
   const listRef = useRef<FlatList<any>>(null);
@@ -198,6 +198,7 @@ export function FeedScreen({ navigation }: any) {
             onDelete={remove}
             onReport={report}
             onAddToCollection={addToCollection}
+            onTagPeople={tagPeople}
             isMine={item.user_id === user?.id}
           />
         )}

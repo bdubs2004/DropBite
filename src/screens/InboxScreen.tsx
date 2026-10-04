@@ -96,6 +96,7 @@ export function InboxScreen({ navigation }: any) {
   const preview = (c: Conversation) => {
     if (!c.last_message) return 'Say hello';
     if (c.last_message.shared_post_id && !c.last_message.text) return 'Shared a post';
+    if (c.last_message.shared_user_id && !c.last_message.text) return 'Shared a profile';
     if (c.last_message.image_url && !c.last_message.text) return 'Sent a photo';
     return c.last_message.text;
   };

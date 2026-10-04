@@ -92,6 +92,8 @@ interface Db {
   messages: Message[];
   /** Optional: demo databases saved before reactions existed lack it. */
   messageReactions?: { message_id: string; user_id: string; emoji: string }[];
+  /** Optional: demo databases saved before tagging existed lack it. */
+  postTags?: { post_id: string; user_id: string }[];
   blocks: { blocker_id: string; blocked_id: string }[];
   reports: Report[];
   feedback: Feedback[];
@@ -175,6 +177,10 @@ export class MockService implements DataService {
       repost_count: db.reposts.filter((r) => r.post_id === post.id).length,
       reposted_by_me: db.reposts.some((r) => r.post_id === post.id && r.user_id === meId),
       saved_by_me: db.saves.some((s) => s.post_id === post.id && s.user_id === meId),
+      tagged: (db.postTags ?? [])
+        .filter((t) => t.post_id === post.id)
+        .map((t) => db.users.find((u) => u.id === t.user_id))
+        .filter((u): u is User => Boolean(u)),
     };
   }
 
@@ -301,6 +307,7 @@ export class MockService implements DataService {
       (cp) => !myCollections.has(cp.collection_id) && !myPosts.has(cp.post_id),
     );
     db.messageReactions = (db.messageReactions ?? []).filter((r) => r.user_id !== meId);
+    db.postTags = (db.postTags ?? []).filter((t) => t.user_id !== meId && !myPosts.has(t.post_id));
     db.streaks = db.streaks.filter((s) => s.user_id !== meId);
     db.credentials = db.credentials.filter((c) => c.userId !== meId);
     db.sessionUserId = null;
@@ -541,6 +548,7 @@ export class MockService implements DataService {
       created_at: new Date().toISOString(),
     };
     db.posts.push(post);
+    this.writeTags(db, me.id, post.id, input.tag_user_ids ?? []);
     if (input.recipe) {
       db.recipes.push({ ...input.recipe, id: uid('r-'), post_id: post.id });
     }
@@ -574,6 +582,7 @@ export class MockService implements DataService {
   private hydrateMessage(db: Db, m: Message, meId: string): Message {
     return {
       ...m,
+      shared_user: m.shared_user_id ? db.users.find((u) => u.id === m.shared_user_id) ?? null : null,
       reactions: (db.messageReactions ?? [])
         .filter((r) => r.message_id === m.id)
         .map(({ user_id, emoji }) => ({ user_id, emoji })),
@@ -683,9 +692,52 @@ export class MockService implements DataService {
     await this.save();
   }
 
+  /**
+   * Make the post's tags exactly `userIds` (mirrors the post_tags RLS: no
+   * self-tags, nobody across a block) and notify anyone newly tagged.
+   */
+  private writeTags(db: Db, meId: string, postId: string, userIds: string[]): void {
+    const blocked = this.blockedIds(db, meId);
+    const want = [...new Set(userIds)].filter(
+      (id) => id !== meId && !blocked.has(id) && db.users.some((u) => u.id === id),
+    );
+    const had = new Set((db.postTags ?? []).filter((t) => t.post_id === postId).map((t) => t.user_id));
+    db.postTags = [
+      ...(db.postTags ?? []).filter((t) => t.post_id !== postId),
+      ...want.map((user_id) => ({ post_id: postId, user_id })),
+    ];
+    if (!db.notifications) db.notifications = [];
+    for (const id of want) {
+      if (had.has(id)) continue;
+      const already = db.notifications.some(
+        (n) => n.user_id === id && n.actor_id === meId && n.type === 'tag' && n.post_id === postId,
+      );
+      if (already) continue;
+      db.notifications.push({
+        id: uid('n-'),
+        user_id: id,
+        actor_id: meId,
+        type: 'tag',
+        post_id: postId,
+        comment_id: null,
+        read_at: null,
+        created_at: new Date().toISOString(),
+      });
+    }
+  }
+
+  async setPostTags(postId: string, userIds: string[]): Promise<void> {
+    const db = await this.load();
+    const me = await this.me();
+    const post = db.posts.find((p) => p.id === postId);
+    if (!post || post.user_id !== me.id) throw new Error('You can only tag people in your own posts.');
+    this.writeTags(db, me.id, postId, userIds);
+    await this.save();
+  }
+
   async sendMessage(
     conversationId: string,
-    input: { text?: string; sharedPostId?: string; imageUri?: string },
+    input: { text?: string; sharedPostId?: string; sharedUserId?: string; imageUri?: string },
   ): Promise<Message> {
     const db = this.dmTables(await this.load());
     const me = await this.me();
@@ -695,7 +747,9 @@ export class MockService implements DataService {
     if (!isMember) throw new Error('Not part of that conversation.');
 
     const text = (input.text ?? '').trim().slice(0, 2000);
-    if (!text && !input.sharedPostId && !input.imageUri) throw new Error('Nothing to send.');
+    if (!text && !input.sharedPostId && !input.sharedUserId && !input.imageUri) {
+      throw new Error('Nothing to send.');
+    }
 
     const msg: Message = {
       id: uid('m-'),
@@ -703,6 +757,7 @@ export class MockService implements DataService {
       sender_id: me.id,
       text,
       shared_post_id: input.sharedPostId ?? null,
+      shared_user_id: input.sharedUserId ?? null,
       // Demo mode has no bucket: keep the URI as-is. pickImage already turned
       // web blob: URLs into data URLs so it survives a reload.
       image_url: input.imageUri ?? null,
@@ -927,6 +982,18 @@ export class MockService implements DataService {
     await this.sendMessage(convId, { sharedPostId: postId });
   }
 
+  async shareProfileToUsers(profileId: string, userIds: string[]): Promise<void> {
+    for (const userId of userIds) {
+      const convId = await this.startConversation(userId);
+      await this.sendMessage(convId, { sharedUserId: profileId });
+    }
+  }
+
+  async shareProfileToGroup(profileId: string, userIds: string[]): Promise<void> {
+    const convId = await this.startGroupConversation(userIds);
+    await this.sendMessage(convId, { sharedUserId: profileId });
+  }
+
   async renameConversation(conversationId: string, title: string): Promise<void> {
     const db = this.dmTables(await this.load());
     const me = await this.me();
@@ -1116,6 +1183,7 @@ export class MockService implements DataService {
     db.shares = db.shares.filter((s) => s.post_id !== postId);
     db.saves = db.saves.filter((s) => s.post_id !== postId);
     db.collectionPosts = this.colTables(db).collectionPosts.filter((cp) => cp.post_id !== postId);
+    db.postTags = (db.postTags ?? []).filter((t) => t.post_id !== postId);
     // Reports are NOT deleted with the post — mirrors ON DELETE SET NULL in
     // schema.sql. Deleting a reported post must not erase the moderation
     // record; the snapshot on the report preserves what was reported.

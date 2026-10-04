@@ -349,7 +349,16 @@ export function ChatScreen({ navigation, route }: any) {
             // A photo — or a shared-post card — on its own reads better as the
             // thing itself, not wrapped in a thick coloured frame.
             const photoOnly = !!item.image_url && !item.text && !item.shared_post_id;
-            const sharedOnly = !!item.shared_post_id && !item.text && !item.image_url;
+            const sharedOnly =
+              !!(item.shared_post_id || item.shared_user_id) && !item.text && !item.image_url;
+            // Its shared post or profile was deleted, leaving nothing to show.
+            const emptied =
+              !item.text &&
+              !item.image_url &&
+              !item.shared_post_id &&
+              !item.shared_user_id &&
+              !item.shared_post &&
+              !item.shared_user;
             const bare = photoOnly || sharedOnly;
             return (
               <View style={styles.row}>
@@ -422,7 +431,33 @@ export function ChatScreen({ navigation, route }: any) {
                         </Pressable>
                       ) : item.shared_post_id ? (
                         // The post existed when it was sent but has since been deleted.
-                        <Muted style={{ fontStyle: 'italic' }}>This post is no longer available.</Muted>
+                        <Muted style={{ fontStyle: 'italic' }}>This post is no longer available</Muted>
+                      ) : null}
+
+                      {item.shared_user ? (
+                        // A profile someone sent (Share profile). Tap for their page.
+                        <Pressable
+                          testID={`chat-shared-profile-${item.id}`}
+                          onPress={() =>
+                            navigation.navigate('UserProfile', { userId: item.shared_user!.id })
+                          }
+                          style={styles.profileCard}
+                        >
+                          <Avatar user={item.shared_user} size={60} />
+                          <Text style={styles.profileName} numberOfLines={1}>
+                            {item.shared_user.display_name ?? '@' + item.shared_user.handle}
+                          </Text>
+                          <Text style={styles.profileHandle} numberOfLines={1}>
+                            @{item.shared_user.handle}
+                          </Text>
+                          <View style={styles.profileBtn}>
+                            <Text style={styles.profileBtnText}>View profile</Text>
+                          </View>
+                        </Pressable>
+                      ) : null}
+
+                      {emptied ? (
+                        <Muted style={{ fontStyle: 'italic' }}>No longer available</Muted>
                       ) : null}
 
                       {item.image_url ? (
@@ -700,6 +735,31 @@ const styles = StyleSheet.create({
     color: colors.cocoa,
   },
   sharedThumb: { width: SHARED_W, height: SHARED_W },
+  profileCard: {
+    width: 220,
+    alignItems: 'center',
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.md,
+    borderRadius: 16,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
+  profileName: {
+    fontFamily: fonts.bold,
+    fontSize: 16,
+    color: colors.cocoa,
+    marginTop: spacing.sm,
+  },
+  profileHandle: { fontFamily: fonts.semi, fontSize: 13, color: colors.cocoaFaint },
+  profileBtn: {
+    marginTop: spacing.md,
+    backgroundColor: colors.amber,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 8,
+  },
+  profileBtnText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.white },
   sharedMeta: { paddingHorizontal: 12, paddingVertical: 11 },
   sharedBlurb: {
     fontFamily: fonts.semi,

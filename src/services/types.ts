@@ -102,6 +102,11 @@ export interface DataService {
   /** People to discover, each with a few recent posts and follow state. */
   getDiscoverPeople(): Promise<DiscoverPerson[]>;
   createPost(input: NewPostInput): Promise<Post>;
+  /**
+   * Replace who's tagged in one of your posts. Tagging someone new sends them
+   * a notification. You can't tag yourself or anyone across a block.
+   */
+  setPostTags(postId: string, userIds: string[]): Promise<void>;
   /** Delete one of your own posts, and everything attached to it. */
   deletePost(postId: string): Promise<void>;
   toggleReaction(postId: string): Promise<void>;
@@ -130,7 +135,7 @@ export interface DataService {
   getMessages(conversationId: string): Promise<Message[]>;
   sendMessage(
     conversationId: string,
-    input: { text?: string; sharedPostId?: string; imageUri?: string },
+    input: { text?: string; sharedPostId?: string; sharedUserId?: string; imageUri?: string },
   ): Promise<Message>;
   /** Find my existing 1:1 thread with this user, or start one. */
   /**
@@ -147,6 +152,10 @@ export interface DataService {
   sharePostToUsers(postId: string, userIds: string[]): Promise<void>;
   /** Send one post into a single group thread with everyone selected. */
   sharePostToGroup(postId: string, userIds: string[]): Promise<void>;
+  /** Send someone's profile to several people as separate 1:1 DMs. */
+  shareProfileToUsers(profileId: string, userIds: string[]): Promise<void>;
+  /** Send someone's profile into a single new group thread. */
+  shareProfileToGroup(profileId: string, userIds: string[]): Promise<void>;
   /** Set (or clear, with an empty string) a group thread's custom name. */
   renameConversation(conversationId: string, title: string): Promise<void>;
   /** Everyone in a thread, including you. */
