@@ -1,17 +1,21 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useCallback, useEffect, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '../components/Avatar';
 import { Muted } from '../components/ui';
+import { filterUsers } from '../lib/userFilter';
 import { getDataService } from '../services';
 import { colors, fonts, radius, shadowSoft, spacing } from '../theme';
 import { User } from '../types';
 
 /**
- * Followers / following list for a user. If the target user's lists are
- * private (and it isn't you), the screen still opens but shows a private
- * notice instead of the names.
+ * Followers / following for a user, with a toggle to flip between the two
+ * (whichever you tapped on the profile opens first) and a search box that
+ * filters the list by name or @handle. Also shows who liked a comment.
+ *
+ * If the target user's lists are private (and it isn't you), the screen still
+ * opens but shows a private notice instead of the names.
  */
 export function UserListScreen({ navigation, route }: any) {
   const { userId, mode, displayName, isPrivate, isMe, commentId } = route.params as {
@@ -25,28 +29,47 @@ export function UserListScreen({ navigation, route }: any) {
   };
   const svc = getDataService();
   const insets = useSafeAreaInsets();
-  const [users, setUsers] = useState<User[]>([]);
+  const isFollowMode = mode !== 'comment_likes';
+  // Which follow list is showing; starts on whichever one you tapped.
+  const [tab, setTab] = useState<'followers' | 'following'>(
+    mode === 'following' ? 'following' : 'followers',
+  );
+  const listMode = isFollowMode ? tab : 'comment_likes';
+  const [followers, setFollowers] = useState<User[]>([]);
+  const [following, setFollowing] = useState<User[]>([]);
+  const [likers, setLikers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState('');
 
   // Only follower/following lists can be private; comment likes are public.
-  const gated = mode !== 'comment_likes' && !!isPrivate && !isMe;
-  const title =
-    mode === 'followers' ? 'Followers' : mode === 'following' ? 'Following' : 'Likes';
+  const gated = isFollowMode && !!isPrivate && !isMe;
+  const listName =
+    listMode === 'followers' ? 'Followers' : listMode === 'following' ? 'Following' : 'Likes';
+  const title = isFollowMode ? (displayName ?? listName) : 'Likes';
 
   const load = useCallback(async () => {
     if (gated) {
       setLoading(false);
       return;
     }
-    const list =
-      mode === 'comment_likes'
-        ? await svc.getCommentLikers(commentId!)
-        : mode === 'followers'
-          ? await svc.getFollowers(userId!)
-          : await svc.getFollowingUsers(userId!);
-    setUsers(list);
+    if (mode === 'comment_likes') {
+      setLikers(await svc.getCommentLikers(commentId!));
+    } else {
+      // Both at once, so the toggle flips instantly and shows both counts.
+      const [a, b] = await Promise.all([
+        svc.getFollowers(userId!),
+        svc.getFollowingUsers(userId!),
+      ]);
+      setFollowers(a);
+      setFollowing(b);
+    }
     setLoading(false);
   }, [svc, userId, mode, gated, commentId]);
+
+  const users =
+    listMode === 'followers' ? followers : listMode === 'following' ? following : likers;
+  const shown = useMemo(() => filterUsers(users, query), [users, query]);
+  const searching = query.trim().length > 0;
 
   useEffect(() => {
     load();
@@ -58,34 +81,81 @@ export function UserListScreen({ navigation, route }: any) {
         <Pressable onPress={() => navigation.goBack()} hitSlop={10} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={22} color={colors.amberDark} />
         </Pressable>
-        <View>
-          <Text style={styles.title}>{title}</Text>
-          <Muted>
-            {mode === 'comment_likes'
-              ? 'People who liked this comment'
-              : isMe
-                ? 'You'
-                : displayName}
-          </Muted>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.title} numberOfLines={1}>
+            {title}
+          </Text>
+          {isFollowMode ? null : (
+            <Muted style={{ textAlign: 'center' }}>People who liked this comment</Muted>
+          )}
         </View>
         <View style={{ width: 30 }} />
       </View>
 
+      {isFollowMode ? (
+        <View style={styles.tabs}>
+          {(['followers', 'following'] as const).map((key) => {
+            const active = tab === key;
+            const count = key === 'followers' ? followers.length : following.length;
+            return (
+              <Pressable
+                key={key}
+                testID={`userlist-tab-${key}`}
+                onPress={() => setTab(key)}
+                style={[styles.tab, active && styles.tabActive]}
+              >
+                <Text style={[styles.tabText, active && styles.tabTextActive]}>
+                  {gated || loading ? '' : `${count} `}
+                  {key === 'followers' ? 'Followers' : 'Following'}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
+
+      {gated ? null : (
+        <View style={styles.searchBox}>
+          <Ionicons name="search" size={17} color={colors.cocoaFaint} />
+          <TextInput
+            testID="userlist-search"
+            value={query}
+            onChangeText={setQuery}
+            placeholder={`Search ${listName.toLowerCase()}`}
+            placeholderTextColor={colors.cocoaFaint}
+            style={styles.searchInput}
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="search"
+            clearButtonMode="never"
+          />
+          {query ? (
+            <Pressable testID="userlist-search-clear" onPress={() => setQuery('')} hitSlop={10}>
+              <Ionicons name="close-circle" size={18} color={colors.cocoaFaint} />
+            </Pressable>
+          ) : null}
+        </View>
+      )}
+
       {gated ? (
         <View style={styles.gate}>
           <Ionicons name="lock-closed-outline" size={44} color={colors.cocoaFaint} />
-          <Text style={styles.privateTitle}>{title} are private</Text>
+          <Text style={styles.privateTitle}>{listName} are private</Text>
           <Muted style={{ textAlign: 'center', paddingHorizontal: spacing.xl }}>
-            {displayName} keeps their {title.toLowerCase()} list private.
+            {displayName} keeps their {listName.toLowerCase()} list private
           </Muted>
         </View>
       ) : (
         <FlatList
-          data={users}
+          testID="userlist"
+          data={shown}
           keyExtractor={(u) => u.id}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           contentContainerStyle={{ padding: spacing.lg, paddingTop: spacing.sm }}
           renderItem={({ item }) => (
             <Pressable
+              testID={`userlist-row-${item.id}`}
               style={styles.row}
               onPress={() => navigation.push('UserProfile', { userId: item.id })}
             >
@@ -103,23 +173,29 @@ export function UserListScreen({ navigation, route }: any) {
             </Pressable>
           )}
           ListEmptyComponent={
-            loading ? null : mode === 'comment_likes' ? (
+            loading ? null : searching && users.length > 0 ? (
+              <View style={styles.empty}>
+                <Ionicons name="search-outline" size={40} color={colors.cocoaFaint} />
+                <Text style={styles.emptyTitle}>No one matches “{query.trim()}”</Text>
+                <Muted style={styles.emptyBody}>Try part of their name or @handle</Muted>
+              </View>
+            ) : listMode === 'comment_likes' ? (
               <View style={styles.empty}>
                 <Ionicons name="heart-outline" size={44} color={colors.cocoaFaint} />
                 <Text style={styles.emptyTitle}>No likes yet</Text>
-                <Muted style={styles.emptyBody}>Be the first to like this comment.</Muted>
+                <Muted style={styles.emptyBody}>Be the first to like this comment</Muted>
               </View>
             ) : (
               // Give the empty case the same weight as the private one: an
               // icon, a headline, and a line telling you what to do next.
               <View style={styles.empty}>
                 <Ionicons
-                  name={mode === 'followers' ? 'people-outline' : 'person-add-outline'}
+                  name={listMode === 'followers' ? 'people-outline' : 'person-add-outline'}
                   size={44}
                   color={colors.cocoaFaint}
                 />
                 <Text style={styles.emptyTitle}>
-                  {mode === 'followers'
+                  {listMode === 'followers'
                     ? isMe
                       ? 'No followers yet'
                       : 'No followers yet'
@@ -128,13 +204,13 @@ export function UserListScreen({ navigation, route }: any) {
                       : 'Not following anyone'}
                 </Text>
                 <Muted style={styles.emptyBody}>
-                  {mode === 'followers'
+                  {listMode === 'followers'
                     ? isMe
-                      ? 'Share a meal or two and people will start following you.'
-                      : `When someone follows ${displayName}, they'll show up here.`
+                      ? 'Share a meal or two and people will start following you'
+                      : `When someone follows ${displayName}, they'll show up here`
                     : isMe
-                      ? 'Find people in Discover and their meals will fill your feed.'
-                      : `${displayName} hasn't followed anyone yet.`}
+                      ? 'Find people in Discover and their meals will fill your feed'
+                      : `${displayName} hasn't followed anyone yet`}
                 </Muted>
                 {isMe ? (
                   <Pressable
@@ -235,6 +311,42 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
     fontSize: 14.5,
     color: colors.white,
+  },
+  tabs: {
+    flexDirection: 'row',
+    backgroundColor: colors.creamDark,
+    borderRadius: radius.pill,
+    padding: 4,
+    gap: 4,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  tab: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 9,
+    borderRadius: radius.pill,
+  },
+  tabActive: { backgroundColor: colors.white, ...(shadowSoft as object) },
+  tabText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.cocoaSoft },
+  tabTextActive: { color: colors.amberDark },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.white,
+    borderRadius: radius.pill,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 9,
+  },
+  searchInput: {
+    flex: 1,
+    fontFamily: fonts.semi,
+    fontSize: 15,
+    color: colors.cocoa,
+    paddingVertical: 0,
   },
   privateTitle: {
     fontFamily: fonts.display,
