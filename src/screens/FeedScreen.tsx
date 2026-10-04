@@ -44,7 +44,8 @@ export function FeedScreen({ navigation }: any) {
       };
     }, [svc]),
   );
-  const { like, comment, share, repost, save, remove, report } = usePostActions(navigation, refreshFeed);
+  const { like, comment, share, repost, save, remove, report, addToCollection } =
+    usePostActions(navigation, refreshFeed);
 
   const listRef = useRef<FlatList<any>>(null);
 
@@ -176,6 +177,7 @@ export function FeedScreen({ navigation }: any) {
             onPressUser={openProfile}
             onDelete={remove}
             onReport={report}
+            onAddToCollection={addToCollection}
             isMine={item.user_id === user?.id}
           />
         )}

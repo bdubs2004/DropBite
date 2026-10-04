@@ -134,7 +134,7 @@ export function PostDetailScreen({ navigation, route }: any) {
     }
   };
 
-  const { like, comment, share, repost, save, remove, report } = usePostActions(
+  const { like, comment, share, repost, save, remove, report, addToCollection } = usePostActions(
     navigation,
     () => {},
   );
@@ -226,6 +226,7 @@ export function PostDetailScreen({ navigation, route }: any) {
               onPressUser={(uid) => navigation.push('UserProfile', { userId: uid })}
               onDelete={removeAndUpdate}
               onReport={report}
+              onAddToCollection={addToCollection}
               isMine={item.user_id === user?.id}
             />
           )}

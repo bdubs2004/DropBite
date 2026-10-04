@@ -16,12 +16,14 @@ import { Avatar } from '../components/Avatar';
 import { ActionSheet } from '../components/ActionSheet';
 import { ActivityDrawer } from '../components/ActivityDrawer';
 import { PostThumb } from '../components/PostThumb';
+import { RenameGroupSheet } from '../components/RenameGroupSheet';
 import { Button, Muted } from '../components/ui';
+import { COLLECTION_NAME_MAX, collectionNameProblem } from '../lib/collectionName';
 import { openPostFeed } from '../lib/postFeed';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
 import { colors, fonts, radius, shadowSoft, spacing } from '../theme';
-import { Post, Streak, User } from '../types';
+import { Collection, Post, Streak, User } from '../types';
 
 /**
  * Shows either my own profile (tab) or another user's (pushed from feed).
@@ -44,7 +46,10 @@ export function ProfileScreen({ navigation, route }: any) {
   const profile = isMe ? me : otherProfile;
   const [posts, setPosts] = useState<Post[]>([]);
   const [reposts, setReposts] = useState<Post[]>([]);
-  const [tab, setTab] = useState<'posts' | 'reposts'>('posts');
+  const [collections, setCollections] = useState<Collection[]>([]);
+  const [tab, setTab] = useState<'posts' | 'reposts' | 'collections'>('posts');
+  const [naming, setNaming] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
   const [streak, setStreak] = useState<Streak | null>(null);
   const [counts, setCounts] = useState({ followers: 0, following: 0 });
   const [following, setFollowing] = useState(false);
@@ -69,15 +74,19 @@ export function ProfileScreen({ navigation, route }: any) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [userPosts, userReposts, s, c, followingIds] = await Promise.all([
+      const [userPosts, userReposts, cols, s, c, followingIds] = await Promise.all([
         svc.getUserPosts(userId),
         svc.getReposts(userId),
+        // Never let collections stop the profile loading (e.g. a database
+        // that hasn't run migration 0022 yet).
+        svc.getCollections(userId).catch(() => [] as Collection[]),
         svc.getStreak(userId),
         svc.getFollowCounts(userId),
         svc.getFollowingIds(),
       ]);
       setPosts(userPosts);
       setReposts(userReposts);
+      setCollections(cols);
       setStreak(s);
       setCounts(c);
       setFollowing(followingIds.includes(userId));
@@ -152,6 +161,40 @@ export function ProfileScreen({ navigation, route }: any) {
     const remainder = visible.length % GRID_COLUMNS;
     if (remainder === 0) return visible;
     return [...visible, ...Array(GRID_COLUMNS - remainder).fill(null)];
+  })();
+
+  // Making a collection from the profile: name it, then go straight into it to
+  // pick which posts belong.
+  const createCollection = async (text: string) => {
+    const problem = collectionNameProblem(
+      text,
+      collections.map((c) => c.name),
+    );
+    if (problem) {
+      setNameError(problem);
+      return;
+    }
+    try {
+      const made = await svc.createCollection(text);
+      setNaming(false);
+      setNameError(null);
+      setCollections((prev) => [made, ...prev]);
+      navigation.navigate('Collection', {
+        collectionId: made.id,
+        name: made.name,
+        pickPosts: true,
+      });
+    } catch (e: any) {
+      setNameError(e?.message ?? 'Could not make that collection');
+    }
+  };
+
+  // Your own profile leads with a "New collection" tile; padded to whole rows
+  // so a lone last tile stays half width.
+  type CollectionCell = Collection | 'new' | null;
+  const collectionData: CollectionCell[] = (() => {
+    const cells: CollectionCell[] = isMe ? ['new', ...collections] : [...collections];
+    return cells.length % 2 ? [...cells, null] : cells;
   })();
 
   const header = (
@@ -314,61 +357,160 @@ export function ProfileScreen({ navigation, route }: any) {
             Reposts
           </Text>
         </Pressable>
+        <Pressable
+          testID="profile-tab-collections"
+          onPress={() => setTab('collections')}
+          style={[styles.profileTab, tab === 'collections' && styles.profileTabActive]}
+        >
+          <Ionicons
+            name="albums"
+            size={16}
+            color={tab === 'collections' ? colors.amberDark : colors.cocoaSoft}
+          />
+          <Text
+            style={[styles.profileTabText, tab === 'collections' && styles.profileTabTextActive]}
+          >
+            Collections
+          </Text>
+        </Pressable>
       </View>
     </View>
   );
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
-      <FlatList
-        ref={listRef}
-        testID="profile-grid"
-        data={gridData}
-        keyExtractor={(p, i) => p?.id ?? `spacer-${i}`}
-        numColumns={GRID_COLUMNS}
-        onScrollToIndexFailed={() => {}}
-        ListHeaderComponent={header}
-        columnWrapperStyle={{ gap: GRID_GAP }}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={pullRefresh}
-            tintColor={colors.amber}
-            colors={[colors.amber]}
-          />
-        }
-        contentContainerStyle={{ gap: GRID_GAP, paddingBottom: 120 }}
-        renderItem={({ item }) =>
-          item ? (
-            <PostThumb
-              post={item}
-              onPress={() =>
-                openPostFeed(
-                  navigation,
-                  source.filter((p) => !hiddenIds.has(p.id)),
-                  item.id,
-                  tab === 'posts' ? 'Posts' : 'Reposts',
-                )
-              }
-              onLongPress={() => navigation.navigate('PostPeek', { postId: item.id })}
-              style={{ flex: 1 }}
+      {tab === 'collections' ? (
+        <FlatList
+          // Two columns here vs three for posts, so it needs its own key.
+          key="collections"
+          testID="profile-collections"
+          data={collectionData}
+          keyExtractor={(c, i) => (c === 'new' ? 'new' : c?.id ?? `spacer-${i}`)}
+          numColumns={2}
+          ListHeaderComponent={header}
+          columnWrapperStyle={{ gap: spacing.md, paddingHorizontal: spacing.lg }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={pullRefresh}
+              tintColor={colors.amber}
+              colors={[colors.amber]}
             />
-          ) : (
-            <View style={{ flex: 1 }} />
-          )
-        }
-        ListEmptyComponent={
-          loading ? null : (
-            <Muted style={{ textAlign: 'center', marginTop: spacing.xl }}>
-              {tab === 'posts'
-                ? 'No posts yet'
-                : isMe
-                  ? 'Posts you repost show up here'
-                  : 'No reposts yet'}
-            </Muted>
-          )
-        }
-      />
+          }
+          contentContainerStyle={{ gap: spacing.lg, paddingBottom: 120 }}
+          renderItem={({ item }) =>
+            item === 'new' ? (
+              <Pressable
+                testID="collection-new-tile"
+                onPress={() => {
+                  setNameError(null);
+                  setNaming(true);
+                }}
+                style={styles.collectionTile}
+              >
+                <View style={[styles.collectionCover, styles.collectionNew]}>
+                  <Ionicons name="add" size={34} color={colors.amberDark} />
+                </View>
+                <Text style={[styles.collectionName, { color: colors.amberDark }]}>
+                  New collection
+                </Text>
+              </Pressable>
+            ) : item ? (
+              <Pressable
+                testID={`collection-tile-${item.id}`}
+                onPress={() =>
+                  navigation.navigate('Collection', { collectionId: item.id, name: item.name })
+                }
+                style={styles.collectionTile}
+              >
+                <View style={styles.collectionCover}>
+                  {item.cover ? (
+                    <PostThumb
+                      post={item.cover}
+                      radius={radius.lg}
+                      style={{ width: '100%' }}
+                      onPress={() =>
+                        navigation.navigate('Collection', {
+                          collectionId: item.id,
+                          name: item.name,
+                        })
+                      }
+                    />
+                  ) : (
+                    <Ionicons name="albums-outline" size={30} color={colors.cocoaFaint} />
+                  )}
+                </View>
+                <Text style={styles.collectionName} numberOfLines={1}>
+                  {item.name}
+                </Text>
+                <Text style={styles.collectionCount}>
+                  {item.post_count === 1 ? '1 post' : `${item.post_count} posts`}
+                </Text>
+              </Pressable>
+            ) : (
+              <View style={{ flex: 1 }} />
+            )
+          }
+          ListEmptyComponent={
+            loading ? null : (
+              <Muted style={{ textAlign: 'center', marginTop: spacing.xl }}>
+                No collections yet
+              </Muted>
+            )
+          }
+        />
+      ) : (
+        <FlatList
+          key="grid"
+          ref={listRef}
+          testID="profile-grid"
+          data={gridData}
+          keyExtractor={(p, i) => p?.id ?? `spacer-${i}`}
+          numColumns={GRID_COLUMNS}
+          onScrollToIndexFailed={() => {}}
+          ListHeaderComponent={header}
+          columnWrapperStyle={{ gap: GRID_GAP }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={pullRefresh}
+              tintColor={colors.amber}
+              colors={[colors.amber]}
+            />
+          }
+          contentContainerStyle={{ gap: GRID_GAP, paddingBottom: 120 }}
+          renderItem={({ item }) =>
+            item ? (
+              <PostThumb
+                post={item}
+                onPress={() =>
+                  openPostFeed(
+                    navigation,
+                    source.filter((p) => !hiddenIds.has(p.id)),
+                    item.id,
+                    tab === 'posts' ? 'Posts' : 'Reposts',
+                  )
+                }
+                onLongPress={() => navigation.navigate('PostPeek', { postId: item.id })}
+                style={{ flex: 1 }}
+              />
+            ) : (
+              <View style={{ flex: 1 }} />
+            )
+          }
+          ListEmptyComponent={
+            loading ? null : (
+              <Muted style={{ textAlign: 'center', marginTop: spacing.xl }}>
+                {tab === 'posts'
+                  ? 'No posts yet'
+                  : isMe
+                    ? 'Posts you repost show up here'
+                    : 'No reposts yet'}
+              </Muted>
+            )
+          }
+        />
+      )}
 
       <ActionSheet
         visible={otherMenuOpen}
@@ -401,6 +543,19 @@ export function ProfileScreen({ navigation, route }: any) {
               : confirmBlock,
           },
         ]}
+      />
+
+      <RenameGroupSheet
+        visible={naming}
+        initial=""
+        title="New collection"
+        placeholder="Crockpot meals, desserts..."
+        saveLabel="Create"
+        maxLength={COLLECTION_NAME_MAX + 10}
+        error={nameError}
+        testIDPrefix="collection-name"
+        onCancel={() => setNaming(false)}
+        onSave={createCollection}
       />
 
       <ActivityDrawer
@@ -684,4 +839,26 @@ const styles = StyleSheet.create({
   profileTabActive: { backgroundColor: colors.white, ...(shadowSoft as object) },
   profileTabText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.cocoaSoft },
   profileTabTextActive: { color: colors.amberDark },
+  collectionTile: { flex: 1 },
+  collectionCover: {
+    aspectRatio: 1,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+    backgroundColor: colors.creamDark,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  collectionNew: {
+    backgroundColor: colors.amberSoft,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: colors.amber,
+  },
+  collectionName: {
+    fontFamily: fonts.bold,
+    fontSize: 15,
+    color: colors.cocoa,
+    marginTop: spacing.sm,
+  },
+  collectionCount: { fontFamily: fonts.semi, fontSize: 12.5, color: colors.cocoaFaint },
 });

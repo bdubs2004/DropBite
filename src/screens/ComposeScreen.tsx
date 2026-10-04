@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import {
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -11,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CollectionPicker } from '../components/CollectionPicker';
 import { PostSuccessOverlay } from '../components/PostSuccessOverlay';
 import { NutritionPanel } from '../components/NutritionPanel';
 import { RecipeCardEditor } from '../components/RecipeCardEditor';
@@ -62,6 +64,10 @@ export function ComposeScreen({ navigation }: any) {
   const [postError, setPostError] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [posted, setPosted] = useState(false);
+  // Collections to file the new post in once it exists.
+  const [collectionIds, setCollectionIds] = useState<string[]>([]);
+  const [collectionNames, setCollectionNames] = useState<string[]>([]);
+  const [collectionsOpen, setCollectionsOpen] = useState(false);
 
   const hasPhoto = Boolean(photoUri || photoEmoji);
   const canPost = hasPhoto && blurb.trim().length > 0 && !posting;
@@ -152,7 +158,7 @@ export function ComposeScreen({ navigation }: any) {
     setPosting(true);
     setPostError(null);
     try {
-      await svc.createPost({
+      const created = await svc.createPost({
         meal_slot: slot,
         photo_url: photoUri,
         photo_emoji: photoEmoji,
@@ -174,6 +180,15 @@ export function ComposeScreen({ navigation }: any) {
             }
           : null,
       });
+      // Supplementary, like the recipe: a collection that fails to save must
+      // never lose the post.
+      for (const id of collectionIds) {
+        try {
+          await svc.setPostInCollection(id, created.id, true);
+        } catch (e: any) {
+          console.warn('adding to collection failed (post still saved):', e?.message);
+        }
+      }
       await refreshFeed();
       // Let the celebration play; the overlay closes the screen when it ends.
       setPosted(true);
@@ -442,6 +457,42 @@ export function ComposeScreen({ navigation }: any) {
           </>
         )}
 
+        {/* 6: collections (optional) */}
+        <Text style={styles.stepLabel}>Collection</Text>
+        <Pressable
+          testID="compose-collections"
+          onPress={() => setCollectionsOpen(true)}
+          style={styles.collectionRow}
+        >
+          <Ionicons
+            name={collectionIds.length ? 'albums' : 'albums-outline'}
+            size={20}
+            color={colors.amberDark}
+          />
+          <Text
+            style={[styles.collectionText, !collectionNames.length && { color: colors.cocoaFaint }]}
+            numberOfLines={1}
+          >
+            {collectionNames.length ? collectionNames.join(', ') : 'Add to a collection'}
+          </Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.cocoaFaint} />
+        </Pressable>
+        <Modal
+          visible={collectionsOpen}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setCollectionsOpen(false)}
+        >
+          <CollectionPicker
+            selected={collectionIds}
+            onChangeSelected={(ids, names) => {
+              setCollectionIds(ids);
+              setCollectionNames(names);
+            }}
+            onClose={() => setCollectionsOpen(false)}
+          />
+        </Modal>
+
         <Button
           title={posting ? 'Sharing' : 'Share post'}
           onPress={post}
@@ -504,6 +555,16 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: colors.cocoa,
   },
+  collectionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.white,
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 14,
+  },
+  collectionText: { flex: 1, fontFamily: fonts.semi, fontSize: 15, color: colors.cocoa },
   stepLabel: {
     fontFamily: fonts.bold,
     fontSize: 12.5,

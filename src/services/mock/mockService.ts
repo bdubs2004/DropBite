@@ -3,9 +3,11 @@ import { hashPassword, verifyPassword } from '../../lib/demoPassword';
 import { uid } from '../../lib/id';
 import { appVersion, platformName } from '../../lib/appInfo';
 import { clamp, clampOrNull, LIMITS } from '../../lib/limits';
+import { collectionNameProblem, tidyCollectionName } from '../../lib/collectionName';
 import { daysBetween, localDateString } from '../../lib/time';
 import {
   AppNotification,
+  Collection,
   Comment,
   SignUpResult,
   Feedback,
@@ -26,6 +28,8 @@ import {
 } from '../../types';
 import { DataService } from '../types';
 import {
+  SEED_COLLECTION_POSTS,
+  SEED_COLLECTIONS,
   SEED_COMMENTS,
   SEED_FOLLOWING,
   SEED_FOLLOWS,
@@ -74,6 +78,9 @@ interface Db {
   reposts: { post_id: string; user_id: string }[];
   shares: { post_id: string; user_id: string }[];
   saves: { post_id: string; user_id: string }[];
+  /** Optional: demo databases saved before collections existed lack these. */
+  collections?: { id: string; user_id: string; name: string; created_at: string }[];
+  collectionPosts?: { collection_id: string; post_id: string; added_at: string }[];
   commentReactions: { comment_id: string; user_id: string }[];
   conversations: { id: string; created_at: string; updated_at: string }[];
   conversationMembers: {
@@ -106,6 +113,8 @@ function freshDb(): Db {
     reposts: [...SEED_REPOSTS],
     shares: [...SEED_SHARES],
     saves: [],
+    collections: [...SEED_COLLECTIONS],
+    collectionPosts: [...SEED_COLLECTION_POSTS],
     commentReactions: [],
     conversations: [],
     conversationMembers: [],
@@ -283,6 +292,12 @@ export class MockService implements DataService {
     db.reposts = db.reposts.filter((r) => r.user_id !== meId && !myPosts.has(r.post_id));
     db.shares = db.shares.filter((s) => s.user_id !== meId && !myPosts.has(s.post_id));
     db.saves = db.saves.filter((s) => s.user_id !== meId && !myPosts.has(s.post_id));
+    const { collections, collectionPosts } = this.colTables(db);
+    const myCollections = new Set(collections.filter((c) => c.user_id === meId).map((c) => c.id));
+    db.collections = collections.filter((c) => c.user_id !== meId);
+    db.collectionPosts = collectionPosts.filter(
+      (cp) => !myCollections.has(cp.collection_id) && !myPosts.has(cp.post_id),
+    );
     db.streaks = db.streaks.filter((s) => s.user_id !== meId);
     db.credentials = db.credentials.filter((c) => c.userId !== meId);
     db.sessionUserId = null;
@@ -304,6 +319,12 @@ export class MockService implements DataService {
         reactions: db.reactions.filter((r) => r.user_id === me.id),
         comments: db.comments.filter((c) => c.user_id === me.id),
         reposts: db.reposts.filter((r) => r.user_id === me.id),
+        collections: this.colTables(db)
+          .collections.filter((c) => c.user_id === me.id)
+          .map((c) => ({
+            ...c,
+            posts: this.colTables(db).collectionPosts.filter((cp) => cp.collection_id === c.id),
+          })),
         streak: db.streaks.find((s) => s.user_id === me.id) ?? null,
       },
       null,
@@ -1070,6 +1091,7 @@ export class MockService implements DataService {
     db.reposts = db.reposts.filter((r) => r.post_id !== postId);
     db.shares = db.shares.filter((s) => s.post_id !== postId);
     db.saves = db.saves.filter((s) => s.post_id !== postId);
+    db.collectionPosts = this.colTables(db).collectionPosts.filter((cp) => cp.post_id !== postId);
     // Reports are NOT deleted with the post — mirrors ON DELETE SET NULL in
     // schema.sql. Deleting a reported post must not erase the moderation
     // record; the snapshot on the report preserves what was reported.
@@ -1288,6 +1310,134 @@ export class MockService implements DataService {
       this.notify(db, me.id, 'share', postId);
       await this.save();
     }
+  }
+
+  // ---------------------------------------------------------- collections
+
+  /** Demo databases saved before collections existed get the seed ones. */
+  private colTables(db: Db) {
+    if (!db.collections) db.collections = [...SEED_COLLECTIONS];
+    if (!db.collectionPosts) db.collectionPosts = [...SEED_COLLECTION_POSTS];
+    return { collections: db.collections, collectionPosts: db.collectionPosts };
+  }
+
+  private collectionOut(
+    db: Db,
+    c: { id: string; user_id: string; name: string; created_at: string },
+    meId: string,
+  ): Collection {
+    const items = this.colTables(db)
+      .collectionPosts.filter((cp) => cp.collection_id === c.id)
+      .sort((a, b) => b.added_at.localeCompare(a.added_at))
+      .map((cp) => db.posts.find((p) => p.id === cp.post_id))
+      .filter((p): p is Post => Boolean(p));
+    return {
+      ...c,
+      post_count: items.length,
+      cover: items[0] ? this.hydrate(db, items[0], meId) : null,
+    };
+  }
+
+  private myCollection(db: Db, meId: string, collectionId: string) {
+    const c = this.colTables(db).collections.find((x) => x.id === collectionId);
+    // Mirrors RLS: only the owner can change a collection.
+    if (!c || c.user_id !== meId) throw new Error('You can only change your own collections.');
+    return c;
+  }
+
+  async getCollections(userId: string): Promise<Collection[]> {
+    const db = await this.load();
+    const meId = db.sessionUserId ?? '';
+    return this.colTables(db)
+      .collections.filter((c) => c.user_id === userId)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .map((c) => this.collectionOut(db, c, meId));
+  }
+
+  async getCollection(collectionId: string): Promise<Collection | null> {
+    const db = await this.load();
+    const c = this.colTables(db).collections.find((x) => x.id === collectionId);
+    return c ? this.collectionOut(db, c, db.sessionUserId ?? '') : null;
+  }
+
+  async getCollectionPosts(collectionId: string): Promise<Post[]> {
+    const db = await this.load();
+    const meId = db.sessionUserId ?? '';
+    return this.colTables(db)
+      .collectionPosts.filter((cp) => cp.collection_id === collectionId)
+      .sort((a, b) => b.added_at.localeCompare(a.added_at))
+      .map((cp) => db.posts.find((p) => p.id === cp.post_id))
+      .filter((p): p is Post => Boolean(p))
+      .map((p) => this.hydrate(db, p, meId));
+  }
+
+  async createCollection(name: string): Promise<Collection> {
+    const db = await this.load();
+    const me = await this.me();
+    const { collections } = this.colTables(db);
+    const mine = collections.filter((c) => c.user_id === me.id).map((c) => c.name);
+    const problem = collectionNameProblem(name, mine);
+    if (problem) throw new Error(problem);
+    const row = {
+      id: uid('col-'),
+      user_id: me.id,
+      name: tidyCollectionName(name),
+      created_at: new Date().toISOString(),
+    };
+    collections.push(row);
+    await this.save();
+    return this.collectionOut(db, row, me.id);
+  }
+
+  async renameCollection(collectionId: string, name: string): Promise<void> {
+    const db = await this.load();
+    const me = await this.me();
+    const c = this.myCollection(db, me.id, collectionId);
+    const others = this.colTables(db)
+      .collections.filter((x) => x.user_id === me.id && x.id !== collectionId)
+      .map((x) => x.name);
+    const problem = collectionNameProblem(name, others);
+    if (problem) throw new Error(problem);
+    c.name = tidyCollectionName(name);
+    await this.save();
+  }
+
+  async deleteCollection(collectionId: string): Promise<void> {
+    const db = await this.load();
+    const me = await this.me();
+    this.myCollection(db, me.id, collectionId);
+    const t = this.colTables(db);
+    db.collections = t.collections.filter((c) => c.id !== collectionId);
+    db.collectionPosts = t.collectionPosts.filter((cp) => cp.collection_id !== collectionId);
+    await this.save();
+  }
+
+  async getPostCollectionIds(postId: string): Promise<string[]> {
+    const db = await this.load();
+    const me = await this.me();
+    const { collections, collectionPosts } = this.colTables(db);
+    const mine = new Set(collections.filter((c) => c.user_id === me.id).map((c) => c.id));
+    return collectionPosts
+      .filter((cp) => cp.post_id === postId && mine.has(cp.collection_id))
+      .map((cp) => cp.collection_id);
+  }
+
+  async setPostInCollection(collectionId: string, postId: string, inside: boolean): Promise<void> {
+    const db = await this.load();
+    const me = await this.me();
+    this.myCollection(db, me.id, collectionId);
+    const post = db.posts.find((p) => p.id === postId);
+    if (!post || post.user_id !== me.id) throw new Error('Only your own posts can go in your collections.');
+    const t = this.colTables(db);
+    const has = t.collectionPosts.some((cp) => cp.collection_id === collectionId && cp.post_id === postId);
+    if (inside && !has) {
+      t.collectionPosts.push({ collection_id: collectionId, post_id: postId, added_at: new Date().toISOString() });
+    } else if (!inside && has) {
+      db.collectionPosts = t.collectionPosts.filter(
+        (cp) => !(cp.collection_id === collectionId && cp.post_id === postId),
+      );
+    }
+    await this.save();
   }
 
   async toggleSave(postId: string): Promise<void> {

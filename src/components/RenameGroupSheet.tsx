@@ -13,22 +13,35 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, fonts, radius, spacing } from '../theme';
 
 /**
- * A small centred sheet for naming a group chat.
+ * A small centred sheet for naming something: one field, two buttons.
  *
- * Used from the chat header (tap the name) and the inbox (long-press a group).
- * Empty clears the custom name and falls back to the members' names, so it
- * doubles as "remove name". Kept deliberately tiny — one field, two buttons.
+ * Defaults to naming a group chat, used from the chat header (tap the name)
+ * and the inbox (long-press a group); there an empty name clears the custom
+ * one and falls back to the members' names. Collections use it too, with
+ * their own title, placeholder and an `error` line for a name that's taken.
  */
 export function RenameGroupSheet({
   visible,
   initial,
   onCancel,
   onSave,
+  title = 'Name this group',
+  placeholder = 'Group name',
+  maxLength = 60,
+  saveLabel = 'Save',
+  error,
+  testIDPrefix = 'group-name',
 }: {
   visible: boolean;
   initial: string;
   onCancel: () => void;
   onSave: (name: string) => void;
+  title?: string;
+  placeholder?: string;
+  maxLength?: number;
+  saveLabel?: string;
+  error?: string | null;
+  testIDPrefix?: string;
 }) {
   const insets = useSafeAreaInsets();
   const [text, setText] = useState(initial);
@@ -46,33 +59,38 @@ export function RenameGroupSheet({
       >
         <Pressable style={styles.backdrop} onPress={onCancel} />
         <View style={[styles.card, { marginBottom: insets.bottom }]}>
-          <Text style={styles.title}>Name this group</Text>
+          <Text style={styles.title}>{title}</Text>
           <TextInput
-            testID="group-name-input"
+            testID={`${testIDPrefix}-input`}
             value={text}
             onChangeText={setText}
-            placeholder="Group name"
+            placeholder={placeholder}
             placeholderTextColor={colors.cocoaFaint}
             style={styles.input}
-            maxLength={60}
+            maxLength={maxLength}
             autoFocus
             returnKeyType="done"
             onSubmitEditing={() => onSave(text)}
           />
+          {error ? (
+            <Text testID={`${testIDPrefix}-error`} style={styles.error}>
+              {error}
+            </Text>
+          ) : null}
           <View style={styles.row}>
             <Pressable
-              testID="group-name-cancel"
+              testID={`${testIDPrefix}-cancel`}
               onPress={onCancel}
               style={[styles.btn, styles.cancel]}
             >
               <Text style={styles.cancelText}>Cancel</Text>
             </Pressable>
             <Pressable
-              testID="group-name-save"
+              testID={`${testIDPrefix}-save`}
               onPress={() => onSave(text)}
               style={[styles.btn, styles.save]}
             >
-              <Text style={styles.saveText}>Save</Text>
+              <Text style={styles.saveText}>{saveLabel}</Text>
             </Pressable>
           </View>
         </View>
@@ -100,6 +118,13 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semi,
     fontSize: 16,
     color: colors.cocoa,
+    marginBottom: spacing.md,
+  },
+  error: {
+    fontFamily: fonts.semi,
+    fontSize: 13,
+    color: colors.danger,
+    marginTop: -spacing.xs,
     marginBottom: spacing.md,
   },
   row: { flexDirection: 'row', justifyContent: 'flex-end', gap: spacing.sm },
