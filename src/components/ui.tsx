@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -72,18 +73,43 @@ export function Button({
   );
 }
 
-/** Text field. Forwards its ref so a screen can focus it (Search does). */
+/**
+ * Text field. Forwards its ref so a screen can focus it (Search does).
+ *
+ * A multiline field grows with its text instead of scrolling inside itself.
+ * On iPhone a scrolling text box swallows the swipe, so starting a scroll on
+ * the description or bio would move nothing; this way the page scrolls no
+ * matter where your finger lands. Pass scrollEnabled to opt back in.
+ */
 export const Input = React.forwardRef<TextInput, TextInputProps & { label?: string }>(
   function Input(props, ref) {
     const { label, style, ...rest } = props;
+    // The browser's text box doesn't grow by itself like iOS's does, so grow
+    // it by hand on web (otherwise it turns into a little scroll box again).
+    const growOnWeb = Platform.OS === 'web' && !!rest.multiline && rest.scrollEnabled === undefined;
+    const [webHeight, setWebHeight] = React.useState(0);
     return (
       <View style={{ marginBottom: spacing.md }}>
         {label ? <Text style={styles.label}>{label}</Text> : null}
         <TextInput
           ref={ref}
           placeholderTextColor={colors.cocoaFaint}
+          scrollEnabled={rest.multiline ? false : undefined}
           {...rest}
-          style={[styles.input, rest.multiline && styles.inputMultiline, style]}
+          onContentSizeChange={(e) => {
+            // Ignore 1px wobbles: the browser rounds the content height up,
+            // and chasing that would resize the box forever.
+            const h = Math.ceil(e.nativeEvent.contentSize.height);
+            if (growOnWeb) setWebHeight((prev) => (Math.abs(h - prev) > 1 ? h : prev));
+            rest.onContentSizeChange?.(e);
+          }}
+          style={[
+            styles.input,
+            rest.multiline && styles.inputMultiline,
+            style,
+            // + the 1.5px top and bottom border, which the content size leaves out.
+            growOnWeb && webHeight ? { height: webHeight + 3, overflow: 'hidden' } : null,
+          ]}
         />
       </View>
     );

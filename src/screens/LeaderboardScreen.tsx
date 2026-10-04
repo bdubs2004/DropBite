@@ -64,61 +64,65 @@ export function LeaderboardScreen({ navigation }: any) {
         <View style={{ width: 60 }} />
       </View>
 
-      {/* Your own standing, always visible even if you're far down the list. */}
-      {me ? (
-        <View style={styles.mePill}>
-          <Ionicons name="flame" size={18} color={colors.amber} />
-          <Text style={styles.meText}>
-            {me.current_streak > 0
-              ? `You're #${me.rank} with a ${me.current_streak}-day streak`
-              : 'No streak yet. Post a meal today to start one.'}
-          </Text>
-        </View>
-      ) : null}
+      <FlatList
+        testID="leaderboard-list"
+        data={loading ? [] : entries}
+        keyExtractor={(e) => e.user.id}
+        contentContainerStyle={{ padding: spacing.lg, paddingTop: 0, paddingBottom: 120 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.amber} />
+        }
+        // Your standing and the Friends/Everyone switch scroll with the list,
+        // so a swipe that starts on them still scrolls.
+        ListHeaderComponent={
+          <View style={styles.listHeader}>
+            {me ? (
+              <View style={styles.mePill}>
+                <Ionicons name="flame" size={18} color={colors.amber} />
+                <Text style={styles.meText}>
+                  {me.current_streak > 0
+                    ? `You're #${me.rank} with a ${me.current_streak}-day streak`
+                    : 'No streak yet. Post a meal today to start one'}
+                </Text>
+              </View>
+            ) : null}
 
-      <View style={styles.tabs}>
-        <TabButton
-          label="Friends"
-          active={scope === 'friends'}
-          onPress={() => setScope('friends')}
-        />
-        <TabButton
-          label="Everyone"
-          active={scope === 'everyone'}
-          onPress={() => setScope('everyone')}
-        />
-      </View>
-
-      {loading ? (
-        <ActivityIndicator color={colors.amber} style={{ marginTop: spacing.xl }} />
-      ) : (
-        <FlatList
-          testID="leaderboard-list"
-          data={entries}
-          keyExtractor={(e) => e.user.id}
-          contentContainerStyle={{ padding: spacing.lg, paddingTop: spacing.sm, paddingBottom: 120 }}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.amber} />
-          }
-          renderItem={({ item }) => (
-            <Row
-              entry={item}
-              onPress={() =>
-                item.is_me
-                  ? navigation.navigate('Tabs', { screen: 'Profile' })
-                  : navigation.navigate('UserProfile', { userId: item.user.id })
-              }
-            />
-          )}
-          ListEmptyComponent={
+            <View style={styles.tabs}>
+              <TabButton
+                label="Friends"
+                active={scope === 'friends'}
+                onPress={() => setScope('friends')}
+              />
+              <TabButton
+                label="Everyone"
+                active={scope === 'everyone'}
+                onPress={() => setScope('everyone')}
+              />
+            </View>
+          </View>
+        }
+        renderItem={({ item }) => (
+          <Row
+            entry={item}
+            onPress={() =>
+              item.is_me
+                ? navigation.navigate('Tabs', { screen: 'Profile' })
+                : navigation.navigate('UserProfile', { userId: item.user.id })
+            }
+          />
+        )}
+        ListEmptyComponent={
+          loading ? (
+            <ActivityIndicator color={colors.amber} style={{ marginTop: spacing.xl }} />
+          ) : (
             <Muted style={styles.empty}>
               {scope === 'friends'
-                ? 'Follow some people and their streaks show up here.'
-                : 'No streaks yet. Be the first.'}
+                ? 'Follow some people and their streaks show up here'
+                : 'No streaks yet. Be the first'}
             </Muted>
-          }
-        />
-      )}
+          )
+        }
+      />
     </View>
   );
 }
@@ -186,6 +190,8 @@ function Row({ entry, onPress }: { entry: LeaderboardEntry; onPress: () => void 
 }
 
 const styles = StyleSheet.create({
+  // Cancels the list's side padding: the pill and tabs carry their own.
+  listHeader: { marginHorizontal: -spacing.lg, marginBottom: spacing.sm },
   root: {
     flex: 1,
     backgroundColor: colors.cream,
