@@ -1,18 +1,21 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  FlatList,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   View,
+  ViewToken,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useZooming } from '../components/PinchZoom';
 import { PostCard } from '../components/PostCard';
 import { Muted } from '../components/ui';
+import { feedWindow, takePosts } from '../lib/postFeed';
 import { usePostActions } from '../lib/usePostActions';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
@@ -20,48 +23,93 @@ import { colors, fonts, spacing } from '../theme';
 import { Post } from '../types';
 
 /**
- * A single post, opened from the Discover grid.
+ * A post, opened from a grid (Profile, Discover, Search, Your stuff) or a link.
  *
- * Loads by id rather than taking a Post through navigation params so the
- * screen is self-sufficient — counts are current, and it still works if the
- * caller only has an id.
+ * From a grid it's a mini feed, like Instagram: the post you tapped sits at the
+ * top and you can keep scrolling through the rest of that grid, down to the
+ * older ones or back up to the newer ones. Opened any other way (a
+ * notification, a DM, a link) it's just that one post, loaded by id so counts
+ * are current and it works when the caller only has an id.
  */
 export function PostDetailScreen({ navigation, route }: any) {
   const postId: string = route.params.postId;
   const svc = getDataService();
   const { user, hiddenIds } = useApp();
   const insets = useSafeAreaInsets();
+  // Hold the list still while a photo in it is being pinched.
+  const zooming = useZooming();
 
-  // If this post gets hidden (you just reported it), don't sit here staring at
-  // it — step back to wherever you came from.
-  useEffect(() => {
-    if (hiddenIds.has(postId)) navigation.goBack();
-  }, [hiddenIds, postId, navigation]);
+  // The grid this was opened from, if any (see src/lib/postFeed.ts). Read once:
+  // the list stays put while you scroll it.
+  const initial = useMemo(() => {
+    const list = takePosts(route.params?.feedKey);
+    return list ? feedWindow(list.filter((p) => !hiddenIds.has(p.id)), postId) : null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const isFeed = !!initial && initial.posts.length > 0;
+  const startIndex = isFeed ? initial!.index : 0;
 
-  const [post, setPost] = useState<Post | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [posts, setPosts] = useState<Post[]>(isFeed ? initial!.posts : []);
+  const [loading, setLoading] = useState(!isFeed);
   const [refreshing, setRefreshing] = useState(false);
 
-  // `showSpinner` only for the very first load — a focus reload after
-  // commenting or liking should refresh the numbers silently, not blank the
-  // card out behind a spinner.
-  const load = useCallback(
+  const visible = useMemo(() => posts.filter((p) => !hiddenIds.has(p.id)), [posts, hiddenIds]);
+
+  // Hiding a post (you just reported it) takes it out of the feed. If that
+  // leaves nothing to show, step back to wherever you came from.
+  useEffect(() => {
+    if (isFeed ? posts.length > 0 && visible.length === 0 : hiddenIds.has(postId)) {
+      navigation.goBack();
+    }
+  }, [isFeed, posts.length, visible.length, hiddenIds, postId, navigation]);
+
+  // Re-pull just these posts (counts after commenting, liking elsewhere) and
+  // drop any that were deleted, without touching the rest of the list.
+  const refreshPosts = useCallback(
+    async (ids: string[]) => {
+      if (!ids.length) return;
+      const fresh = await Promise.all(ids.map((id) => svc.getPost(id).catch(() => undefined)));
+      setPosts((prev) =>
+        prev.flatMap((p) => {
+          const i = ids.indexOf(p.id);
+          if (i < 0) return [p];
+          if (fresh[i] === null) return [];
+          return [fresh[i] ?? p];
+        }),
+      );
+    },
+    [svc],
+  );
+
+  // The posts currently on screen, so a refresh only re-pulls those.
+  const onScreen = useRef<string[]>([postId]);
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    onScreen.current = viewableItems.map((v) => (v.item as Post).id);
+  }).current;
+
+  // `showSpinner` only for the very first load of a single post: a focus
+  // reload after commenting or liking refreshes the numbers silently rather
+  // than blanking the card out behind a spinner.
+  const loadSingle = useCallback(
     async (showSpinner = false) => {
       if (showSpinner) setLoading(true);
-      setPost(await svc.getPost(postId));
+      const p = await svc.getPost(postId);
+      setPosts(p ? [p] : []);
       setLoading(false);
     },
     [svc, postId],
   );
 
   // Reload every time the screen regains focus so a comment added (or a like
-  // toggled) in the Comments modal is reflected in the counts on return.
+  // toggled) in the Comments modal is reflected in the counts on return. The
+  // feed's first focus has nothing to catch up on: the grid just loaded it.
   const firstLoad = useRef(true);
   useFocusEffect(
     useCallback(() => {
-      load(firstLoad.current);
+      if (!isFeed) loadSingle(firstLoad.current);
+      else if (!firstLoad.current) refreshPosts(onScreen.current);
       firstLoad.current = false;
-    }, [load]),
+    }, [isFeed, loadSingle, refreshPosts]),
   );
 
   // When opened from the long-press peek's comment button, slide the comments
@@ -79,7 +127,8 @@ export function PostDetailScreen({ navigation, route }: any) {
   const pullRefresh = async () => {
     setRefreshing(true);
     try {
-      await load(false);
+      if (isFeed) await refreshPosts(onScreen.current);
+      else await loadSingle(false);
     } finally {
       setRefreshing(false);
     }
@@ -87,14 +136,43 @@ export function PostDetailScreen({ navigation, route }: any) {
 
   const { like, comment, share, repost, save, remove, report } = usePostActions(
     navigation,
-    () => load(false),
+    () => {},
   );
 
-  // Deleting from here leaves nothing to show, so step back to Discover.
-  const removeAndLeave = async (p: Post) => {
+  // Deleting a post takes it out of the list; if it was the only one, there's
+  // nothing left to show, so step back.
+  const removeAndUpdate = async (p: Post) => {
     await remove(p);
-    navigation.goBack();
+    const rest = posts.filter((x) => x.id !== p.id);
+    setPosts(rest);
+    if (!isFeed || rest.length === 0) navigation.goBack();
   };
+
+  // Open with the tapped post at the top. FlatList can only jump to a row once
+  // the rows above it have been measured, so render down to it up front, jump
+  // as soon as the measurements are in, and keep the list invisible until
+  // then so you never see it scroll.
+  const listRef = useRef<FlatList<Post>>(null);
+  const [positioned, setPositioned] = useState(startIndex === 0);
+  const jumpFailed = useRef(false);
+  const jumpTries = useRef(0);
+  const jumpToStart = useCallback(() => {
+    if (positioned) return;
+    jumpFailed.current = false;
+    listRef.current?.scrollToIndex({ index: startIndex, animated: false });
+    if (!jumpFailed.current || ++jumpTries.current > 40) {
+      // Done, or measuring never settled: show the list either way.
+      setPositioned(true);
+      return;
+    }
+    setTimeout(jumpToStart, 25);
+  }, [positioned, startIndex]);
+
+  const title = isFeed
+    ? route.params?.title ?? 'Posts'
+    : posts[0]?.user?.display_name
+      ? `${posts[0].user.display_name}'s Post`
+      : 'Post';
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -104,43 +182,60 @@ export function PostDetailScreen({ navigation, route }: any) {
           <Text style={styles.back}>Back</Text>
         </Pressable>
         <Text style={styles.title} numberOfLines={1}>
-          {post?.user?.display_name ? `${post.user.display_name}'s Post` : 'Post'}
+          {title}
         </Text>
         <View style={{ width: 60 }} />
       </View>
 
-      <ScrollView
-        contentContainerStyle={{ paddingTop: spacing.md, paddingBottom: 120 }}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={pullRefresh}
-            tintColor={colors.amber}
-            colors={[colors.amber]}
-          />
-        }
-      >
-        {loading ? (
-          <ActivityIndicator color={colors.amber} style={{ marginTop: spacing.xl }} />
-        ) : post ? (
-          <PostCard
-            post={post}
-            onToggleLike={like}
-            onComment={comment}
-            onShare={share}
-            onRepost={repost}
-            onToggleSave={save}
-            onPressUser={(uid) => navigation.push('UserProfile', { userId: uid })}
-            onDelete={removeAndLeave}
-            onReport={report}
-            isMine={post.user_id === user?.id}
-          />
-        ) : (
-          <Muted style={{ textAlign: 'center', marginTop: spacing.xl }}>
-            This post is no longer available.
-          </Muted>
-        )}
-      </ScrollView>
+      {loading ? (
+        <ActivityIndicator color={colors.amber} style={{ marginTop: spacing.xl }} />
+      ) : (
+        <FlatList
+          ref={listRef}
+          testID="post-feed"
+          scrollEnabled={!zooming}
+          data={visible}
+          keyExtractor={(p) => p.id}
+          style={{ opacity: positioned ? 1 : 0 }}
+          contentContainerStyle={{ paddingTop: spacing.md, paddingBottom: 120 }}
+          initialNumToRender={startIndex + 2}
+          onContentSizeChange={() => {
+            if (!positioned) setTimeout(jumpToStart, 0);
+          }}
+          onScrollToIndexFailed={() => {
+            jumpFailed.current = true;
+          }}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={{ itemVisiblePercentThreshold: 30 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={pullRefresh}
+              tintColor={colors.amber}
+              colors={[colors.amber]}
+            />
+          }
+          renderItem={({ item }) => (
+            <PostCard
+              post={item}
+              onToggleLike={like}
+              onComment={comment}
+              onShare={share}
+              onRepost={repost}
+              onToggleSave={save}
+              onPressUser={(uid) => navigation.push('UserProfile', { userId: uid })}
+              onDelete={removeAndUpdate}
+              onReport={report}
+              isMine={item.user_id === user?.id}
+            />
+          )}
+          ListEmptyComponent={
+            <Muted style={{ textAlign: 'center', marginTop: spacing.xl }}>
+              This post is no longer available
+            </Muted>
+          }
+        />
+      )}
     </View>
   );
 }

@@ -17,6 +17,7 @@ import { ActionSheet } from '../components/ActionSheet';
 import { ActivityDrawer } from '../components/ActivityDrawer';
 import { PostThumb } from '../components/PostThumb';
 import { Button, Muted } from '../components/ui';
+import { openPostFeed } from '../lib/postFeed';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
 import { colors, fonts, radius, shadowSoft, spacing } from '../theme';
@@ -341,7 +342,14 @@ export function ProfileScreen({ navigation, route }: any) {
           item ? (
             <PostThumb
               post={item}
-              onPress={() => navigation.navigate('PostDetail', { postId: item.id })}
+              onPress={() =>
+                openPostFeed(
+                  navigation,
+                  source.filter((p) => !hiddenIds.has(p.id)),
+                  item.id,
+                  tab === 'posts' ? 'Posts' : 'Reposts',
+                )
+              }
               onLongPress={() => navigation.navigate('PostPeek', { postId: item.id })}
               style={{ flex: 1 }}
             />

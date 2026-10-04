@@ -7,6 +7,7 @@ import { colors, fonts, MEAL_SLOT_META, radius, shadow, spacing } from '../theme
 import { Post } from '../types';
 import { ActionSheet } from './ActionSheet';
 import { Avatar } from './Avatar';
+import { PinchZoom } from './PinchZoom';
 import { PostPhoto } from './PostPhoto';
 import { RecipeCardView } from './RecipeCardView';
 import { RepostBubble } from './RepostBubble';
@@ -236,7 +237,10 @@ export function PostCard({
           setPhotoSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })
         }
       >
-        <PostPhoto post={post} />
+        {/* pinch with two fingers to zoom; springs back on release */}
+        <PinchZoom onLongPress={menuActions.length > 0 ? openMenu : undefined}>
+          <PostPhoto post={post} />
+        </PinchZoom>
         {reposters.length > 0 && photoSize.w > 0 ? (
           <RepostBubble
             reposters={reposters}

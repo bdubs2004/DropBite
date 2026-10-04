@@ -23,6 +23,7 @@ import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LogoMark } from './src/components/Logo';
+import { ZoomHost } from './src/components/PinchZoom';
 import { AuthScreen } from './src/screens/AuthScreen';
 import { ResetPasswordScreen } from './src/screens/ResetPasswordScreen';
 import { getDataService } from './src/services';
@@ -381,10 +382,13 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AppProvider>
-        <NavigationContainer ref={navigationRef} linking={linking}>
-          <StatusBar style="dark" />
-          <Root />
-        </NavigationContainer>
+        {/* Draws a pinched photo over everything while you zoom it. */}
+        <ZoomHost>
+          <NavigationContainer ref={navigationRef} linking={linking}>
+            <StatusBar style="dark" />
+            <Root />
+          </NavigationContainer>
+        </ZoomHost>
       </AppProvider>
     </SafeAreaProvider>
   );
