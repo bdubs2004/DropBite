@@ -1,5 +1,6 @@
 import {
   AppNotification,
+  Collection,
   Comment,
   SignUpResult,
   FeedbackKind,
@@ -18,6 +19,7 @@ import {
 import { EMAIL_CONFIRM_URL, PASSWORD_RESET_URL } from '../../config';
 import { appVersion, platformName } from '../../lib/appInfo';
 import { clamp, clampOrNull, LIMITS } from '../../lib/limits';
+import { collectionNameProblem, tidyCollectionName } from '../../lib/collectionName';
 import { sanitizeSearchTerm } from '../../lib/searchTerm';
 import { daysBetween, localDateString } from '../../lib/time';
 import { DataService } from '../types';
@@ -278,12 +280,13 @@ export class SupabaseService implements DataService {
 
   async exportMyData(): Promise<string> {
     const meId = await this.myId();
-    const [profile, posts, follows, reactions, streak] = await Promise.all([
+    const [profile, posts, follows, reactions, streak, collections] = await Promise.all([
       this.sb.from('users').select('*').eq('id', meId).single(),
       this.sb.from('posts').select('*, recipes(*)').eq('user_id', meId),
       this.sb.from('follows').select('*').eq('follower_id', meId),
       this.sb.from('reactions').select('*').eq('user_id', meId),
       this.sb.from('streaks').select('*').eq('user_id', meId).maybeSingle(),
+      this.sb.from('collections').select('*, collection_posts(post_id, added_at)').eq('user_id', meId),
     ]);
     return JSON.stringify(
       {
@@ -293,6 +296,7 @@ export class SupabaseService implements DataService {
         follows: follows.data,
         reactions: reactions.data,
         streak: streak.data,
+        collections: collections.data,
       },
       null,
       2,
@@ -1362,6 +1366,158 @@ export class SupabaseService implements DataService {
     const meId = await this.myId();
     // upsert keeps one share row per user per post (idempotent count)
     await this.sb.from('shares').upsert({ post_id: postId, user_id: meId });
+  }
+
+  // ---------------------------------------------------------- collections
+
+  /**
+   * Attach counts and cover posts to collection rows: one query for every
+   * item across them, one for the cover posts.
+   */
+  private async withCovers(rows: any[], meId: string): Promise<Collection[]> {
+    if (!rows.length) return [];
+    const { data: items } = await this.sb
+      .from('collection_posts')
+      .select('collection_id, post_id, added_at')
+      .in('collection_id', rows.map((r) => r.id))
+      .order('added_at', { ascending: false });
+    const byCollection = new Map<string, string[]>();
+    for (const it of items ?? []) {
+      const list = byCollection.get(it.collection_id) ?? [];
+      list.push(it.post_id);
+      byCollection.set(it.collection_id, list);
+    }
+    const coverIds = [...byCollection.values()].map((ids) => ids[0]);
+    const covers = new Map<string, Post>();
+    if (coverIds.length) {
+      const { data: posts } = await this.sb
+        .from('posts')
+        .select(this.POST_SELECT)
+        .in('id', coverIds);
+      for (const row of posts ?? []) covers.set((row as any).id, this.hydrateRow(row, meId));
+    }
+    return rows.map((r) => {
+      const ids = byCollection.get(r.id) ?? [];
+      return {
+        id: r.id,
+        user_id: r.user_id,
+        name: r.name,
+        created_at: r.created_at,
+        post_count: ids.length,
+        cover: ids.length ? covers.get(ids[0]) ?? null : null,
+      };
+    });
+  }
+
+  /** Readable message for a duplicate name (the unique index is case-blind). */
+  private collectionError(error: any, name: string): Error {
+    if (error?.code === '23505') {
+      return new Error(`You already have a collection called ${tidyCollectionName(name)}`);
+    }
+    return error instanceof Error ? error : new Error(error?.message ?? 'Could not save that collection');
+  }
+
+  async getCollections(userId: string): Promise<Collection[]> {
+    const meId = await this.myId();
+    const { data, error } = await this.sb
+      .from('collections')
+      .select('id, user_id, name, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return this.withCovers(data ?? [], meId);
+  }
+
+  async getCollection(collectionId: string): Promise<Collection | null> {
+    const meId = await this.myId();
+    const { data } = await this.sb
+      .from('collections')
+      .select('id, user_id, name, created_at')
+      .eq('id', collectionId)
+      .maybeSingle();
+    if (!data) return null;
+    return (await this.withCovers([data], meId))[0];
+  }
+
+  async getCollectionPosts(collectionId: string): Promise<Post[]> {
+    const meId = await this.myId();
+    const { data: items } = await this.sb
+      .from('collection_posts')
+      .select('post_id, added_at')
+      .eq('collection_id', collectionId)
+      .order('added_at', { ascending: false });
+    const ids = (items ?? []).map((r: any) => r.post_id);
+    if (!ids.length) return [];
+    const { data: postsData } = await this.sb
+      .from('posts')
+      .select(this.POST_SELECT)
+      .in('id', ids);
+    const byId = new Map<string, Post>(
+      (postsData ?? []).map((row: any) => [row.id, this.hydrateRow(row, meId)]),
+    );
+    // Keep the most-recently-added order; skip anything deleted or hidden.
+    return ids
+      .map((id: string) => byId.get(id))
+      .filter((p: Post | undefined): p is Post => Boolean(p));
+  }
+
+  async createCollection(name: string): Promise<Collection> {
+    const meId = await this.myId();
+    // Checked here for a friendly message; the database enforces it anyway.
+    const problem = collectionNameProblem(name);
+    if (problem) throw new Error(problem);
+    const { data, error } = await this.sb
+      .from('collections')
+      .insert({ user_id: meId, name: tidyCollectionName(name) })
+      .select('id, user_id, name, created_at')
+      .single();
+    if (error) throw this.collectionError(error, name);
+    return { ...(data as any), post_count: 0, cover: null };
+  }
+
+  async renameCollection(collectionId: string, name: string): Promise<void> {
+    const problem = collectionNameProblem(name);
+    if (problem) throw new Error(problem);
+    const { error } = await this.sb
+      .from('collections')
+      .update({ name: tidyCollectionName(name) })
+      .eq('id', collectionId);
+    if (error) throw this.collectionError(error, name);
+  }
+
+  async deleteCollection(collectionId: string): Promise<void> {
+    // collection_posts rows go with it (on delete cascade); the posts stay.
+    const { error } = await this.sb.from('collections').delete().eq('id', collectionId);
+    if (error) throw error;
+  }
+
+  async getPostCollectionIds(postId: string): Promise<string[]> {
+    const meId = await this.myId();
+    const { data } = await this.sb
+      .from('collection_posts')
+      .select('collection_id, collections!inner(user_id)')
+      .eq('post_id', postId)
+      .eq('collections.user_id', meId);
+    return (data ?? []).map((r: any) => r.collection_id);
+  }
+
+  async setPostInCollection(collectionId: string, postId: string, inside: boolean): Promise<void> {
+    // RLS only lets you add your own posts to your own collections.
+    if (inside) {
+      const { error } = await this.sb
+        .from('collection_posts')
+        .upsert(
+          { collection_id: collectionId, post_id: postId },
+          { onConflict: 'collection_id,post_id', ignoreDuplicates: true },
+        );
+      if (error) throw error;
+    } else {
+      const { error } = await this.sb
+        .from('collection_posts')
+        .delete()
+        .match({ collection_id: collectionId, post_id: postId });
+      if (error) throw error;
+    }
   }
 
   async toggleSave(postId: string): Promise<void> {

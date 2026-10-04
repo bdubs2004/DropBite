@@ -90,6 +90,21 @@ export interface Post {
   repost_at?: string;
 }
 
+/**
+ * A named group of someone's own posts ("Crockpot meals", "Desserts"), shown
+ * on their profile. Only your own posts can go in your collections.
+ */
+export interface Collection {
+  id: string;
+  user_id: string;
+  name: string;
+  created_at: string;
+  /** How many posts are in it (that you can see). */
+  post_count: number;
+  /** The most recently added post, for the tile's cover photo. */
+  cover?: Post | null;
+}
+
 export interface Comment {
   id: string;
   post_id: string;

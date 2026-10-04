@@ -97,7 +97,7 @@ export function ActivityScreen({ navigation, route }: any) {
     }, [load]),
   );
 
-  const { like, comment, share, repost, save, remove, report } = usePostActions(
+  const { like, comment, share, repost, save, remove, report, addToCollection } = usePostActions(
     navigation,
     load,
   );
@@ -216,6 +216,7 @@ export function ActivityScreen({ navigation, route }: any) {
               onPressUser={(uid) => navigation.navigate('UserProfile', { userId: uid })}
               onDelete={remove}
               onReport={report}
+              onAddToCollection={addToCollection}
               isMine={item.user_id === user?.id}
             />
           )}

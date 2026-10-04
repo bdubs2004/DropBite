@@ -1,5 +1,6 @@
 import {
   AppNotification,
+  Collection,
   Comment,
   SignUpResult,
   FeedbackKind,
@@ -187,6 +188,22 @@ export interface DataService {
   /** Users I have blocked. The blocked party can never see this. */
   getBlockedUsers(): Promise<User[]>;
   isBlocked(userId: string): Promise<boolean>;
+
+  // collections — named groups of a user's own posts, shown on their profile
+  /** A user's collections, newest first, each with a count and cover post. */
+  getCollections(userId: string): Promise<Collection[]>;
+  getCollection(collectionId: string): Promise<Collection | null>;
+  /** The posts in a collection, most recently added first. */
+  getCollectionPosts(collectionId: string): Promise<Post[]>;
+  /** Make a new, empty collection. Names are unique per person (any case). */
+  createCollection(name: string): Promise<Collection>;
+  renameCollection(collectionId: string, name: string): Promise<void>;
+  /** Delete a collection. The posts in it are untouched. */
+  deleteCollection(collectionId: string): Promise<void>;
+  /** Which of MY collections this post is in. */
+  getPostCollectionIds(postId: string): Promise<string[]>;
+  /** Put one of my posts in (or take it out of) one of my collections. */
+  setPostInCollection(collectionId: string, postId: string, inside: boolean): Promise<void>;
 
   // saved posts (bookmarks) — private to the user
   toggleSave(postId: string): Promise<void>;

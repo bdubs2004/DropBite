@@ -347,3 +347,17 @@ export const SEED_SHARES: { post_id: string; user_id: string }[] = [
   { post_id: 'p5', user_id: 'u-marge' },
   { post_id: 'p5', user_id: 'u-carol' },
 ];
+
+/** A few collections so other people's profiles show some in demo mode. */
+export const SEED_COLLECTIONS: { id: string; user_id: string; name: string; created_at: string }[] = [
+  { id: 'col-marge-desserts', user_id: 'u-marge', name: 'Desserts', created_at: new Date(now - 50 * H).toISOString() },
+  { id: 'col-marge-brunch', user_id: 'u-marge', name: 'Weekend brunch', created_at: new Date(now - 40 * H).toISOString() },
+  { id: 'col-dan-smoker', user_id: 'u-dan', name: 'Off the smoker', created_at: new Date(now - 30 * H).toISOString() },
+];
+
+export const SEED_COLLECTION_POSTS: { collection_id: string; post_id: string; added_at: string }[] = [
+  { collection_id: 'col-marge-desserts', post_id: 'p6', added_at: new Date(now - 20 * H).toISOString() },
+  { collection_id: 'col-marge-brunch', post_id: 'p1', added_at: new Date(now - 2 * H).toISOString() },
+  { collection_id: 'col-dan-smoker', post_id: 'p2', added_at: new Date(now - 12 * H).toISOString() },
+  { collection_id: 'col-dan-smoker', post_id: 'p8', added_at: new Date(now - 6 * H).toISOString() },
+];

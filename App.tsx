@@ -24,6 +24,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LogoMark } from './src/components/Logo';
 import { ZoomHost } from './src/components/PinchZoom';
+import { AddToCollectionScreen } from './src/screens/AddToCollectionScreen';
 import { AuthScreen } from './src/screens/AuthScreen';
 import { ResetPasswordScreen } from './src/screens/ResetPasswordScreen';
 import { getDataService } from './src/services';
@@ -33,6 +34,7 @@ import { FeedScreen } from './src/screens/FeedScreen';
 import { DiscoverScreen } from './src/screens/DiscoverScreen';
 import { BlockedScreen } from './src/screens/BlockedScreen';
 import { ChatScreen } from './src/screens/ChatScreen';
+import { CollectionScreen } from './src/screens/CollectionScreen';
 import { InboxScreen } from './src/screens/InboxScreen';
 import { LeaderboardScreen } from './src/screens/LeaderboardScreen';
 import { NewMessageScreen } from './src/screens/NewMessageScreen';
@@ -361,6 +363,12 @@ function Root() {
       <Stack.Screen name="UserProfile" component={ProfileScreen} />
       <Stack.Screen name="UserList" component={UserListScreen} />
       <Stack.Screen name="Activity" component={ActivityScreen} />
+      <Stack.Screen name="Collection" component={CollectionScreen} />
+      <Stack.Screen
+        name="AddToCollection"
+        component={AddToCollectionScreen}
+        options={{ presentation: 'transparentModal', animation: 'fade' }}
+      />
       <Stack.Screen name="Blocked" component={BlockedScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
     </Stack.Navigator>

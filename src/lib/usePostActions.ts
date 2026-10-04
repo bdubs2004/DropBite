@@ -57,6 +57,15 @@ export function usePostActions(navigation: any, refresh: () => void) {
     [navigation],
   );
 
+  // Your own posts only: the sheet to put it in (or take it out of) your
+  // collections.
+  const addToCollection = useCallback(
+    (post: Post) => {
+      navigation.navigate('AddToCollection', { postId: post.id });
+    },
+    [navigation],
+  );
+
   const remove = useCallback(
     async (post: Post) => {
       await svc.deletePost(post.id);
@@ -65,5 +74,5 @@ export function usePostActions(navigation: any, refresh: () => void) {
     [svc, refresh],
   );
 
-  return { like, comment, share, repost, save, remove, report };
+  return { like, comment, share, repost, save, remove, report, addToCollection };
 }

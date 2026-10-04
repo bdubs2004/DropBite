@@ -51,7 +51,8 @@
     "test:authlink": "tsc src/lib/__tests__/authLink.test.ts --ignoreConfig --types node --rootDir src --outDir .test-build --module commonjs --target es2019 --esModuleInterop --skipLibCheck && node .test-build/lib/__tests__/authLink.test.js",
     "test:password": "tsc src/lib/__tests__/passwordRules.test.ts --ignoreConfig --types node --rootDir src --outDir .test-build --module commonjs --target es2019 --esModuleInterop --skipLibCheck && node .test-build/lib/__tests__/passwordRules.test.js",
     "test:pinch": "tsc src/lib/__tests__/pinchMath.test.ts --ignoreConfig --types node --rootDir src --outDir .test-build --module commonjs --target es2019 --esModuleInterop --skipLibCheck && node .test-build/lib/__tests__/pinchMath.test.js",
-    "test": "npm run test:reminders && npm run test:nutrition && npm run test:textchange && npm run test:convname && npm run test:drawer && npm run test:authlink && npm run test:password && npm run test:pinch",
+    "test:collections": "tsc src/lib/__tests__/collectionName.test.ts --ignoreConfig --types node --rootDir src --outDir .test-build --module commonjs --target es2019 --esModuleInterop --skipLibCheck && node .test-build/lib/__tests__/collectionName.test.js",
+    "test": "npm run test:reminders && npm run test:nutrition && npm run test:textchange && npm run test:convname && npm run test:drawer && npm run test:authlink && npm run test:password && npm run test:pinch && npm run test:collections",
     "build:site": "node scripts/build-site.js"
   },
   "private": true

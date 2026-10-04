@@ -353,6 +353,10 @@ select jsonb_pretty(jsonb_build_object(
                 from public.reactions x, target t where x.user_id = t.id),
   'messages',  (select coalesce(jsonb_agg(to_jsonb(m)), '[]'::jsonb)
                 from public.messages m, target t where m.sender_id = t.id),
+  'collections', (select coalesce(jsonb_agg(to_jsonb(col) || jsonb_build_object(
+                    'post_ids', (select coalesce(jsonb_agg(cp.post_id), '[]'::jsonb)
+                                 from public.collection_posts cp where cp.collection_id = col.id))), '[]'::jsonb)
+                from public.collections col, target t where col.user_id = t.id),
   'streak',    (select to_jsonb(st) from public.streaks st, target t where st.user_id = t.id)
 )) as export;
 ```

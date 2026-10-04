@@ -22,6 +22,7 @@ export function PostCard({
   onPressUser,
   onDelete,
   onReport,
+  onAddToCollection,
   isMine,
 }: {
   post: Post;
@@ -35,6 +36,8 @@ export function PostCard({
   onDelete?: (post: Post) => void;
   /** Omit to hide the report affordance entirely. */
   onReport?: (post: Post) => void;
+  /** Your own posts: put it in one of your collections. Omit to hide it. */
+  onAddToCollection?: (post: Post) => void;
   /** True when the signed-in user wrote this post. */
   isMine?: boolean;
 }) {
@@ -137,6 +140,17 @@ export function PostCard({
             hint: 'Send inside NiblGo or copy a link',
             icon: 'paper-plane-outline' as const,
             onPress: () => onShare(post),
+          },
+        ]
+      : []),
+    ...(isMine && onAddToCollection
+      ? [
+          {
+            key: 'collection',
+            label: 'Add to collection',
+            hint: 'Put it in one of your collections, or start a new one',
+            icon: 'albums-outline' as const,
+            onPress: () => onAddToCollection(post),
           },
         ]
       : []),
