@@ -21,11 +21,11 @@ check('just after midnight is 12, not 0', clockTime(at(2026, 10, 4, 0, 5)) === '
 check('noon', clockTime(at(2026, 10, 4, 12, 0)) === '12:00 PM');
 
 const L = (d: Date) => dayDividerLabel(d, now);
-check('today', L(at(2026, 10, 4, 9, 5)) === 'Today 9:05 AM', L(at(2026, 10, 4, 9, 5)));
-check('yesterday', L(at(2026, 10, 3, 23, 59)) === 'Yesterday 11:59 PM', L(at(2026, 10, 3, 23, 59)));
-check('earlier this week shows the weekday', L(at(2026, 9, 28, 16, 10)) === 'Monday 4:10 PM', L(at(2026, 9, 28, 16, 10)));
-check('a week or more ago shows the date', L(at(2026, 9, 27, 16, 10)) === 'Sep 27, 4:10 PM', L(at(2026, 9, 27, 16, 10)));
-check('last year adds the year', L(at(2025, 12, 31, 20, 0)) === 'Dec 31, 2025, 8:00 PM', L(at(2025, 12, 31, 20, 0)));
+check('today', L(at(2026, 10, 4, 9, 5)) === 'Today', L(at(2026, 10, 4, 9, 5)));
+check('yesterday, even at 11:59 PM', L(at(2026, 10, 3, 23, 59)) === 'Yesterday', L(at(2026, 10, 3, 23, 59)));
+check('earlier this week is just the weekday', L(at(2026, 9, 28, 16, 10)) === 'Monday', L(at(2026, 9, 28, 16, 10)));
+check('a week or more ago shows the date', L(at(2026, 9, 27, 16, 10)) === 'Sep 27', L(at(2026, 9, 27, 16, 10)));
+check('last year adds the year', L(at(2025, 12, 31, 20, 0)) === 'Dec 31, 2025', L(at(2025, 12, 31, 20, 0)));
 
 const msg = (id: string, d: Date) => ({ id, created_at: d.toISOString() }) as Message;
 const t = buildTimeline(
@@ -41,7 +41,7 @@ const t = buildTimeline(
 const shape = t.map((i) => (i.kind === 'day' ? `[${i.label}]` : i.message.id)).join(' ');
 check(
   'a divider goes before the first message of each day, and only then',
-  shape === '[Friday 10:00 AM] a b [Yesterday 8:00 AM] c [Today 9:00 AM] d e',
+  shape === '[Friday] a b [Yesterday] c [Today] d e',
   shape,
 );
 check('no messages, no dividers', buildTimeline([], now).length === 0);
