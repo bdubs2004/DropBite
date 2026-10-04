@@ -72,19 +72,23 @@ export function Button({
   );
 }
 
-export function Input(props: TextInputProps & { label?: string }) {
-  const { label, style, ...rest } = props;
-  return (
-    <View style={{ marginBottom: spacing.md }}>
-      {label ? <Text style={styles.label}>{label}</Text> : null}
-      <TextInput
-        placeholderTextColor={colors.cocoaFaint}
-        {...rest}
-        style={[styles.input, rest.multiline && styles.inputMultiline, style]}
-      />
-    </View>
-  );
-}
+/** Text field. Forwards its ref so a screen can focus it (Search does). */
+export const Input = React.forwardRef<TextInput, TextInputProps & { label?: string }>(
+  function Input(props, ref) {
+    const { label, style, ...rest } = props;
+    return (
+      <View style={{ marginBottom: spacing.md }}>
+        {label ? <Text style={styles.label}>{label}</Text> : null}
+        <TextInput
+          ref={ref}
+          placeholderTextColor={colors.cocoaFaint}
+          {...rest}
+          style={[styles.input, rest.multiline && styles.inputMultiline, style]}
+        />
+      </View>
+    );
+  },
+);
 
 export function Card({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
   return <View style={[styles.card, style]}>{children}</View>;

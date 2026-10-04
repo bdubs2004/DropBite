@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -107,6 +107,22 @@ export function ProfileScreen({ navigation, route }: any) {
       load();
     }, [load]),
   );
+
+  // Tapping the Profile tab while you're already on it jumps to the top and
+  // refreshes, same as Home and Discover. (Only the tab version of this screen
+  // gets the event; someone else's profile is a stack screen.)
+  const collectionsRef = useRef<FlatList<any>>(null);
+  useEffect(() => {
+    const unsub = navigation.addListener('tabPress', () => {
+      if (!navigation.isFocused()) return;
+      listRef.current?.scrollToOffset({ offset: 0, animated: true });
+      collectionsRef.current?.scrollToOffset({ offset: 0, animated: true });
+      pullRefresh();
+    });
+    return unsub;
+    // pullRefresh is recreated each render; the latest one is what we want.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigation, load]);
 
   const toggleFollow = async () => {
     if (following) await svc.unfollow(userId);
@@ -383,6 +399,7 @@ export function ProfileScreen({ navigation, route }: any) {
         <FlatList
           // Two columns here vs three for posts, so it needs its own key.
           key="collections"
+          ref={collectionsRef}
           testID="profile-collections"
           data={collectionData}
           keyExtractor={(c, i) => (c === 'new' ? 'new' : c?.id ?? `spacer-${i}`)}
