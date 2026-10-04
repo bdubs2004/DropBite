@@ -18,20 +18,17 @@ export function clockTime(d: Date): string {
 }
 
 /**
- * The divider label for the first message of a day:
- * "Today 3:42 PM", "Yesterday 9:05 AM", "Monday 4:10 PM" (this past week),
- * "Sep 28, 4:10 PM" (this year), "Sep 28, 2025, 4:10 PM" (older).
+ * The divider label where the day changes: just the day, no time (swipe the
+ * conversation for exact times). "Today", "Yesterday", "Monday" (this past
+ * week), "Sep 28" (this year), "Sep 28, 2025" (older).
  */
 export function dayDividerLabel(d: Date, now = new Date()): string {
   const ago = daysBetween(localDateString(d), localDateString(now));
-  const time = clockTime(d);
-  if (ago <= 0) return `Today ${time}`;
-  if (ago === 1) return `Yesterday ${time}`;
-  if (ago < 7) return `${DAYS[d.getDay()]} ${time}`;
+  if (ago <= 0) return 'Today';
+  if (ago === 1) return 'Yesterday';
+  if (ago < 7) return DAYS[d.getDay()];
   const date = `${MONTHS[d.getMonth()]} ${d.getDate()}`;
-  return d.getFullYear() === now.getFullYear()
-    ? `${date}, ${time}`
-    : `${date}, ${d.getFullYear()}, ${time}`;
+  return d.getFullYear() === now.getFullYear() ? date : `${date}, ${d.getFullYear()}`;
 }
 
 export type TimelineItem =
