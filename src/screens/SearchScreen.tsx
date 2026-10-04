@@ -6,8 +6,10 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '../components/Avatar';
 import { PostThumb } from '../components/PostThumb';
@@ -57,6 +59,34 @@ export function SearchScreen({ navigation }: any) {
   const [searching, setSearching] = useState(false);
   const [recents, setRecents] = useState<Awaited<ReturnType<typeof getRecentSearches>>>([]);
   const [recentTerms, setRecentTerms] = useState<string[]>([]);
+
+  // Tapping the Search tab drops you straight into the search bar with the
+  // keyboard up. Only a tab tap does it: coming Back here from a post or a
+  // profile leaves the keyboard down. The first visit always comes from the
+  // tab (the screen mounts on that tap, after the event), so it starts true.
+  const inputRef = useRef<TextInput>(null);
+  const listRef = useRef<FlatList<any>>(null);
+  const focusOnArrive = useRef(true);
+  const focusSearch = useCallback(() => {
+    listRef.current?.scrollToOffset({ offset: 0, animated: false });
+    // A beat after the tab switch, so the keyboard comes up on the new screen.
+    setTimeout(() => inputRef.current?.focus(), 80);
+  }, []);
+  useEffect(() => {
+    const unsub = navigation.addListener('tabPress', () => {
+      if (navigation.isFocused()) focusSearch();
+      else focusOnArrive.current = true;
+    });
+    return unsub;
+  }, [navigation, focusSearch]);
+  useFocusEffect(
+    useCallback(() => {
+      if (focusOnArrive.current) {
+        focusOnArrive.current = false;
+        focusSearch();
+      }
+    }, [focusSearch]),
+  );
 
   const query = tab === 'dishes' ? dishQuery : peopleQuery;
   const setQuery = (t: string) => (tab === 'dishes' ? setDishQuery(t) : setPeopleQuery(t));
@@ -153,6 +183,7 @@ export function SearchScreen({ navigation }: any) {
       <View style={{ marginTop: spacing.md }}>
         <View>
           <Input
+            ref={inputRef}
             testID="search-input"
             placeholder={
               tab === 'dishes'
@@ -297,6 +328,7 @@ export function SearchScreen({ navigation }: any) {
     <View style={[styles.root, { paddingTop: insets.top }]}>
       {tab === 'dishes' ? (
         <FlatList
+          ref={listRef}
           keyboardDismissMode="on-drag"
           testID="search-dishes"
           key="dishes"
@@ -326,6 +358,7 @@ export function SearchScreen({ navigation }: any) {
         />
       ) : (
         <FlatList
+          ref={listRef}
           keyboardDismissMode="on-drag"
           testID="search-people"
           key="people"
