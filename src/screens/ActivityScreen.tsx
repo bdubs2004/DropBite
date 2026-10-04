@@ -110,6 +110,28 @@ export function ActivityScreen({ navigation, route }: any) {
     return [...posts, ...Array(GRID_COLUMNS - remainder).fill(null)];
   })();
 
+  // The Liked / Saved / Comments switch scrolls with the posts, so a swipe
+  // that starts on it still scrolls.
+  const tabsRow = (
+    <View style={styles.tabs}>
+      {TABS.map((t) => (
+        <Pressable
+          key={t.key}
+          testID={`activity-tab-${t.key}`}
+          onPress={() => setTab(t.key)}
+          style={[styles.tab, tab === t.key && styles.tabActive]}
+        >
+          <Ionicons
+            name={t.icon}
+            size={15}
+            color={tab === t.key ? colors.amberDark : colors.cocoaSoft}
+          />
+          <Text style={[styles.tabText, tab === t.key && styles.tabTextActive]}>{t.label}</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+
   const emptyState = (
     <View style={styles.empty}>
       <Ionicons name={active.icon} size={40} color={colors.cocoaFaint} />
@@ -153,26 +175,11 @@ export function ActivityScreen({ navigation, route }: any) {
         </View>
       </View>
 
-      <View style={styles.tabs}>
-        {TABS.map((t) => (
-          <Pressable
-            key={t.key}
-            testID={`activity-tab-${t.key}`}
-            onPress={() => setTab(t.key)}
-            style={[styles.tab, tab === t.key && styles.tabActive]}
-          >
-            <Ionicons
-              name={t.icon}
-              size={15}
-              color={tab === t.key ? colors.amberDark : colors.cocoaSoft}
-            />
-            <Text style={[styles.tabText, tab === t.key && styles.tabTextActive]}>{t.label}</Text>
-          </Pressable>
-        ))}
-      </View>
-
       {loading ? (
-        <ActivityIndicator color={colors.amber} style={{ marginTop: spacing.xl }} />
+        <>
+          {tabsRow}
+          <ActivityIndicator color={colors.amber} style={{ marginTop: spacing.xl }} />
+        </>
       ) : layout === 'grid' ? (
         <FlatList
           // key forces a remount when switching columns count.
@@ -182,7 +189,8 @@ export function ActivityScreen({ navigation, route }: any) {
           keyExtractor={(p, i) => p?.id ?? `spacer-${i}`}
           numColumns={GRID_COLUMNS}
           columnWrapperStyle={{ gap: GRID_GAP }}
-          contentContainerStyle={{ gap: GRID_GAP, paddingTop: spacing.md, paddingBottom: 120 }}
+          ListHeaderComponent={tabsRow}
+          contentContainerStyle={{ gap: GRID_GAP, paddingBottom: 120 }}
           renderItem={({ item }) =>
             item ? (
               <PostThumb
@@ -204,7 +212,8 @@ export function ActivityScreen({ navigation, route }: any) {
           scrollEnabled={!zooming}
           data={posts}
           keyExtractor={(p) => p.id}
-          contentContainerStyle={{ paddingTop: spacing.md, paddingBottom: 120 }}
+          ListHeaderComponent={tabsRow}
+          contentContainerStyle={{ paddingBottom: 120 }}
           renderItem={({ item }) => (
             <PostCard
               post={item}
@@ -262,6 +271,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     padding: 4,
     marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
     gap: 4,
   },
   tab: {

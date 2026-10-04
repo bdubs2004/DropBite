@@ -115,8 +115,12 @@ export function FeedScreen({ navigation }: any) {
         pointerEvents="none"
         style={[styles.statusCover, { height: insets.top }]}
       />
+      {/* box-none: the logo and buttons still take taps, but a swipe that
+          starts on the bar's empty space goes through to the feed underneath
+          and scrolls it. */}
       <Animated.View
         testID="feed-header"
+        pointerEvents="box-none"
         onLayout={(e) => {
           headerHeight.current = e.nativeEvent.layout.height;
         }}
@@ -134,7 +138,7 @@ export function FeedScreen({ navigation }: any) {
         >
           <LogoLockup height={30} />
         </Pressable>
-        <View style={styles.headerRight}>
+        <View style={styles.headerRight} pointerEvents="box-none">
         <Pressable
           testID="streak-pill"
           onPress={() => navigation.navigate('Leaderboard')}

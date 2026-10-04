@@ -120,6 +120,9 @@ export function RecipeCardEditor({
             onChangeText={(t) => setStep(i, t)}
             style={[styles.cell, styles.item]}
             multiline
+            // Grows instead of scrolling inside itself, so a swipe that starts
+            // on a step still scrolls the post screen.
+            scrollEnabled={false}
             placeholder="step"
             placeholderTextColor={colors.cocoaFaint}
           />

@@ -75,23 +75,10 @@ export function UserListScreen({ navigation, route }: any) {
     load();
   }, [load]);
 
-  return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={10} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={22} color={colors.amberDark} />
-        </Pressable>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.title} numberOfLines={1}>
-            {title}
-          </Text>
-          {isFollowMode ? null : (
-            <Muted style={{ textAlign: 'center' }}>People who liked this comment</Muted>
-          )}
-        </View>
-        <View style={{ width: 30 }} />
-      </View>
-
+  // The toggle and search bar scroll with the list (only the Back bar stays
+  // put), so a swipe that starts on them still scrolls.
+  const controls = (
+    <>
       {isFollowMode ? (
         <View style={styles.tabs}>
           {(['followers', 'following'] as const).map((key) => {
@@ -136,15 +123,37 @@ export function UserListScreen({ navigation, route }: any) {
           ) : null}
         </View>
       )}
+    </>
+  );
+
+  return (
+    <View style={[styles.root, { paddingTop: insets.top }]}>
+      <View style={styles.header}>
+        <Pressable onPress={() => navigation.goBack()} hitSlop={10} style={styles.backBtn}>
+          <Ionicons name="chevron-back" size={22} color={colors.amberDark} />
+        </Pressable>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.title} numberOfLines={1}>
+            {title}
+          </Text>
+          {isFollowMode ? null : (
+            <Muted style={{ textAlign: 'center' }}>People who liked this comment</Muted>
+          )}
+        </View>
+        <View style={{ width: 30 }} />
+      </View>
 
       {gated ? (
-        <View style={styles.gate}>
-          <Ionicons name="lock-closed-outline" size={44} color={colors.cocoaFaint} />
-          <Text style={styles.privateTitle}>{listName} are private</Text>
-          <Muted style={{ textAlign: 'center', paddingHorizontal: spacing.xl }}>
-            {displayName} keeps their {listName.toLowerCase()} list private
-          </Muted>
-        </View>
+        <>
+          {controls}
+          <View style={styles.gate}>
+            <Ionicons name="lock-closed-outline" size={44} color={colors.cocoaFaint} />
+            <Text style={styles.privateTitle}>{listName} are private</Text>
+            <Muted style={{ textAlign: 'center', paddingHorizontal: spacing.xl }}>
+              {displayName} keeps their {listName.toLowerCase()} list private
+            </Muted>
+          </View>
+        </>
       ) : (
         <FlatList
           testID="userlist"
@@ -152,7 +161,9 @@ export function UserListScreen({ navigation, route }: any) {
           keyExtractor={(u) => u.id}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
-          contentContainerStyle={{ padding: spacing.lg, paddingTop: spacing.sm }}
+          // The list has side padding; the toggle and search carry their own.
+          ListHeaderComponent={<View style={styles.listHeader}>{controls}</View>}
+          contentContainerStyle={{ padding: spacing.lg, paddingTop: 0 }}
           renderItem={({ item }) => (
             <Pressable
               testID={`userlist-row-${item.id}`}
@@ -312,6 +323,7 @@ const styles = StyleSheet.create({
     fontSize: 14.5,
     color: colors.white,
   },
+  listHeader: { marginHorizontal: -spacing.lg, marginBottom: spacing.sm },
   tabs: {
     flexDirection: 'row',
     backgroundColor: colors.creamDark,
