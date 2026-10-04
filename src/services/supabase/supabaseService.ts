@@ -1649,6 +1649,19 @@ export class SupabaseService implements DataService {
     await this.sb.from('notifications').delete().eq('user_id', meId);
   }
 
+  async deleteNotifications(ids: string[]): Promise<void> {
+    if (!ids.length) return;
+    const meId = await this.myId();
+    // The user_id filter is belt and braces: RLS already limits deletes to
+    // your own rows.
+    const { error } = await this.sb
+      .from('notifications')
+      .delete()
+      .eq('user_id', meId)
+      .in('id', ids);
+    if (error) throw error;
+  }
+
   async getStreak(userId: string): Promise<Streak> {
     const { data } = await this.sb.from('streaks').select('*').eq('user_id', userId).maybeSingle();
     const s = (data as Streak) ?? {

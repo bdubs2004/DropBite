@@ -1208,6 +1208,17 @@ export class MockService implements DataService {
     await this.save();
   }
 
+  async deleteNotifications(ids: string[]): Promise<void> {
+    const db = await this.load();
+    const me = await this.me();
+    const drop = new Set(ids);
+    // Mirrors RLS: only your own can go.
+    db.notifications = (db.notifications ?? []).filter(
+      (n) => !(n.user_id === me.id && drop.has(n.id)),
+    );
+    await this.save();
+  }
+
   async toggleReaction(postId: string): Promise<void> {
     const db = await this.load();
     const me = await this.me();
