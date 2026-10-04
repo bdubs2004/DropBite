@@ -199,7 +199,11 @@ export function CollectionPicker({
         {loading ? (
           <ActivityIndicator color={colors.amber} style={{ marginVertical: spacing.lg }} />
         ) : (
-          <ScrollView style={{ maxHeight: 340 }} keyboardShouldPersistTaps="handled">
+          <ScrollView
+            style={{ maxHeight: 340 }}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+          >
             {collections.map((c) => {
               const on = inside.has(c.id);
               return (

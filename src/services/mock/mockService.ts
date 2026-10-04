@@ -90,6 +90,8 @@ interface Db {
     muted?: boolean;
   }[];
   messages: Message[];
+  /** Optional: demo databases saved before reactions existed lack it. */
+  messageReactions?: { message_id: string; user_id: string; emoji: string }[];
   blocks: { blocker_id: string; blocked_id: string }[];
   reports: Report[];
   feedback: Feedback[];
@@ -298,6 +300,7 @@ export class MockService implements DataService {
     db.collectionPosts = collectionPosts.filter(
       (cp) => !myCollections.has(cp.collection_id) && !myPosts.has(cp.post_id),
     );
+    db.messageReactions = (db.messageReactions ?? []).filter((r) => r.user_id !== meId);
     db.streaks = db.streaks.filter((s) => s.user_id !== meId);
     db.credentials = db.credentials.filter((c) => c.userId !== meId);
     db.sessionUserId = null;
@@ -571,6 +574,9 @@ export class MockService implements DataService {
   private hydrateMessage(db: Db, m: Message, meId: string): Message {
     return {
       ...m,
+      reactions: (db.messageReactions ?? [])
+        .filter((r) => r.message_id === m.id)
+        .map(({ user_id, emoji }) => ({ user_id, emoji })),
       sender: db.users.find((u) => u.id === m.sender_id),
       shared_post: m.shared_post_id
         ? (() => {
@@ -657,6 +663,24 @@ export class MockService implements DataService {
       .filter((m) => m.conversation_id === conversationId)
       .sort((a, b) => a.created_at.localeCompare(b.created_at))
       .map((m) => this.hydrateMessage(db, m, me.id));
+  }
+
+  async reactToMessage(messageId: string, emoji: string | null): Promise<void> {
+    const db = this.dmTables(await this.load());
+    const me = await this.me();
+    const msg = db.messages.find((m) => m.id === messageId);
+    // Mirrors RLS: only people in the thread can react.
+    const isMember =
+      !!msg &&
+      db.conversationMembers.some(
+        (m) => m.conversation_id === msg.conversation_id && m.user_id === me.id,
+      );
+    if (!isMember) throw new Error('Not part of that conversation.');
+    const rest = (db.messageReactions ?? []).filter(
+      (r) => !(r.message_id === messageId && r.user_id === me.id),
+    );
+    db.messageReactions = emoji ? [...rest, { message_id: messageId, user_id: me.id, emoji }] : rest;
+    await this.save();
   }
 
   async sendMessage(

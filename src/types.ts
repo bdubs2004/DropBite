@@ -263,6 +263,13 @@ export interface Message {
   // hydrated client-side
   sender?: User;
   shared_post?: Post | null;
+  /** Emoji reactions, one per person (double-tap is a heart). */
+  reactions?: MessageReaction[];
+}
+
+export interface MessageReaction {
+  user_id: string;
+  emoji: string;
 }
 
 /** One row on the streaks leaderboard. */

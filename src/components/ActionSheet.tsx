@@ -28,11 +28,14 @@ export function ActionSheet({
   title,
   actions,
   onClose,
+  header,
 }: {
   visible: boolean;
   title?: string;
   actions: SheetAction[];
   onClose: () => void;
+  /** Extra content above the actions (the emoji row on a chat message). */
+  header?: React.ReactNode;
 }) {
   const insets = useSafeAreaInsets();
 
@@ -47,6 +50,7 @@ export function ActionSheet({
         >
           <View style={styles.grabber} />
           {title ? <Text style={styles.title}>{title}</Text> : null}
+          {header}
 
           {actions.map((a) => (
             <Pressable

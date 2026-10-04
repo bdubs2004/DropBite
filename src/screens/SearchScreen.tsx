@@ -297,6 +297,7 @@ export function SearchScreen({ navigation }: any) {
     <View style={[styles.root, { paddingTop: insets.top }]}>
       {tab === 'dishes' ? (
         <FlatList
+          keyboardDismissMode="on-drag"
           testID="search-dishes"
           key="dishes"
           data={gridData}
@@ -325,6 +326,7 @@ export function SearchScreen({ navigation }: any) {
         />
       ) : (
         <FlatList
+          keyboardDismissMode="on-drag"
           testID="search-people"
           key="people"
           data={people}

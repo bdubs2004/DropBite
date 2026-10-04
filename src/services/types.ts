@@ -155,6 +155,11 @@ export interface DataService {
   getConversationMuted(conversationId: string): Promise<boolean>;
   /** Mute or unmute this thread's notifications for you. */
   setConversationMuted(conversationId: string, muted: boolean): Promise<void>;
+  /**
+   * React to a message with an emoji, replacing any reaction you already left
+   * on it. `null` takes your reaction off.
+   */
+  reactToMessage(messageId: string, emoji: string | null): Promise<void>;
   markConversationRead(conversationId: string): Promise<void>;
   /**
    * Remove a thread from YOUR inbox by leaving it. The other person keeps
