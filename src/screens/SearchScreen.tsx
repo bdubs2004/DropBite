@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '../components/Avatar';
 import { PostThumb } from '../components/PostThumb';
 import { Input, Muted, ScreenTitle } from '../components/ui';
+import { openPostFeed } from '../lib/postFeed';
 import {
   addRecentSearch,
   addRecentTerm,
@@ -83,7 +84,13 @@ export function SearchScreen({ navigation }: any) {
   const openPost = async (postId: string) => {
     await addRecentTerm(dishQuery);
     loadRecents();
-    navigation.navigate('PostDetail', { postId });
+    // The results open as a mini feed starting at the tapped dish.
+    openPostFeed(
+      navigation,
+      posts.filter((p) => !hiddenIds.has(p.id)),
+      postId,
+      'Dishes',
+    );
   };
   // Guards against a slow early request landing after a later one.
   const seq = useRef(0);

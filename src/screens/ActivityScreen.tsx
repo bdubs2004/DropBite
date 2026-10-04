@@ -4,9 +4,11 @@ import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useZooming } from '../components/PinchZoom';
 import { PostCard } from '../components/PostCard';
 import { PostThumb } from '../components/PostThumb';
 import { Muted } from '../components/ui';
+import { openPostFeed } from '../lib/postFeed';
 import { usePostActions } from '../lib/usePostActions';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
@@ -52,6 +54,8 @@ export function ActivityScreen({ navigation, route }: any) {
   const svc = getDataService();
   const { user } = useApp();
   const insets = useSafeAreaInsets();
+  // Hold the list still while a photo in it is being pinched.
+  const zooming = useZooming();
 
   const [tab, setTab] = useState<ActivityTab>(route.params?.tab ?? 'liked');
   const [posts, setPosts] = useState<Post[]>([]);
@@ -183,7 +187,7 @@ export function ActivityScreen({ navigation, route }: any) {
             item ? (
               <PostThumb
                 post={item}
-                onPress={() => navigation.navigate('PostDetail', { postId: item.id })}
+                onPress={() => openPostFeed(navigation, posts, item.id, active.label)}
                 onLongPress={() => navigation.navigate('PostPeek', { postId: item.id })}
                 style={{ flex: 1 }}
               />
@@ -197,6 +201,7 @@ export function ActivityScreen({ navigation, route }: any) {
         <FlatList
           key="list"
           testID="activity-list"
+          scrollEnabled={!zooming}
           data={posts}
           keyExtractor={(p) => p.id}
           contentContainerStyle={{ paddingTop: spacing.md, paddingBottom: 120 }}

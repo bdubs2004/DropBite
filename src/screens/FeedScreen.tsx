@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LogoLockup } from '../components/Logo';
+import { useZooming } from '../components/PinchZoom';
 import { PostCard } from '../components/PostCard';
 import { Muted } from '../components/ui';
 import { usePostActions } from '../lib/usePostActions';
@@ -25,6 +26,8 @@ import { colors, fonts, radius, spacing } from '../theme';
 export function FeedScreen({ navigation }: any) {
   const { feed, feedLoading, refreshFeed, streak, user } = useApp();
   const insets = useSafeAreaInsets();
+  // Hold the list still while a photo in it is being pinched.
+  const zooming = useZooming();
   const svc = getDataService();
   const [unread, setUnread] = useState(0);
   const [unseen, setUnseen] = useState(0);
@@ -159,6 +162,7 @@ export function FeedScreen({ navigation }: any) {
         onScroll={onScroll}
         scrollEventThrottle={16}
         testID="feed-list"
+        scrollEnabled={!zooming}
         data={feed}
         keyExtractor={(p) => p.id}
         renderItem={({ item }) => (

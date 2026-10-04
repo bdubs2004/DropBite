@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '../components/Avatar';
 import { PostThumb } from '../components/PostThumb';
 import { Button, Muted, ScreenTitle } from '../components/ui';
+import { openPostFeed } from '../lib/postFeed';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
 import { colors, fonts, radius, shadowSoft, spacing } from '../theme';
@@ -88,7 +89,14 @@ export function DiscoverScreen({ navigation }: any) {
     return unsub;
   }, [navigation, refresh]);
 
-  const openPost = (post: Post) => navigation.navigate('PostDetail', { postId: post.id });
+  // Opens the grid as a mini feed starting at the tapped post.
+  const openPost = (post: Post) =>
+    openPostFeed(
+      navigation,
+      posts.filter((p) => !hiddenIds.has(p.id)),
+      post.id,
+      'Discover',
+    );
 
   /**
    * Pad the grid to a whole number of rows. Without this the last row's items
