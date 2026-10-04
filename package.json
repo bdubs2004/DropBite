@@ -54,7 +54,8 @@
     "test:collections": "tsc src/lib/__tests__/collectionName.test.ts --ignoreConfig --types node --rootDir src --outDir .test-build --module commonjs --target es2019 --esModuleInterop --skipLibCheck && node .test-build/lib/__tests__/collectionName.test.js",
     "test:userfilter": "tsc src/lib/__tests__/userFilter.test.ts --ignoreConfig --types node --rootDir src --outDir .test-build --module commonjs --target es2019 --esModuleInterop --skipLibCheck && node .test-build/lib/__tests__/userFilter.test.js",
     "test:header": "tsc src/lib/__tests__/autoHideHeader.test.ts --ignoreConfig --types node --rootDir src --outDir .test-build --module commonjs --target es2019 --esModuleInterop --skipLibCheck && node .test-build/lib/__tests__/autoHideHeader.test.js",
-    "test": "npm run test:reminders && npm run test:nutrition && npm run test:textchange && npm run test:convname && npm run test:drawer && npm run test:authlink && npm run test:password && npm run test:pinch && npm run test:collections && npm run test:userfilter && npm run test:header",
+    "test:doubletap": "tsc src/lib/__tests__/doubleTap.test.ts --ignoreConfig --types node --rootDir src --outDir .test-build --module commonjs --target es2019 --esModuleInterop --skipLibCheck && node .test-build/lib/__tests__/doubleTap.test.js",
+    "test": "npm run test:reminders && npm run test:nutrition && npm run test:textchange && npm run test:convname && npm run test:drawer && npm run test:authlink && npm run test:password && npm run test:pinch && npm run test:collections && npm run test:userfilter && npm run test:header && npm run test:doubletap",
     "build:site": "node scripts/build-site.js"
   },
   "private": true

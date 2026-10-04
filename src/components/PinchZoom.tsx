@@ -16,6 +16,7 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
+import { makeTapHandler } from '../lib/doubleTap';
 import { pinchTransform, Point } from '../lib/pinchMath';
 
 type Rect = { x: number; y: number; width: number; height: number };
@@ -133,10 +134,13 @@ export function PinchZoom({
   children,
   style,
   onLongPress,
+  onDoubleTap,
 }: {
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
   onLongPress?: () => void;
+  /** Two quick taps on the photo (a post photo uses it to like). */
+  onDoubleTap?: () => void;
 }) {
   const host = useContext(ZoomContext);
   const hostRef = useRef(host);
@@ -154,6 +158,9 @@ export function PinchZoom({
   const wrapRef = useRef<View>(null);
   const longPressRef = useRef(onLongPress);
   longPressRef.current = onLongPress;
+  const doubleTapRef = useRef(onDoubleTap);
+  doubleTapRef.current = onDoubleTap;
+  const taps = useRef(makeTapHandler({ onDouble: () => doubleTapRef.current?.() })).current;
   const [zooming, setZooming] = useState(false);
   const childrenRef = useRef(children);
   childrenRef.current = children;
@@ -271,9 +278,10 @@ export function PinchZoom({
   const hold = useRef<{
     timer: ReturnType<typeof setTimeout> | null;
     fired: boolean;
+    moved: boolean;
     x: number;
     y: number;
-  }>({ timer: null, fired: false, x: 0, y: 0 }).current;
+  }>({ timer: null, fired: false, moved: false, x: 0, y: 0 }).current;
   const cancelHold = () => {
     if (hold.timer) clearTimeout(hold.timer);
     hold.timer = null;
@@ -287,6 +295,7 @@ export function PinchZoom({
       hold.y = e.nativeEvent.pageY;
       cancelHold();
       hold.fired = false;
+      hold.moved = false;
       if (longPressRef.current) {
         hold.timer = setTimeout(() => {
           hold.timer = null;
@@ -300,10 +309,15 @@ export function PinchZoom({
     onResponderMove: (e: GestureResponderEvent) => {
       const dx = e.nativeEvent.pageX - hold.x;
       const dy = e.nativeEvent.pageY - hold.y;
-      if (Math.hypot(dx, dy) > 10 || touchesOf(e).length > 1) cancelHold();
+      if (Math.hypot(dx, dy) > 10 || touchesOf(e).length > 1) {
+        hold.moved = true;
+        cancelHold();
+      }
     },
     onResponderRelease: (e: GestureResponderEvent) => {
       cancelHold();
+      // A clean tap (no drag, no long-press) counts toward a double-tap.
+      if (!hold.moved && !hold.fired) taps.tap();
       // On web, lifting the finger after a long-press makes the browser fire a
       // click right where it was, which would land on the menu's backdrop and
       // shut the menu it just opened.

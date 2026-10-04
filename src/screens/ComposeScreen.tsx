@@ -207,6 +207,7 @@ export function ComposeScreen({ navigation }: any) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView
+        keyboardDismissMode="on-drag"
         contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 40 }]}
         keyboardShouldPersistTaps="handled"
       >

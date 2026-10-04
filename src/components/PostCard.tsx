@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { LOCATION_TAGGING_ENABLED } from '../config';
 import { relativeTime } from '../lib/time';
@@ -7,6 +7,7 @@ import { colors, fonts, MEAL_SLOT_META, radius, shadow, spacing } from '../theme
 import { Post } from '../types';
 import { ActionSheet } from './ActionSheet';
 import { Avatar } from './Avatar';
+import { HeartBurst, HeartBurstHandle } from './HeartBurst';
 import { PinchZoom } from './PinchZoom';
 import { PostPhoto } from './PostPhoto';
 import { RecipeCardView } from './RecipeCardView';
@@ -80,6 +81,13 @@ export function PostCard({
     setLikeCount((c) => c + (liked ? -1 : 1));
     setLiked((v) => !v);
     onToggleLike(post);
+  };
+  // Double-tap the photo to like it, Instagram style: it only ever likes
+  // (never unlikes), and the heart pops either way so it feels answered.
+  const burstRef = useRef<HeartBurstHandle>(null);
+  const doubleTapLike = () => {
+    burstRef.current?.pop();
+    if (!liked) handleLike();
   };
   const handleRepost = () => {
     setRepostCount((c) => c + (reposted ? -1 : 1));
@@ -252,9 +260,13 @@ export function PostCard({
         }
       >
         {/* pinch with two fingers to zoom; springs back on release */}
-        <PinchZoom onLongPress={menuActions.length > 0 ? openMenu : undefined}>
+        <PinchZoom
+          onLongPress={menuActions.length > 0 ? openMenu : undefined}
+          onDoubleTap={doubleTapLike}
+        >
           <PostPhoto post={post} />
         </PinchZoom>
+        <HeartBurst ref={burstRef} />
         {reposters.length > 0 && photoSize.w > 0 ? (
           <RepostBubble
             reposters={reposters}

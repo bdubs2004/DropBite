@@ -759,6 +759,7 @@ export class SupabaseService implements DataService {
       shared_post: row.posts
         ? ({ ...(row.posts as Post), user: (row.posts.users as User) ?? undefined } as Post)
         : null,
+      reactions: row.message_reactions ?? [],
     };
   }
 
@@ -785,7 +786,9 @@ export class SupabaseService implements DataService {
         .neq('user_id', meId),
       this.sb
         .from('messages')
-        .select('*, users!messages_sender_id_fkey(*), posts!messages_shared_post_id_fkey(*, users!posts_user_id_fkey(*))')
+        .select(
+        '*, users!messages_sender_id_fkey(*), posts!messages_shared_post_id_fkey(*, users!posts_user_id_fkey(*)), message_reactions(user_id, emoji)',
+      )
         .in('conversation_id', ids)
         .order('created_at', { ascending: true }),
     ]);
@@ -854,6 +857,26 @@ export class SupabaseService implements DataService {
       .order('created_at', { ascending: true });
     if (error) throw error;
     return (data ?? []).map((row: any) => this.hydrateMessageRow(row));
+  }
+
+  async reactToMessage(messageId: string, emoji: string | null): Promise<void> {
+    const meId = await this.myId();
+    if (emoji === null) {
+      const { error } = await this.sb
+        .from('message_reactions')
+        .delete()
+        .match({ message_id: messageId, user_id: meId });
+      if (error) throw error;
+      return;
+    }
+    // RLS makes sure it's a thread you're in and nobody is blocked.
+    const { error } = await this.sb
+      .from('message_reactions')
+      .upsert(
+        { message_id: messageId, user_id: meId, emoji, created_at: new Date().toISOString() },
+        { onConflict: 'message_id,user_id' },
+      );
+    if (error) throw error;
   }
 
   async sendMessage(

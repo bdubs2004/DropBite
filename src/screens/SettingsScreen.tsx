@@ -125,6 +125,7 @@ export function SettingsScreen({ navigation, route }: any) {
 
   return (
     <ScrollView
+      keyboardDismissMode="on-drag"
       ref={scrollRef}
       style={{ flex: 1, backgroundColor: colors.cream }}
       contentContainerStyle={[styles.scroll, { paddingTop: insets.top + spacing.md }]}
