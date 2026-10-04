@@ -1,10 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Animated,
   Dimensions,
   FlatList,
   KeyboardAvoidingView,
+  PanResponder,
   Platform,
   Pressable,
   RefreshControl,
@@ -21,9 +23,9 @@ import { PhotoViewer } from '../components/PhotoViewer';
 import { PostThumb } from '../components/PostThumb';
 import { RenameGroupSheet } from '../components/RenameGroupSheet';
 import { Muted } from '../components/ui';
+import { buildTimeline, clockTime, TimelineItem } from '../lib/chatTimeline';
 import { makeTapHandler, TapHandler } from '../lib/doubleTap';
 import { pickImage } from '../lib/pickImage';
-import { relativeTime } from '../lib/time';
 import { useKeyboardVisible } from '../lib/useKeyboardVisible';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
@@ -35,6 +37,9 @@ const PHOTO_W = 190;
 
 /** A shared-post card fills most of the bubble so it doesn't leave dead space. */
 const SHARED_W = Math.min(320, Math.round(Dimensions.get('window').width * 0.78));
+
+/** How far the conversation slides to show each message's time. */
+const REVEAL_W = 76;
 
 /** The quick reactions offered when you long-press a message. */
 const REACTIONS = ['❤️', '😂', '😮', '😢', '🔥', '👍'];
@@ -57,6 +62,11 @@ function tally(reactions: Message['reactions'], meId?: string) {
  * Double-tap a message to heart it (again to take it back), long-press for
  * the other reactions, tap a photo to open it full screen, and drag the
  * conversation down to put the keyboard away.
+ *
+ * Timestamps work like Instagram's: a centred label where the day changes,
+ * and drag the conversation to the left to slide every message over and show
+ * its exact time. Left, not right, because a swipe right from the edge is
+ * iOS's "go back".
  */
 export function ChatScreen({ navigation, route }: any) {
   const {
@@ -75,7 +85,31 @@ export function ChatScreen({ navigation, route }: any) {
   const { user } = useApp();
   const insets = useSafeAreaInsets();
   const keyboardUp = useKeyboardVisible();
-  const listRef = useRef<FlatList<Message>>(null);
+  const listRef = useRef<FlatList<TimelineItem>>(null);
+
+  // Swipe-to-reveal times. One shared value moves every row at once, so the
+  // drag never re-renders the list.
+  const reveal = useRef(new Animated.Value(0)).current;
+  const swipe = useRef(
+    PanResponder.create({
+      // Only a clearly sideways, leftward drag; vertical scrolling and taps
+      // are left alone.
+      onMoveShouldSetPanResponderCapture: (_e, g) =>
+        g.dx < -12 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderMove: (_e, g) => reveal.setValue(Math.max(-REVEAL_W, Math.min(0, g.dx))),
+      onPanResponderRelease: () =>
+        Animated.spring(reveal, { toValue: 0, friction: 8, useNativeDriver: true }).start(),
+      onPanResponderTerminate: () =>
+        Animated.spring(reveal, { toValue: 0, friction: 8, useNativeDriver: true }).start(),
+    }),
+  ).current;
+  const timeOpacity = reveal.interpolate({
+    inputRange: [-REVEAL_W, -REVEAL_W / 3, 0],
+    outputRange: [1, 0.4, 0],
+    extrapolate: 'clamp',
+  });
+  const timeShift = Animated.add(reveal, REVEAL_W);
 
   // Header title lives in state so renaming updates it without a reload.
   const [title, setTitle] = useState(initialTitle ?? 'Chat');
@@ -140,6 +174,7 @@ export function ChatScreen({ navigation, route }: any) {
 
   const messagesRef = useRef<Message[]>([]);
   messagesRef.current = messages;
+  const timeline = useMemo(() => buildTimeline(messages), [messages]);
 
   /** Set (or with null, clear) my reaction on a message. Optimistic. */
   const react = useCallback(
@@ -282,157 +317,181 @@ export function ChatScreen({ navigation, route }: any) {
         </Pressable>
       </View>
 
-      <FlatList
-        ref={listRef}
-        testID="chat-list"
-        data={messages}
-        keyExtractor={(m) => m.id}
-        contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.lg }}
-        // Drag the conversation down to put the keyboard away.
-        keyboardDismissMode="on-drag"
-        keyboardShouldPersistTaps="handled"
-        onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={pullRefresh}
-            tintColor={colors.amber}
-            colors={[colors.amber]}
-          />
-        }
-        renderItem={({ item }) => {
-          const mine = item.sender_id === user?.id;
-          // A photo — or a shared-post card — on its own reads better as the
-          // thing itself, not wrapped in a thick coloured frame.
-          const photoOnly = !!item.image_url && !item.text && !item.shared_post_id;
-          const sharedOnly = !!item.shared_post_id && !item.text && !item.image_url;
-          const bare = photoOnly || sharedOnly;
-          return (
-            <Pressable
-              testID={`chat-message-${item.id}`}
-              // Double-tap hearts it; long-press opens the reactions (and
-              // Report, on someone else's message).
-              onPress={() => tapsFor(item.id, item.id).tap()}
-              onLongPress={() => {
-                tapsFor(item.id, item.id).cancel();
-                setMenuFor(item);
-              }}
-              delayLongPress={350}
-              style={[styles.bubbleWrap, mine ? styles.wrapMine : styles.wrapTheirs]}
-            >
-              {isGroup && !mine ? (
-                <Text style={styles.senderName} numberOfLines={1}>
-                  {item.sender?.display_name ??
-                    (item.sender?.handle ? '@' + item.sender.handle : 'Someone')}
+      <View style={{ flex: 1 }} {...swipe.panHandlers}>
+        <FlatList
+          ref={listRef}
+          testID="chat-list"
+          data={timeline}
+          keyExtractor={(i) => i.key}
+          contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.lg }}
+          // Drag the conversation down to put the keyboard away.
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
+          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={pullRefresh}
+              tintColor={colors.amber}
+              colors={[colors.amber]}
+            />
+          }
+          renderItem={({ item: entry }) => {
+            if (entry.kind === 'day') {
+              return (
+                <Text testID={`chat-day-${entry.key}`} style={styles.dayDivider}>
+                  {entry.label}
                 </Text>
-              ) : null}
-              <View
-                style={[
-                  styles.bubble,
-                  mine ? styles.bubbleMine : styles.bubbleTheirs,
-                  bare && styles.bubbleBare,
-                ]}
-              >
-                {item.shared_post ? (
-                  // Tap the card anywhere to open the post; tap the author bar
-                  // to open that person's profile.
+              );
+            }
+            const item = entry.message;
+            const mine = item.sender_id === user?.id;
+            // A photo — or a shared-post card — on its own reads better as the
+            // thing itself, not wrapped in a thick coloured frame.
+            const photoOnly = !!item.image_url && !item.text && !item.shared_post_id;
+            const sharedOnly = !!item.shared_post_id && !item.text && !item.image_url;
+            const bare = photoOnly || sharedOnly;
+            return (
+              <View style={styles.row}>
+                <Animated.View style={{ transform: [{ translateX: reveal }] }}>
                   <Pressable
-                    testID={`chat-shared-${item.id}`}
-                    onPress={() =>
-                      navigation.navigate('PostDetail', { postId: item.shared_post!.id })
-                    }
-                    style={styles.sharedCard}
+                    testID={`chat-message-${item.id}`}
+                    // Double-tap hearts it; long-press opens the reactions (and
+                    // Report, on someone else's message).
+                    onPress={() => tapsFor(item.id, item.id).tap()}
+                    onLongPress={() => {
+                      tapsFor(item.id, item.id).cancel();
+                      setMenuFor(item);
+                    }}
+                    delayLongPress={350}
+                    style={[styles.bubbleWrap, mine ? styles.wrapMine : styles.wrapTheirs]}
                   >
-                    <Pressable
-                      testID={`chat-shared-author-${item.id}`}
-                      style={styles.sharedAuthorRow}
-                      onPress={() =>
-                        item.shared_post?.user_id &&
-                        navigation.navigate('UserProfile', { userId: item.shared_post.user_id })
-                      }
-                    >
-                      <Avatar user={item.shared_post.user} size={28} />
-                      <Text style={styles.sharedAuthorName} numberOfLines={1}>
-                        {item.shared_post.user?.display_name ??
-                          (item.shared_post.user?.handle
-                            ? '@' + item.shared_post.user.handle
-                            : 'Shared post')}
+                    {isGroup && !mine ? (
+                      <Text style={styles.senderName} numberOfLines={1}>
+                        {item.sender?.display_name ??
+                          (item.sender?.handle ? '@' + item.sender.handle : 'Someone')}
                       </Text>
-                    </Pressable>
-                    <PostThumb post={item.shared_post} radius={0} style={styles.sharedThumb} />
-                    {item.shared_post.blurb || item.shared_post.meal_slot ? (
-                      <View style={styles.sharedMeta}>
-                        <Text style={styles.sharedBlurb} numberOfLines={2}>
-                          {item.shared_post.meal_slot ? (
-                            <Text style={styles.sharedTag}>
-                              {MEAL_SLOT_META[item.shared_post.meal_slot].label}
-                              {item.shared_post.blurb ? '  ' : ''}
+                    ) : null}
+                    <View
+                      style={[
+                        styles.bubble,
+                        mine ? styles.bubbleMine : styles.bubbleTheirs,
+                        bare && styles.bubbleBare,
+                      ]}
+                    >
+                      {item.shared_post ? (
+                        // Tap the card anywhere to open the post; tap the author bar
+                        // to open that person's profile.
+                        <Pressable
+                          testID={`chat-shared-${item.id}`}
+                          onPress={() =>
+                            navigation.navigate('PostDetail', { postId: item.shared_post!.id })
+                          }
+                          style={styles.sharedCard}
+                        >
+                          <Pressable
+                            testID={`chat-shared-author-${item.id}`}
+                            style={styles.sharedAuthorRow}
+                            onPress={() =>
+                              item.shared_post?.user_id &&
+                              navigation.navigate('UserProfile', { userId: item.shared_post.user_id })
+                            }
+                          >
+                            <Avatar user={item.shared_post.user} size={28} />
+                            <Text style={styles.sharedAuthorName} numberOfLines={1}>
+                              {item.shared_post.user?.display_name ??
+                                (item.shared_post.user?.handle
+                                  ? '@' + item.shared_post.user.handle
+                                  : 'Shared post')}
                             </Text>
+                          </Pressable>
+                          <PostThumb post={item.shared_post} radius={0} style={styles.sharedThumb} />
+                          {item.shared_post.blurb || item.shared_post.meal_slot ? (
+                            <View style={styles.sharedMeta}>
+                              <Text style={styles.sharedBlurb} numberOfLines={2}>
+                                {item.shared_post.meal_slot ? (
+                                  <Text style={styles.sharedTag}>
+                                    {MEAL_SLOT_META[item.shared_post.meal_slot].label}
+                                    {item.shared_post.blurb ? '  ' : ''}
+                                  </Text>
+                                ) : null}
+                                {item.shared_post.blurb}
+                              </Text>
+                            </View>
                           ) : null}
-                          {item.shared_post.blurb}
-                        </Text>
+                        </Pressable>
+                      ) : item.shared_post_id ? (
+                        // The post existed when it was sent but has since been deleted.
+                        <Muted style={{ fontStyle: 'italic' }}>This post is no longer available.</Muted>
+                      ) : null}
+
+                      {item.image_url ? (
+                        // Tap to open full screen; double-tap to heart.
+                        <Pressable
+                          testID={`chat-photo-${item.id}`}
+                          onPress={() =>
+                            tapsFor(`photo-${item.id}`, item.id, () => setViewing(item.image_url!)).tap()
+                          }
+                          onLongPress={() => setMenuFor(item)}
+                          delayLongPress={350}
+                        >
+                          <Image
+                            source={{ uri: item.image_url }}
+                            style={styles.photo}
+                            contentFit="cover"
+                            cachePolicy="memory-disk"
+                            transition={120}
+                          />
+                        </Pressable>
+                      ) : null}
+
+                      {item.text ? (
+                        <Text style={[styles.text, mine && styles.textMine]}>{item.text}</Text>
+                      ) : null}
+                    </View>
+                    {item.reactions?.length ? (
+                      <View
+                        testID={`chat-reactions-${item.id}`}
+                        style={[styles.reactions, mine ? styles.reactionsMine : styles.reactionsTheirs]}
+                      >
+                        {tally(item.reactions, user?.id).map((r) => (
+                          <Pressable
+                            key={r.emoji}
+                            testID={`chat-reaction-${item.id}-${r.emoji}`}
+                            // Tap your own to take it off, someone else's to join in.
+                            onPress={() => react(item.id, r.mine ? null : r.emoji)}
+                            style={[styles.reactionPill, r.mine && styles.reactionPillMine]}
+                            hitSlop={4}
+                          >
+                            <Text style={styles.reactionEmoji}>{r.emoji}</Text>
+                            {r.count > 1 ? <Text style={styles.reactionCount}>{r.count}</Text> : null}
+                          </Pressable>
+                        ))}
                       </View>
                     ) : null}
                   </Pressable>
-                ) : item.shared_post_id ? (
-                  // The post existed when it was sent but has since been deleted.
-                  <Muted style={{ fontStyle: 'italic' }}>This post is no longer available.</Muted>
-                ) : null}
-
-                {item.image_url ? (
-                  // Tap to open full screen; double-tap to heart.
-                  <Pressable
-                    testID={`chat-photo-${item.id}`}
-                    onPress={() =>
-                      tapsFor(`photo-${item.id}`, item.id, () => setViewing(item.image_url!)).tap()
-                    }
-                    onLongPress={() => setMenuFor(item)}
-                    delayLongPress={350}
-                  >
-                    <Image
-                      source={{ uri: item.image_url }}
-                      style={styles.photo}
-                      contentFit="cover"
-                      cachePolicy="memory-disk"
-                      transition={120}
-                    />
-                  </Pressable>
-                ) : null}
-
-                {item.text ? (
-                  <Text style={[styles.text, mine && styles.textMine]}>{item.text}</Text>
-                ) : null}
-              </View>
-              {item.reactions?.length ? (
-                <View
-                  testID={`chat-reactions-${item.id}`}
-                  style={[styles.reactions, mine ? styles.reactionsMine : styles.reactionsTheirs]}
+                </Animated.View>
+                <Animated.View
+                  pointerEvents="none"
+                  style={[
+                    styles.swipeTime,
+                    { opacity: timeOpacity, transform: [{ translateX: timeShift }] },
+                  ]}
                 >
-                  {tally(item.reactions, user?.id).map((r) => (
-                    <Pressable
-                      key={r.emoji}
-                      testID={`chat-reaction-${item.id}-${r.emoji}`}
-                      // Tap your own to take it off, someone else's to join in.
-                      onPress={() => react(item.id, r.mine ? null : r.emoji)}
-                      style={[styles.reactionPill, r.mine && styles.reactionPillMine]}
-                      hitSlop={4}
-                    >
-                      <Text style={styles.reactionEmoji}>{r.emoji}</Text>
-                      {r.count > 1 ? <Text style={styles.reactionCount}>{r.count}</Text> : null}
-                    </Pressable>
-                  ))}
-                </View>
-              ) : null}
-              <Muted style={styles.time}>{relativeTime(item.created_at)}</Muted>
-            </Pressable>
-          );
-        }}
-        ListEmptyComponent={
-          <Muted style={{ textAlign: 'center', marginTop: spacing.xl }}>
-            No messages yet. Say something
-          </Muted>
-        }
-      />
+                  <Text testID={`chat-time-${item.id}`} style={styles.swipeTimeText}>
+                    {clockTime(new Date(item.created_at))}
+                  </Text>
+                </Animated.View>
+              </View>
+            );
+          }}
+          ListEmptyComponent={
+            <Muted style={{ textAlign: 'center', marginTop: spacing.xl }}>
+              No messages yet. Say something
+            </Muted>
+          }
+        />
+      </View>
 
       <ActionSheet
         visible={menuFor !== null}
@@ -652,7 +711,26 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
     color: colors.amberDark,
   },
-  time: { fontSize: 11, marginTop: 3 },
+  row: { position: 'relative' },
+  // Sits just off the right edge and slides in as the conversation moves left.
+  swipeTime: {
+    position: 'absolute',
+    right: -spacing.lg,
+    width: REVEAL_W,
+    top: 0,
+    bottom: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  swipeTimeText: { fontFamily: fonts.semi, fontSize: 11.5, color: colors.cocoaFaint },
+  dayDivider: {
+    alignSelf: 'center',
+    fontFamily: fonts.bold,
+    fontSize: 12,
+    color: colors.cocoaFaint,
+    marginTop: spacing.sm,
+    marginBottom: spacing.md,
+  },
   reactions: { flexDirection: 'row', gap: 4, marginTop: -8, zIndex: 1 },
   reactionsMine: { marginRight: 8 },
   reactionsTheirs: { marginLeft: 8 },
