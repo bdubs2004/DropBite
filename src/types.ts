@@ -88,6 +88,8 @@ export interface Post {
    *  avatars + count on the repost bubble. reposter is reposters[0]. */
   reposters?: User[] | null;
   repost_at?: string;
+  /** People the author tagged in this post. */
+  tagged?: User[];
 }
 
 /**
@@ -197,7 +199,7 @@ export interface Feedback {
   created_at: string;
 }
 
-export type NotificationType = 'like' | 'comment' | 'repost' | 'share';
+export type NotificationType = 'like' | 'comment' | 'repost' | 'share' | 'tag';
 
 /**
  * "Marge liked your post." Written by database triggers, never by the client,
@@ -257,12 +259,15 @@ export interface Message {
   text: string;
   /** Set when this message is a post someone sent you. */
   shared_post_id: string | null;
+  /** Set when this message is a profile someone sent you (Share profile). */
+  shared_user_id?: string | null;
   /** An attached photo. */
   image_url?: string | null;
   created_at: string;
   // hydrated client-side
   sender?: User;
   shared_post?: Post | null;
+  shared_user?: User | null;
   /** Emoji reactions, one per person (double-tap is a heart). */
   reactions?: MessageReaction[];
 }
@@ -322,4 +327,6 @@ export interface NewPostInput {
   blurb: string;
   restaurant?: PlaceResult | null;
   recipe?: Omit<Recipe, 'id' | 'post_id'> | null;
+  /** People to tag in the post. */
+  tag_user_ids?: string[];
 }

@@ -24,6 +24,7 @@ const KIND: Record<NotificationType, { icon: any; color: string; verb: string }>
   comment: { icon: 'chatbubble', color: colors.amberDark, verb: 'commented on your post' },
   repost: { icon: 'repeat', color: colors.amberDark, verb: 'reposted your post' },
   share: { icon: 'paper-plane', color: colors.amberDark, verb: 'shared your post' },
+  tag: { icon: 'pricetag', color: colors.amberDark, verb: 'tagged you in a post' },
 };
 
 /**

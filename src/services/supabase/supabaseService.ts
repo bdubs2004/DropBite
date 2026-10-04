@@ -106,7 +106,53 @@ export class SupabaseService implements DataService {
   private async myId(): Promise<string> {
     const { data, error } = await this.sb.auth.getUser();
     if (error || !data.user) throw new Error('Not signed in');
+    await this.loadCaps();
     return data.user.id;
+  }
+
+  /**
+   * Which newer tables/columns this database has, checked once per launch.
+   *
+   * Queries only ask for post tags, shared profiles and message reactions
+   * when they exist. Asking PostgREST for a relationship that isn't there
+   * fails the WHOLE query, so a database that hasn't run migration 0023/0024
+   * yet would otherwise lose its feed and chats instead of just the new bits.
+   */
+  private caps = { tags: false, profileShares: false, reactions: false };
+  private capsLoaded: Promise<void> | null = null;
+  private loadCaps(): Promise<void> {
+    if (!this.capsLoaded) {
+      this.capsLoaded = (async () => {
+        const [tags, shares, reactions] = await Promise.all([
+          this.sb.from('post_tags').select('post_id').limit(1),
+          this.sb.from('messages').select('shared_user_id').limit(1),
+          this.sb.from('message_reactions').select('message_id').limit(1),
+        ]);
+        // All three failing is a network problem, not a schema answer:
+        // try again on the next call rather than switching everything off.
+        if (tags.error && shares.error && reactions.error) {
+          this.capsLoaded = null;
+          return;
+        }
+        this.caps = {
+          tags: !tags.error,
+          profileShares: !shares.error,
+          reactions: !reactions.error,
+        };
+      })().catch(() => {
+        this.capsLoaded = null;
+      });
+    }
+    return this.capsLoaded ?? Promise.resolve();
+  }
+
+  /** Everything a chat message is shown with. */
+  private get MESSAGE_SELECT(): string {
+    return (
+      '*, users!messages_sender_id_fkey(*), posts!messages_shared_post_id_fkey(*, users!posts_user_id_fkey(*))' +
+      (this.caps.profileShares ? ', shared_user:users!messages_shared_user_id_fkey(*)' : '') +
+      (this.caps.reactions ? ', message_reactions(user_id, emoji)' : '')
+    );
   }
 
   async getCurrentUser(): Promise<User | null> {
@@ -421,6 +467,7 @@ export class SupabaseService implements DataService {
       repost_count: (row.reposts ?? []).length,
       reposted_by_me: (row.reposts ?? []).some((r: any) => r.user_id === meId),
       saved_by_me: (row.saved_posts ?? []).some((r: any) => r.user_id === meId),
+      tagged: (row.post_tags ?? []).map((t: any) => t.users as User).filter(Boolean),
     };
   }
 
@@ -429,8 +476,13 @@ export class SupabaseService implements DataService {
   // paths, and a bare users(*) makes it error ("more than one relationship
   // was found for 'posts' and 'users'"), which breaks the feed, Discover and
   // the refresh right after posting.
-  private readonly POST_SELECT =
-    '*, users!posts_user_id_fkey(*), recipes(*), reactions(user_id), comments(id), shares(user_id), reposts(user_id), saved_posts(user_id)';
+  private get POST_SELECT(): string {
+    return (
+      '*, users!posts_user_id_fkey(*), recipes(*), reactions(user_id), comments(id), shares(user_id), reposts(user_id), saved_posts(user_id)' +
+      // post_tags has a single FK to users, so this embed is unambiguous.
+      (this.caps.tags ? ', post_tags(users(*))' : '')
+    );
+  }
 
   async getFeed(): Promise<Post[]> {
     const meId = await this.myId();
@@ -730,6 +782,14 @@ export class SupabaseService implements DataService {
         console.warn('recipe insert failed (post still saved):', recipeErr.message);
       }
     }
+    // Tags are supplementary too: a failure must never lose the post.
+    if (input.tag_user_ids?.length) {
+      try {
+        await this.setPostTags(post.id, input.tag_user_ids);
+      } catch (e: any) {
+        console.warn('tagging failed (post still saved):', e?.message);
+      }
+    }
     // streak upsert
     const today = localDateString();
     const { data: s } = await this.sb.from('streaks').select('*').eq('user_id', meId).maybeSingle();
@@ -749,6 +809,35 @@ export class SupabaseService implements DataService {
     return post;
   }
 
+  async setPostTags(postId: string, userIds: string[]): Promise<void> {
+    const meId = await this.myId();
+    const want = [...new Set(userIds)].filter((id) => id !== meId);
+    const { data: current, error } = await this.sb
+      .from('post_tags')
+      .select('user_id')
+      .eq('post_id', postId);
+    if (error) throw error;
+    const had = new Set((current ?? []).map((r: any) => r.user_id as string));
+    const add = want.filter((id) => !had.has(id));
+    const drop = [...had].filter((id) => !want.includes(id));
+    if (drop.length) {
+      const { error: delErr } = await this.sb
+        .from('post_tags')
+        .delete()
+        .eq('post_id', postId)
+        .in('user_id', drop);
+      if (delErr) throw delErr;
+    }
+    if (add.length) {
+      // RLS checks it's your post, nobody is you, and nobody is blocked; the
+      // trigger sends each new person their "tagged you" notification.
+      const { error: addErr } = await this.sb
+        .from('post_tags')
+        .insert(add.map((user_id) => ({ post_id: postId, user_id })));
+      if (addErr) throw addErr;
+    }
+  }
+
   // ------------------------------------------------------ direct messages
 
   private hydrateMessageRow(row: any): Message {
@@ -759,6 +848,7 @@ export class SupabaseService implements DataService {
       shared_post: row.posts
         ? ({ ...(row.posts as Post), user: (row.posts.users as User) ?? undefined } as Post)
         : null,
+      shared_user: (row.shared_user as User) ?? null,
       reactions: row.message_reactions ?? [],
     };
   }
@@ -786,9 +876,7 @@ export class SupabaseService implements DataService {
         .neq('user_id', meId),
       this.sb
         .from('messages')
-        .select(
-        '*, users!messages_sender_id_fkey(*), posts!messages_shared_post_id_fkey(*, users!posts_user_id_fkey(*)), message_reactions(user_id, emoji)',
-      )
+        .select(this.MESSAGE_SELECT)
         .in('conversation_id', ids)
         .order('created_at', { ascending: true }),
     ]);
@@ -850,9 +938,10 @@ export class SupabaseService implements DataService {
   async getMessages(conversationId: string): Promise<Message[]> {
     // No membership check needed here: RLS returns nothing for threads I am
     // not in, which is the same answer and can't be bypassed by a patched app.
+    await this.loadCaps();
     const { data, error } = await this.sb
       .from('messages')
-      .select('*, users!messages_sender_id_fkey(*), posts!messages_shared_post_id_fkey(*, users!posts_user_id_fkey(*))')
+      .select(this.MESSAGE_SELECT)
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: true });
     if (error) throw error;
@@ -881,11 +970,13 @@ export class SupabaseService implements DataService {
 
   async sendMessage(
     conversationId: string,
-    input: { text?: string; sharedPostId?: string; imageUri?: string },
+    input: { text?: string; sharedPostId?: string; sharedUserId?: string; imageUri?: string },
   ): Promise<Message> {
     const meId = await this.myId();
     const text = (input.text ?? '').trim().slice(0, 2000);
-    if (!text && !input.sharedPostId && !input.imageUri) throw new Error('Nothing to send.');
+    if (!text && !input.sharedPostId && !input.sharedUserId && !input.imageUri) {
+      throw new Error('Nothing to send.');
+    }
 
     // Attachments go in the same per-user folder as post photos, so the
     // existing storage policy and its size/MIME limits already cover them.
@@ -903,9 +994,12 @@ export class SupabaseService implements DataService {
         sender_id: meId,
         text,
         shared_post_id: input.sharedPostId ?? null,
+        // Only sent when set, so an older database without the column still
+        // takes ordinary messages.
+        ...(input.sharedUserId ? { shared_user_id: input.sharedUserId } : {}),
         image_url: imageUrl,
       })
-      .select('*, users!messages_sender_id_fkey(*), posts!messages_shared_post_id_fkey(*, users!posts_user_id_fkey(*))')
+      .select(this.MESSAGE_SELECT)
       .single();
     if (error) throw error;
 
@@ -1061,6 +1155,18 @@ export class SupabaseService implements DataService {
   async sharePostToGroup(postId: string, userIds: string[]): Promise<void> {
     const convId = await this.startGroupConversation(userIds);
     await this.sendMessage(convId, { sharedPostId: postId });
+  }
+
+  async shareProfileToUsers(profileId: string, userIds: string[]): Promise<void> {
+    for (const userId of userIds) {
+      const convId = await this.startConversation(userId);
+      await this.sendMessage(convId, { sharedUserId: profileId });
+    }
+  }
+
+  async shareProfileToGroup(profileId: string, userIds: string[]): Promise<void> {
+    const convId = await this.startGroupConversation(userIds);
+    await this.sendMessage(convId, { sharedUserId: profileId });
   }
 
   async getConversationMembers(conversationId: string): Promise<User[]> {

@@ -97,7 +97,17 @@ export function ActivityScreen({ navigation, route }: any) {
     }, [load]),
   );
 
-  const { like, comment, share, repost, save, remove, report, addToCollection } = usePostActions(
+  const {
+    like,
+    comment,
+    share,
+    repost,
+    save,
+    remove,
+    report,
+    addToCollection,
+    tagPeople,
+  } = usePostActions(
     navigation,
     load,
   );
@@ -226,6 +236,7 @@ export function ActivityScreen({ navigation, route }: any) {
               onDelete={remove}
               onReport={report}
               onAddToCollection={addToCollection}
+              onTagPeople={tagPeople}
               isMine={item.user_id === user?.id}
             />
           )}

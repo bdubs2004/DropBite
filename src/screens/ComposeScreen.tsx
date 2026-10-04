@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CollectionPicker } from '../components/CollectionPicker';
 import { PostSuccessOverlay } from '../components/PostSuccessOverlay';
+import { TagPeoplePicker } from '../components/TagPeoplePicker';
 import { NutritionPanel } from '../components/NutritionPanel';
 import { RecipeCardEditor } from '../components/RecipeCardEditor';
 import { Button, Input, Muted } from '../components/ui';
@@ -28,7 +29,7 @@ import { searchPlaces } from '../services/places';
 import { LOCATION_TAGGING_ENABLED } from '../config';
 import { useApp } from '../state/AppContext';
 import { colors, fonts, MEAL_SLOT_META, radius, spacing } from '../theme';
-import { MealSlot, PlaceResult } from '../types';
+import { MealSlot, PlaceResult, User } from '../types';
 
 const SLOTS: MealSlot[] = ['breakfast', 'lunch', 'dinner', 'snack'];
 
@@ -68,6 +69,9 @@ export function ComposeScreen({ navigation }: any) {
   const [collectionIds, setCollectionIds] = useState<string[]>([]);
   const [collectionNames, setCollectionNames] = useState<string[]>([]);
   const [collectionsOpen, setCollectionsOpen] = useState(false);
+  // People to tag once the post exists.
+  const [tagged, setTagged] = useState<User[]>([]);
+  const [tagPickerOpen, setTagPickerOpen] = useState(false);
 
   const hasPhoto = Boolean(photoUri || photoEmoji);
   const canPost = hasPhoto && blurb.trim().length > 0 && !posting;
@@ -179,6 +183,7 @@ export function ComposeScreen({ navigation }: any) {
               nutrition_source: nutritionTotals ? (nutrition?.source ?? null) : null,
             }
           : null,
+        tag_user_ids: tagged.map((u) => u.id),
       });
       // Supplementary, like the recipe: a collection that fails to save must
       // never lose the post.
@@ -458,7 +463,40 @@ export function ComposeScreen({ navigation }: any) {
           </>
         )}
 
-        {/* 6: collections (optional) */}
+        {/* 6: tag people (optional) */}
+        <Text style={styles.stepLabel}>Tag people</Text>
+        <Pressable
+          testID="compose-tags"
+          onPress={() => setTagPickerOpen(true)}
+          style={styles.collectionRow}
+        >
+          <Ionicons
+            name={tagged.length ? 'pricetag' : 'pricetag-outline'}
+            size={20}
+            color={colors.amberDark}
+          />
+          <Text
+            style={[styles.collectionText, !tagged.length && { color: colors.cocoaFaint }]}
+            numberOfLines={1}
+          >
+            {tagged.length ? tagged.map((u) => u.display_name).join(', ') : 'Who did you eat with?'}
+          </Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.cocoaFaint} />
+        </Pressable>
+        <Modal
+          visible={tagPickerOpen}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setTagPickerOpen(false)}
+        >
+          <TagPeoplePicker
+            selected={tagged}
+            onChangeSelected={setTagged}
+            onClose={() => setTagPickerOpen(false)}
+          />
+        </Modal>
+
+        {/* 7: collections (optional) */}
         <Text style={styles.stepLabel}>Collection</Text>
         <Pressable
           testID="compose-collections"

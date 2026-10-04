@@ -48,6 +48,7 @@ import { ReportScreen } from './src/screens/ReportScreen';
 import { ActivityScreen } from './src/screens/ActivityScreen';
 import { SearchScreen } from './src/screens/SearchScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
+import { TagPeopleScreen } from './src/screens/TagPeopleScreen';
 import { UserListScreen } from './src/screens/UserListScreen';
 import { AppProvider, useApp } from './src/state/AppContext';
 import { APP_LINK_BASE } from './src/config';
@@ -367,6 +368,11 @@ function Root() {
       <Stack.Screen
         name="AddToCollection"
         component={AddToCollectionScreen}
+        options={{ presentation: 'transparentModal', animation: 'fade' }}
+      />
+      <Stack.Screen
+        name="TagPeople"
+        component={TagPeopleScreen}
         options={{ presentation: 'transparentModal', animation: 'fade' }}
       />
       <Stack.Screen name="Blocked" component={BlockedScreen} />

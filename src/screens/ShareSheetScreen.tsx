@@ -22,15 +22,17 @@ import { Conversation, Post, User } from '../types';
 type Row = { kind: 'group'; conv: Conversation } | { kind: 'person'; user: User };
 
 /**
- * Send a post to your group chats and people inside NiblGo, or share it out of
- * the app. Group chats you're already in are listed first; picking one drops
- * the post straight into that thread.
+ * Send a post (or a profile) to your group chats and people inside NiblGo,
+ * or share a post out of the app. Group chats you're already in are listed
+ * first; picking one drops it straight into that thread.
  *
  * External sharing hands over a deep link (see src/lib/links.ts) so the
- * recipient lands on the post rather than the app's front door.
+ * recipient lands on the post rather than the app's front door. Profiles are
+ * in-app only for now: the website doesn't have a profile page to land on.
  */
 export function ShareSheetScreen({ navigation, route }: any) {
-  const { postId } = route.params as { postId: string };
+  const { postId, userId: profileId } = route.params as { postId?: string; userId?: string };
+  const isProfile = !!profileId && !postId;
   const svc = getDataService();
   const insets = useSafeAreaInsets();
   // On iOS this is a page-sheet modal, which already sits below the status bar,
@@ -58,15 +60,16 @@ export function ShareSheetScreen({ navigation, route }: any) {
     // opt-in, so listing anyone else would just fail at send time.
     const me = await svc.getCurrentUser();
     const [p, list, convs] = await Promise.all([
-      svc.getPost(postId),
+      postId ? svc.getPost(postId) : Promise.resolve(null),
       me ? svc.getFollowingUsers(me.id) : Promise.resolve([] as User[]),
       svc.getConversations().catch(() => [] as Conversation[]),
     ]);
     setPost(p);
-    setPeople(list);
+    // No point sending someone their own profile.
+    setPeople(isProfile ? list.filter((u) => u.id !== profileId) : list);
     setGroups(convs.filter((c) => c.is_group));
     setLoading(false);
-  }, [svc, postId]);
+  }, [svc, postId, profileId, isProfile]);
 
   useEffect(() => {
     load();
@@ -84,14 +87,24 @@ export function ShareSheetScreen({ navigation, route }: any) {
     if (total === 0 || sending) return;
     setSending(true);
     try {
-      if (selected.size) {
-        if (sendingToGroup) await svc.sharePostToGroup(postId, [...selected]);
-        else await svc.sharePostToUsers(postId, [...selected]);
+      if (isProfile) {
+        if (selected.size) {
+          if (sendingToGroup) await svc.shareProfileToGroup(profileId!, [...selected]);
+          else await svc.shareProfileToUsers(profileId!, [...selected]);
+        }
+        for (const convId of selectedGroups) {
+          await svc.sendMessage(convId, { sharedUserId: profileId });
+        }
+      } else {
+        if (selected.size) {
+          if (sendingToGroup) await svc.sharePostToGroup(postId!, [...selected]);
+          else await svc.sharePostToUsers(postId!, [...selected]);
+        }
+        for (const convId of selectedGroups) {
+          await svc.sendMessage(convId, { sharedPostId: postId });
+        }
+        await svc.recordShare(postId!);
       }
-      for (const convId of selectedGroups) {
-        await svc.sendMessage(convId, { sharedPostId: postId });
-      }
-      await svc.recordShare(postId);
       setSent(true);
       // Just a quick flash of confirmation, then out of the way.
       setTimeout(() => navigation.goBack(), 300);
@@ -103,7 +116,7 @@ export function ShareSheetScreen({ navigation, route }: any) {
   };
 
   const shareExternally = async () => {
-    if (!post) return;
+    if (!post || !postId) return;
     const result = await sharePost(post, postUrl(postId));
     if (result === 'failed') {
       setExternalNote('Could not open the share sheet');
@@ -144,7 +157,7 @@ export function ShareSheetScreen({ navigation, route }: any) {
         <Pressable onPress={() => navigation.goBack()} hitSlop={10}>
           <Text style={styles.cancel}>Cancel</Text>
         </Pressable>
-        <Text style={styles.title}>Send</Text>
+        <Text style={styles.title}>{isProfile ? 'Share profile' : 'Send'}</Text>
         <View style={{ width: 56 }} />
       </View>
 
@@ -199,7 +212,9 @@ export function ShareSheetScreen({ navigation, route }: any) {
             }}
             ListEmptyComponent={
               <Muted style={{ textAlign: 'center', marginTop: spacing.xl }}>
-                Follow someone to send them a post, or share it out of the app below
+                {isProfile
+                  ? 'Follow someone to send them this profile'
+                  : 'Follow someone to send them a post, or share it out of the app below'}
               </Muted>
             }
           />
@@ -236,12 +251,14 @@ export function ShareSheetScreen({ navigation, route }: any) {
               loading={sending}
             />
 
-            <Pressable testID="share-external" onPress={shareExternally} style={styles.externalBtn}>
-              <Ionicons name="share-outline" size={18} color={colors.amberDark} />
-              <Text style={styles.externalText}>
-                {Platform.OS === 'web' ? 'Copy link' : 'Share outside NiblGo'}
-              </Text>
-            </Pressable>
+            {isProfile ? null : (
+              <Pressable testID="share-external" onPress={shareExternally} style={styles.externalBtn}>
+                <Ionicons name="share-outline" size={18} color={colors.amberDark} />
+                <Text style={styles.externalText}>
+                  {Platform.OS === 'web' ? 'Copy link' : 'Share outside NiblGo'}
+                </Text>
+              </Pressable>
+            )}
             {externalNote ? (
               <Text testID="share-note" style={styles.note}>
                 {externalNote}
