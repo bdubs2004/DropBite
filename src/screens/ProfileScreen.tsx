@@ -617,6 +617,13 @@ export function ProfileScreen({ navigation, route }: any) {
                 onPress: () => navigation.navigate('Inbox'),
               },
               {
+                key: 'tagged',
+                label: 'Tagged',
+                hint: 'Posts you have been tagged in',
+                icon: 'pricetag-outline',
+                onPress: () => navigation.navigate('Activity', { tab: 'tagged' }),
+              },
+              {
                 key: 'streaks',
                 label: 'Streaks',
                 hint: 'Leaderboard and your best run',

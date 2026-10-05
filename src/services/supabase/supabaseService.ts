@@ -1676,6 +1676,32 @@ export class SupabaseService implements DataService {
       .map((row: any) => this.hydrateRow(row, meId));
   }
 
+  async getTaggedPosts(): Promise<Post[]> {
+    const meId = await this.myId();
+    // A database that hasn't run migration 0024 has no tags at all.
+    if (!this.caps.tags) return [];
+    const { data, error } = await this.sb
+      .from('post_tags')
+      .select('created_at, posts(' + this.POST_SELECT + ')')
+      .eq('user_id', meId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? [])
+      .map((r: any) => r.posts)
+      .filter(Boolean)
+      .map((row: any) => this.hydrateRow(row, meId));
+  }
+
+  async untagMe(postId: string): Promise<void> {
+    const meId = await this.myId();
+    // RLS lets the tagged person delete their own tag row.
+    const { error } = await this.sb
+      .from('post_tags')
+      .delete()
+      .match({ post_id: postId, user_id: meId });
+    if (error) throw error;
+  }
+
   async getLikedPosts(): Promise<Post[]> {
     const meId = await this.myId();
     const { data } = await this.sb

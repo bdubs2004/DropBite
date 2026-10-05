@@ -1567,6 +1567,24 @@ export class MockService implements DataService {
       .map((p) => this.hydrate(db, p, me.id));
   }
 
+  async getTaggedPosts(): Promise<Post[]> {
+    const db = await this.load();
+    const me = await this.me();
+    // Tags have no timestamp in demo mode; newest post first stands in.
+    const ids = new Set((db.postTags ?? []).filter((t) => t.user_id === me.id).map((t) => t.post_id));
+    return db.posts
+      .filter((p) => ids.has(p.id))
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .map((p) => this.hydrate(db, p, me.id));
+  }
+
+  async untagMe(postId: string): Promise<void> {
+    const db = await this.load();
+    const me = await this.me();
+    db.postTags = (db.postTags ?? []).filter((t) => !(t.post_id === postId && t.user_id === me.id));
+    await this.save();
+  }
+
   async getLikedPosts(): Promise<Post[]> {
     const db = await this.load();
     const me = await this.me();

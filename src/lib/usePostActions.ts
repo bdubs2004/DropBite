@@ -74,6 +74,16 @@ export function usePostActions(navigation: any, refresh: () => void) {
     [navigation],
   );
 
+  // Posts you're tagged in: take yourself off, then refresh the list (so it
+  // drops off your Tagged tab).
+  const untagMe = useCallback(
+    async (post: Post) => {
+      await svc.untagMe(post.id);
+      refresh();
+    },
+    [svc, refresh],
+  );
+
   const remove = useCallback(
     async (post: Post) => {
       await svc.deletePost(post.id);
@@ -82,5 +92,16 @@ export function usePostActions(navigation: any, refresh: () => void) {
     [svc, refresh],
   );
 
-  return { like, comment, share, repost, save, remove, report, addToCollection, tagPeople };
+  return {
+    like,
+    comment,
+    share,
+    repost,
+    save,
+    remove,
+    report,
+    addToCollection,
+    tagPeople,
+    untagMe,
+  };
 }

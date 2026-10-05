@@ -144,6 +144,7 @@ export function PostDetailScreen({ navigation, route }: any) {
     report,
     addToCollection,
     tagPeople,
+    untagMe,
   } = usePostActions(
     navigation,
     () => {},
@@ -238,6 +239,7 @@ export function PostDetailScreen({ navigation, route }: any) {
               onReport={report}
               onAddToCollection={addToCollection}
               onTagPeople={tagPeople}
+              onUntagMe={untagMe}
               isMine={item.user_id === user?.id}
             />
           )}

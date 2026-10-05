@@ -15,7 +15,7 @@ import { useApp } from '../state/AppContext';
 import { colors, fonts, radius, shadowSoft, spacing } from '../theme';
 import { Post } from '../types';
 
-export type ActivityTab = 'liked' | 'saved' | 'commented';
+export type ActivityTab = 'liked' | 'saved' | 'commented' | 'tagged';
 type Layout = 'grid' | 'list';
 
 const GRID_COLUMNS = 3;
@@ -42,12 +42,19 @@ const TABS: { key: ActivityTab; label: string; icon: any; empty: string }[] = [
     icon: 'chatbubble-outline',
     empty: 'Posts you comment on show up here.',
   },
+  {
+    key: 'tagged',
+    label: 'Tagged',
+    icon: 'pricetag-outline',
+    empty: 'Posts people tag you in show up here. Use ··· on one to remove yourself',
+  },
 ];
 
 /**
- * Your activity: everything you've liked, saved, or commented on.
+ * Your activity: everything you've liked, saved, commented on, or been tagged
+ * in (the Tagged tab, also linked from Your stuff > Social).
  *
- * All three lists are private to you — they're built from your own rows, and
+ * These lists are private to you — they're built from your own rows, and
  * in production RLS keeps saved_posts owner-only.
  */
 export function ActivityScreen({ navigation, route }: any) {
@@ -85,7 +92,9 @@ export function ActivityScreen({ navigation, route }: any) {
         ? await svc.getLikedPosts()
         : tab === 'saved'
           ? await svc.getSavedPosts()
-          : await svc.getCommentedPosts();
+          : tab === 'tagged'
+            ? await svc.getTaggedPosts()
+            : await svc.getCommentedPosts();
     setPosts(next);
     setLoading(false);
   }, [svc, tab]);
@@ -107,6 +116,7 @@ export function ActivityScreen({ navigation, route }: any) {
     report,
     addToCollection,
     tagPeople,
+    untagMe,
   } = usePostActions(
     navigation,
     load,
@@ -237,6 +247,7 @@ export function ActivityScreen({ navigation, route }: any) {
               onReport={report}
               onAddToCollection={addToCollection}
               onTagPeople={tagPeople}
+              onUntagMe={untagMe}
               isMine={item.user_id === user?.id}
             />
           )}

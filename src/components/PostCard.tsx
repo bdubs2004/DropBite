@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { LOCATION_TAGGING_ENABLED } from '../config';
 import { relativeTime } from '../lib/time';
+import { useApp } from '../state/AppContext';
 import { colors, fonts, MEAL_SLOT_META, radius, shadow, spacing } from '../theme';
 import { Post } from '../types';
 import { ActionSheet } from './ActionSheet';
@@ -12,6 +13,7 @@ import { PinchZoom } from './PinchZoom';
 import { PostPhoto } from './PostPhoto';
 import { RecipeCardView } from './RecipeCardView';
 import { RepostBubble } from './RepostBubble';
+import { TagDot } from './TagDot';
 
 export function PostCard({
   post,
@@ -25,6 +27,7 @@ export function PostCard({
   onReport,
   onAddToCollection,
   onTagPeople,
+  onUntagMe,
   isMine,
 }: {
   post: Post;
@@ -42,6 +45,8 @@ export function PostCard({
   onAddToCollection?: (post: Post) => void;
   /** Your own posts: change who's tagged. Omit to hide it. */
   onTagPeople?: (post: Post) => void;
+  /** Posts you're tagged in: take yourself off. Omit to hide it. */
+  onUntagMe?: (post: Post) => void;
   /** True when the signed-in user wrote this post. */
   isMine?: boolean;
 }) {
@@ -65,6 +70,11 @@ export function PostCard({
   // Photo size, so the draggable repost bubble can be clamped to the image.
   const [photoSize, setPhotoSize] = useState({ w: 0, h: 0 });
   const reposters = post.reposters ?? (post.reposter ? [post.reposter] : []);
+  // Who's tagged, held locally so "Remove me" takes effect at once.
+  const { user: me } = useApp();
+  const [tagged, setTagged] = useState(post.tagged ?? []);
+  useEffect(() => setTagged(post.tagged ?? []), [post.tagged]);
+  const iAmTagged = !isMine && !!me && tagged.some((u) => u.id === me.id);
   useEffect(() => {
     setLiked(!!post.reacted_by_me);
     setLikeCount(post.reaction_count ?? 0);
@@ -160,6 +170,20 @@ export function PostCard({
             hint: post.tagged?.length ? 'Change who is tagged' : 'Tag who you ate with',
             icon: 'pricetag-outline' as const,
             onPress: () => onTagPeople(post),
+          },
+        ]
+      : []),
+    ...(iAmTagged && onUntagMe
+      ? [
+          {
+            key: 'untag-me',
+            label: 'Remove me from this post',
+            hint: 'Takes your tag off. The post stays up',
+            icon: 'pricetag-outline' as const,
+            onPress: () => {
+              setTagged((prev) => prev.filter((u) => u.id !== me?.id));
+              onUntagMe(post);
+            },
           },
         ]
       : []),
@@ -275,6 +299,17 @@ export function PostCard({
             containerW={photoSize.w}
             containerH={photoSize.h}
             onPressUser={onPressUser}
+            // The tag dot owns the corner, so the bubble starts above it.
+            lift={tagged.length ? 40 : 0}
+          />
+        ) : null}
+        {/* Who's tagged: a dot in the corner that rolls out their names. */}
+        {tagged.length && photoSize.w > 0 ? (
+          <TagDot
+            key={tagged.map((u) => u.id).join(',')}
+            tagged={tagged}
+            maxWidth={photoSize.w - 20}
+            onPressUser={onPressUser}
           />
         ) : null}
       </View>
@@ -369,27 +404,6 @@ export function PostCard({
           ) : null}
           {post.blurb}
         </Text>
-
-        {/* Who they ate with: "with Dan, Lily and Carol", each name a link. */}
-        {post.tagged?.length ? (
-          <Text testID="post-tagged" style={styles.tagged}>
-            <Ionicons name="pricetag-outline" size={13} color={colors.cocoaSoft} />
-            {' with '}
-            {post.tagged.map((u, i, all) => (
-              <Text key={u.id}>
-                <Text
-                  testID={`post-tagged-${u.id}`}
-                  style={styles.taggedName}
-                  onPress={() => onPressUser?.(u.id)}
-                  suppressHighlighting
-                >
-                  {u.display_name}
-                </Text>
-                {i < all.length - 2 ? ', ' : i === all.length - 2 ? ' and ' : ''}
-              </Text>
-            ))}
-          </Text>
-        ) : null}
 
         {post.recipe ? (
           <Pressable onPress={() => setShowRecipe((v) => !v)} style={styles.recipeToggle}>
@@ -553,14 +567,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
     color: colors.cocoa,
   },
-  tagged: {
-    marginTop: spacing.xs,
-    fontFamily: fonts.semi,
-    fontSize: 13.5,
-    lineHeight: 19,
-    color: colors.cocoaSoft,
-  },
-  taggedName: { fontFamily: fonts.bold, color: colors.cocoa },
   recipeToggle: {
     marginTop: spacing.md,
     alignSelf: 'flex-start',
