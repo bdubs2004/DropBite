@@ -216,8 +216,17 @@ export function NotificationsScreen({ navigation }: any) {
 
                   {/* PostThumb, not a raw Image: demo posts have no real photo
                       and fall back to the same emoji tile used everywhere else. */}
+                  {/* The picture always opens the post itself, even on a
+                      comment (where the words open the comments). */}
                   {item.post ? (
-                    <PostThumb post={item.post} radius={8} style={styles.thumb} />
+                    <PostThumb
+                      post={item.post}
+                      radius={8}
+                      style={styles.thumb}
+                      onPress={() =>
+                        item.post_id && navigation.navigate('PostDetail', { postId: item.post_id })
+                      }
+                    />
                   ) : null}
                 </Pressable>
 
