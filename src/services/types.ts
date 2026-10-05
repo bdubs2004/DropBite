@@ -226,8 +226,11 @@ export interface DataService {
   getLikedPosts(): Promise<Post[]>;
   /** Posts I've commented on, most recent comment first. Private to me. */
   getCommentedPosts(): Promise<Post[]>;
-  /** Posts other people have tagged me in, most recently tagged first. */
-  getTaggedPosts(): Promise<Post[]>;
+  /**
+   * Posts someone has been tagged in, most recently tagged first. Defaults to
+   * me. Anyone who can see a post can see who's tagged in it.
+   */
+  getTaggedPosts(userId?: string): Promise<Post[]>;
   /** Take myself off a post I was tagged in (the author keeps the post). */
   untagMe(postId: string): Promise<void>;
 

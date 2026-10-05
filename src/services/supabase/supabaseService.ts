@@ -1676,14 +1676,15 @@ export class SupabaseService implements DataService {
       .map((row: any) => this.hydrateRow(row, meId));
   }
 
-  async getTaggedPosts(): Promise<Post[]> {
+  async getTaggedPosts(userId?: string): Promise<Post[]> {
     const meId = await this.myId();
+    const who = userId ?? meId;
     // A database that hasn't run migration 0024 has no tags at all.
     if (!this.caps.tags) return [];
     const { data, error } = await this.sb
       .from('post_tags')
       .select('created_at, posts(' + this.POST_SELECT + ')')
-      .eq('user_id', meId)
+      .eq('user_id', who)
       .order('created_at', { ascending: false });
     if (error) throw error;
     return (data ?? [])
