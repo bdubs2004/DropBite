@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import React, { useCallback, useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '../components/Avatar';
@@ -71,9 +72,13 @@ export function UserListScreen({ navigation, route }: any) {
   const shown = useMemo(() => filterUsers(users, query), [users, query]);
   const searching = query.trim().length > 0;
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  // Reload on coming back too, so someone you just blocked or unfollowed from
+  // their profile is gone from the list.
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load]),
+  );
 
   // The toggle and search bar scroll with the list (only the Back bar stays
   // put), so a swipe that starts on them still scrolls.

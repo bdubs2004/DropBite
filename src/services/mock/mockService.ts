@@ -388,6 +388,11 @@ export class MockService implements DataService {
       );
   }
 
+  async getUser(userId: string): Promise<User | null> {
+    const db = await this.load();
+    return db.users.find((u) => u.id === userId) ?? null;
+  }
+
   async getFollowingIds(): Promise<string[]> {
     const db = await this.load();
     return db.follows.filter((f) => f.follower_id === db.sessionUserId).map((f) => f.followee_id);
@@ -514,6 +519,8 @@ export class MockService implements DataService {
   async getUserPosts(userId: string): Promise<Post[]> {
     const db = await this.load();
     const meId = db.sessionUserId ?? '';
+    // Same as the database: a block hides each side's posts from the other.
+    if (this.blockedPair(db, meId, userId)) return [];
     return db.posts
       .filter((p) => p.user_id === userId)
       .sort((a, b) => b.created_at.localeCompare(a.created_at))
@@ -523,6 +530,7 @@ export class MockService implements DataService {
   async getReposts(userId: string): Promise<Post[]> {
     const db = await this.load();
     const meId = db.sessionUserId ?? '';
+    if (this.blockedPair(db, meId, userId)) return [];
     return db.reposts
       .filter((r) => r.user_id === userId)
       .sort((a, b) => (b as any).created_at?.localeCompare?.((a as any).created_at) ?? 0)

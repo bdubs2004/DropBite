@@ -82,6 +82,9 @@ export interface DataService {
 
   // social graph
   listUsers(query?: string): Promise<User[]>;
+  /** One person's profile by id, or null if the account is gone. Still
+   *  returns someone you've blocked, so their profile can show who they are. */
+  getUser(userId: string): Promise<User | null>;
   getFollowingIds(): Promise<string[]>;
   follow(userId: string): Promise<void>;
   unfollow(userId: string): Promise<void>;
