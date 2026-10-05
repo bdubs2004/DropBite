@@ -34,19 +34,8 @@ export function PostThumb({
   const emoji = post.photo_emoji || '🍽️';
   const tone = TILE_TONES[emoji] ?? '#A98A62';
 
-  return (
-    <Pressable
-      testID={`thumb-${post.id}`}
-      onPress={onPress}
-      onLongPress={onLongPress}
-      delayLongPress={250}
-      style={({ pressed }) => [
-        styles.tile,
-        { borderRadius: radius },
-        pressed && { opacity: 0.75 },
-        style,
-      ]}
-    >
+  const content = (
+    <>
       {post.photo_url ? (
         <Image
           source={{ uri: post.photo_url }}
@@ -77,6 +66,34 @@ export function PostThumb({
           <Text style={styles.recipeBadgeText}>Recipe</Text>
         </View>
       ) : null}
+    </>
+  );
+
+  // With nothing to do on a tap, a plain View, so the tap reaches whatever
+  // the tile sits in (an Activity row, a shared post in a DM). A Pressable
+  // with no onPress still takes the touch and swallows it.
+  if (!onPress && !onLongPress) {
+    return (
+      <View testID={`thumb-${post.id}`} style={[styles.tile, { borderRadius: radius }, style]}>
+        {content}
+      </View>
+    );
+  }
+
+  return (
+    <Pressable
+      testID={`thumb-${post.id}`}
+      onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={250}
+      style={({ pressed }) => [
+        styles.tile,
+        { borderRadius: radius },
+        pressed && { opacity: 0.75 },
+        style,
+      ]}
+    >
+      {content}
     </Pressable>
   );
 }
