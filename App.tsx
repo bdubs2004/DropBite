@@ -49,6 +49,7 @@ import { ActivityScreen } from './src/screens/ActivityScreen';
 import { SearchScreen } from './src/screens/SearchScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { TagPeopleScreen } from './src/screens/TagPeopleScreen';
+import { TaggedPostsScreen } from './src/screens/TaggedPostsScreen';
 import { UserListScreen } from './src/screens/UserListScreen';
 import { AppProvider, useApp } from './src/state/AppContext';
 import { APP_LINK_BASE } from './src/config';
@@ -381,6 +382,7 @@ function Root() {
       <Stack.Screen name="UserList" component={UserListScreen} />
       <Stack.Screen name="Activity" component={ActivityScreen} />
       <Stack.Screen name="Collection" component={CollectionScreen} />
+      <Stack.Screen name="TaggedPosts" component={TaggedPostsScreen} />
       <Stack.Screen
         name="AddToCollection"
         component={AddToCollectionScreen}

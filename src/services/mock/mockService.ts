@@ -1567,13 +1567,16 @@ export class MockService implements DataService {
       .map((p) => this.hydrate(db, p, me.id));
   }
 
-  async getTaggedPosts(): Promise<Post[]> {
+  async getTaggedPosts(userId?: string): Promise<Post[]> {
     const db = await this.load();
     const me = await this.me();
+    const who = userId ?? me.id;
+    const blocked = this.blockedIds(db, me.id);
     // Tags have no timestamp in demo mode; newest post first stands in.
-    const ids = new Set((db.postTags ?? []).filter((t) => t.user_id === me.id).map((t) => t.post_id));
+    const ids = new Set((db.postTags ?? []).filter((t) => t.user_id === who).map((t) => t.post_id));
     return db.posts
-      .filter((p) => ids.has(p.id))
+      // Mirrors RLS: posts from someone you've blocked (either way) stay hidden.
+      .filter((p) => ids.has(p.id) && !blocked.has(p.user_id))
       .sort((a, b) => b.created_at.localeCompare(a.created_at))
       .map((p) => this.hydrate(db, p, me.id));
   }
