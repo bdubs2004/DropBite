@@ -405,6 +405,12 @@ export class SupabaseService implements DataService {
     return (data ?? []) as User[];
   }
 
+  async getUser(userId: string): Promise<User | null> {
+    const { data, error } = await this.sb.from('users').select('*').eq('id', userId).maybeSingle();
+    if (error) throw error;
+    return (data as User | null) ?? null;
+  }
+
   async getFollowingIds(): Promise<string[]> {
     const meId = await this.myId();
     const { data } = await this.sb.from('follows').select('followee_id').eq('follower_id', meId);

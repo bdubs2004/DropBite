@@ -89,9 +89,12 @@ export function ProfileScreen({ navigation, route }: any) {
       setCounts(c);
       setFollowing(followingIds.includes(userId));
       if (!isMe) {
-        setBlocked(await svc.isBlocked(userId));
-        const all = await svc.listUsers();
-        setOtherProfile(all.find((u) => u.id === userId) ?? null);
+        const [isBlocked, person] = await Promise.all([
+          svc.isBlocked(userId),
+          svc.getUser(userId),
+        ]);
+        setBlocked(isBlocked);
+        setOtherProfile(person);
       }
     } finally {
       setLoading(false);

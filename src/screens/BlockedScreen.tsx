@@ -17,10 +17,18 @@ export function BlockedScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
+  // Never left spinning: a failed load says so and offers a retry.
   const load = useCallback(async () => {
-    setUsers(await svc.getBlockedUsers());
-    setLoading(false);
+    try {
+      setUsers(await svc.getBlockedUsers());
+      setError(null);
+    } catch (e: any) {
+      setError(e?.message ?? 'Could not load your blocked accounts');
+    } finally {
+      setLoading(false);
+    }
   }, [svc]);
 
   useFocusEffect(
@@ -30,7 +38,12 @@ export function BlockedScreen({ navigation }: any) {
   );
 
   const unblock = async (u: User) => {
-    await svc.unblockUser(u.id);
+    try {
+      await svc.unblockUser(u.id);
+    } catch (e: any) {
+      setError(e?.message ?? 'Could not unblock them');
+      return;
+    }
     await load();
     refreshFeed();
   };
@@ -78,12 +91,31 @@ export function BlockedScreen({ navigation }: any) {
             </View>
           )}
           ListEmptyComponent={
-            <View style={styles.empty}>
-              <Ionicons name="shield-checkmark-outline" size={40} color={colors.cocoaFaint} />
-              <Muted style={{ textAlign: 'center', paddingHorizontal: spacing.xl }}>
-                You have not blocked anyone.
-              </Muted>
-            </View>
+            error ? (
+              <View testID="blocked-error" style={styles.empty}>
+                <Ionicons name="cloud-offline-outline" size={40} color={colors.cocoaFaint} />
+                <Muted style={{ textAlign: 'center', paddingHorizontal: spacing.xl }}>
+                  {error}
+                </Muted>
+                <Button
+                  testID="blocked-retry"
+                  title="Try again"
+                  variant="secondary"
+                  small
+                  onPress={() => {
+                    setLoading(true);
+                    load();
+                  }}
+                />
+              </View>
+            ) : (
+              <View style={styles.empty}>
+                <Ionicons name="shield-checkmark-outline" size={40} color={colors.cocoaFaint} />
+                <Muted style={{ textAlign: 'center', paddingHorizontal: spacing.xl }}>
+                  You have not blocked anyone
+                </Muted>
+              </View>
+            )
           }
         />
       )}

@@ -6,6 +6,7 @@ import {
   Easing,
   Modal,
   PanResponder,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -81,6 +82,9 @@ export function ActivityDrawer({
 
   useEffect(() => {
     if (visible) {
+      // A fresh open starts clean: a drag that was cut off last time (the
+      // panel closed under your finger) must not leave every row ignoring taps.
+      dragging.current = false;
       slide.setValue(PANEL_WIDTH);
       openPanel();
     }
@@ -88,6 +92,29 @@ export function ActivityDrawer({
   }, [visible]);
 
   const dismiss = () => closePanel(onClose);
+
+  /**
+   * The row you tapped, waiting for the panel to be fully gone.
+   *
+   * The panel is a Modal. On iOS, opening a page while that Modal is still
+   * being taken down can be silently dropped, so tapping a row (Blocked
+   * accounts, say) slid the panel away and then nothing opened. iOS reports
+   * when the Modal has actually gone (`onDismiss`), so the page opens then.
+   * The timer is a backstop in case that report never comes; whichever runs
+   * first clears the slot, so the page only ever opens once.
+   */
+  const pending = useRef<(() => void) | null>(null);
+  const runPending = () => {
+    const go = pending.current;
+    pending.current = null;
+    go?.();
+  };
+  const openItem = (item: Item) => {
+    pending.current = item.onPress;
+    onClose();
+    if (Platform.OS === 'ios') setTimeout(runPending, 500);
+    else runPending();
+  };
 
   /**
    * True while a drag is in flight and briefly after it ends.
@@ -165,7 +192,13 @@ export function ActivityDrawer({
   });
 
   return (
-    <Modal visible={visible} transparent animationType="none" onRequestClose={dismiss}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="none"
+      onRequestClose={dismiss}
+      onDismiss={runPending}
+    >
       <View testID="drawer-root" style={styles.root} {...drag.panHandlers}>
         <Animated.View style={[styles.backdropFill, { opacity: backdropOpacity }]}>
           <Pressable
@@ -222,10 +255,7 @@ export function ActivityDrawer({
                     onPress={() => {
                       // Swallow the press if this was the end of a drag.
                       if (dragging.current) return;
-                      closePanel(() => {
-                        onClose();
-                        item.onPress();
-                      });
+                      closePanel(() => openItem(item));
                     }}
                     style={({ pressed }) => [styles.row, pressed && { opacity: 0.7 }]}
                   >
