@@ -42,6 +42,11 @@ export function CommentsScreen({ navigation, route }: any) {
   const insets = useSafeAreaInsets();
   const keyboardUp = useKeyboardVisible();
   const inputRef = useRef<TextInput>(null);
+  // While you're typing the sheet stretches to the top of the screen, like
+  // Instagram, so the comments keep a full-size area to scroll in above the
+  // keyboard. The web build has no keyboard events, so it goes by focus.
+  const [inputFocused, setInputFocused] = useState(false);
+  const typing = Platform.OS === 'web' ? inputFocused : keyboardUp;
 
   const [threads, setThreads] = useState<Comment[]>([]);
   const [replies, setReplies] = useState<Record<string, Comment[]>>({});
@@ -305,8 +310,14 @@ export function CommentsScreen({ navigation, route }: any) {
           onPress={close}
           accessibilityLabel="Close comments"
         />
-        <View style={styles.spacer} pointerEvents="none" />
-        <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]}>
+        <View
+          style={typing ? { height: insets.top + spacing.sm } : styles.spacer}
+          pointerEvents="none"
+        />
+        <Animated.View
+          testID="comments-sheet"
+          style={[styles.sheet, { transform: [{ translateY }] }]}
+        >
           <View style={styles.panel}>
             <View {...dragDown.panHandlers}>
               <View style={styles.grabber} />
@@ -319,12 +330,22 @@ export function CommentsScreen({ navigation, route }: any) {
             </View>
 
             <FlatList
+              testID="comments-list"
               style={{ flex: 1 }}
               data={threads}
               keyExtractor={(c) => c.id}
-              contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.lg }}
+              // flexGrow so the empty space under a short thread is part of
+              // the list too: a swipe that starts there still scrolls.
+              contentContainerStyle={{ flexGrow: 1, padding: spacing.lg, paddingBottom: spacing.lg }}
               keyboardShouldPersistTaps="handled"
-              keyboardDismissMode="on-drag"
+              // With the keyboard up a swipe scrolls the comments, the same as
+              // with it down. "on-drag" made the first swipe close the
+              // keyboard instead, and the sheet resized under your finger so
+              // the comments jumped rather than scrolled. On iOS you can still
+              // pull the keyboard away by dragging down into it; the
+              // composer's white fill below covers the gap while you do.
+              // Android has no interactive mode, so it keeps on-drag.
+              keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
               onEndReachedThreshold={0.4}
               onEndReached={loadMore}
               renderItem={({ item }) => (
@@ -433,8 +454,11 @@ export function CommentsScreen({ navigation, route }: any) {
             </Pressable>
             <TextInput
               ref={inputRef}
+              testID="comment-input"
               value={text}
               onChangeText={setText}
+              onFocus={() => setInputFocused(true)}
+              onBlur={() => setInputFocused(false)}
               placeholder={replyTo ? `Reply to @${replyTo.handle}` : 'Add a comment'}
               placeholderTextColor={colors.cocoaFaint}
               style={styles.input}
