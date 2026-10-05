@@ -104,10 +104,15 @@ export function AuthScreen() {
       setResetSent(email.trim());
     } catch (e: any) {
       const raw = String(e?.message ?? '');
+      const code = String(e?.code ?? '');
       setError(
         /rate|too many/i.test(raw)
           ? 'Too many requests. Wait a minute and try again.'
-          : 'Could not send a reset email. Check the address and try again.',
+          : // Supabase's built-in sender only mails the project's own team;
+            // everyone else needs custom SMTP (GO_LIVE.md, "Auth emails").
+            code === 'email_address_not_authorized' || /not authorized/i.test(raw)
+            ? 'We can’t send email to that address yet. Please try again later.'
+            : 'Could not send a reset email. Check the address and try again.',
       );
     } finally {
       setActionBusy(false);

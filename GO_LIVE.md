@@ -83,6 +83,36 @@ device." Create an account, post a photo, and confirm the row in **Table Editor
 > matters because people often confirm on a different device. Leave it on for
 > launch — with it off, anyone can sign up as anyone's email address.
 
+### Auth emails (password reset, sign-up confirmation)
+
+Supabase's built-in email sender is for trying things out only. It **refuses
+to send to anyone who isn't on your Supabase team**, and it sends **2 emails
+an hour for the whole project** (sign-up confirmations and resets combined).
+The app still says "Check your email", because Supabase accepted the request;
+the email just never goes out. Set up your own sender before real people sign
+up:
+
+1. Make a free account at [resend.com](https://resend.com) → **Domains → Add
+   domain** → `niblgo.com`. Add the DNS records it shows you where niblgo.com's
+   DNS lives, and wait for it to say **Verified**.
+2. Resend → **API Keys → Create API key** (sending access is enough). Copy it.
+3. Supabase → **Authentication → Emails → SMTP Settings** → turn on **Enable
+   custom SMTP**:
+   - Sender email: `no-reply@niblgo.com` · Sender name: `NiblGo`
+   - Host: `smtp.resend.com` · Port: `465`
+   - Username: `resend` · Password: the API key from step 2
+4. Supabase → **Authentication → Rate Limits** → raise **emails sent per hour**
+   (custom SMTP starts you at 30; 100 is comfortable for launch).
+5. Supabase → **Authentication → URL Configuration → Redirect URLs** → make
+   sure these are listed, or the links land on the homepage instead of the app:
+   - `niblgo://reset` (password reset opens the app to set a new password)
+   - `https://niblgo.com/auth/confirm` (sign-up confirmation)
+
+**Check it:** tap "Forgot password?" in the app with an account's email. The
+email should arrive within a minute (look in spam the first time), and tapping
+its link on the phone should open NiblGo on the "Set a new password" screen. If
+nothing arrives, **Authentication → Logs** in Supabase says why.
+
 ### If your database already exists
 
 Don't re-run `schema.sql` — run whatever migrations came after it, in order,
@@ -286,6 +316,7 @@ Cloud, and set `EXPO_PUBLIC_GOOGLE_PLACES_KEY`. No other code changes.
 ## Before real people use it
 
 - [ ] Email confirmation back **on** in Supabase (Authentication → Providers → Email)
+- [ ] Custom SMTP set up, so reset and confirmation emails reach everyone (see "Auth emails" above)
 - [ ] `service_role` key is nowhere in the repo or `.env` — only in edge-function secrets
 - [ ] `.env` is gitignored (it is) and was never committed
 - [ ] `ALLOWED_ORIGINS` set, so your functions aren't callable from anywhere
