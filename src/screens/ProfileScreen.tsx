@@ -528,16 +528,21 @@ export function ProfileScreen({ navigation, route }: any) {
             icon: 'paper-plane-outline',
             onPress: () => navigation.navigate('ShareSheet', { userId }),
           },
-          {
-            key: 'tagged-posts',
-            label: 'Tagged posts',
-            hint: profile
-              ? `Posts ${profile.display_name} has been tagged in`
-              : 'Posts they have been tagged in',
-            icon: 'pricetag-outline',
-            onPress: () =>
-              navigation.navigate('TaggedPosts', { userId, name: profile?.display_name }),
-          },
+          // Only for people you follow.
+          ...(following
+            ? [
+                {
+                  key: 'tagged-posts',
+                  label: 'Tagged posts',
+                  hint: profile
+                    ? `Posts ${profile.display_name} has been tagged in`
+                    : 'Posts they have been tagged in',
+                  icon: 'pricetag-outline',
+                  onPress: () =>
+                    navigation.navigate('TaggedPosts', { userId, name: profile?.display_name }),
+                },
+              ]
+            : []),
           {
             key: 'report-account',
             label: 'Report account',

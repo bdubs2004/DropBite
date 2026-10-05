@@ -17,27 +17,39 @@ const GRID_GAP = 2;
 /**
  * Posts someone has been tagged in, opened from "Tagged posts" in their
  * profile's ··· menu. A grid that taps into the usual mini feed.
+ *
+ * Only for people you follow (the menu only offers it then). Checked again
+ * here so a stale link, say right after unfollowing, shows the lock instead.
  */
 export function TaggedPostsScreen({ navigation, route }: any) {
   const { userId, name } = route.params as { userId: string; name?: string };
   const svc = getDataService();
-  const { hiddenIds } = useApp();
+  const { hiddenIds, user } = useApp();
   const insets = useSafeAreaInsets();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [locked, setLocked] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
       let alive = true;
-      svc
-        .getTaggedPosts(userId)
-        .then((p) => alive && setPosts(p))
-        .catch(() => alive && setPosts([]))
-        .finally(() => alive && setLoading(false));
+      (async () => {
+        try {
+          const isMe = userId === user?.id;
+          const follows = isMe || (await svc.getFollowingIds()).includes(userId);
+          if (!alive) return;
+          setLocked(!follows);
+          setPosts(follows ? await svc.getTaggedPosts(userId) : []);
+        } catch {
+          if (alive) setPosts([]);
+        } finally {
+          if (alive) setLoading(false);
+        }
+      })();
       return () => {
         alive = false;
       };
-    }, [svc, userId]),
+    }, [svc, userId, user?.id]),
   );
 
   const visible = posts.filter((p) => !hiddenIds.has(p.id));
@@ -67,6 +79,15 @@ export function TaggedPostsScreen({ navigation, route }: any) {
 
       {loading ? (
         <ActivityIndicator color={colors.amber} style={{ marginTop: spacing.xl }} />
+      ) : locked ? (
+        <View testID="tagged-locked" style={styles.empty}>
+          <Ionicons name="lock-closed-outline" size={40} color={colors.cocoaFaint} />
+          <Muted style={{ textAlign: 'center' }}>
+            {name
+              ? `Follow ${name} to see posts they're tagged in`
+              : "Follow them to see posts they're tagged in"}
+          </Muted>
+        </View>
       ) : (
         <FlatList
           testID="tagged-grid"
