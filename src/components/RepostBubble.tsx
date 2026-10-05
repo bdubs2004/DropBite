@@ -22,11 +22,14 @@ export function RepostBubble({
   containerW,
   containerH,
   onPressUser,
+  lift = 0,
 }: {
   reposters: User[];
   containerW: number;
   containerH: number;
   onPressUser?: (userId: string) => void;
+  /** Start this much higher (the photo's tag dot sits in the corner). */
+  lift?: number;
 }) {
   const pan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const start = useRef({ x: 0, y: 0 });
@@ -47,7 +50,7 @@ export function RepostBubble({
         if (Math.abs(g.dx) > 3 || Math.abs(g.dy) > 3) moved.current = true;
         // Anchored bottom-left: x grows rightward (0..), y shrinks upward (..0).
         const maxX = Math.max(0, containerW - size.current.w - PAD * 2);
-        const minY = -Math.max(0, containerH - size.current.h - PAD * 2);
+        const minY = -Math.max(0, containerH - size.current.h - PAD * 2 - lift);
         pan.setValue({
           x: clamp(start.current.x + g.dx, 0, maxX),
           y: clamp(start.current.y + g.dy, minY, 0),
@@ -73,7 +76,11 @@ export function RepostBubble({
       onLayout={(e) => {
         size.current = { w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height };
       }}
-      style={[styles.bubble, { transform: pan.getTranslateTransform() }]}
+      style={[
+        styles.bubble,
+        lift ? { bottom: PAD + lift } : null,
+        { transform: pan.getTranslateTransform() },
+      ]}
     >
       <Ionicons name="repeat" size={13} color={colors.white} />
       <View style={styles.avatars}>
