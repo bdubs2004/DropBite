@@ -59,6 +59,12 @@ export interface Post {
   user_id: string;
   meal_slot: MealSlot;
   photo_url: string | null;
+  /**
+   * The photo's pixel size, so the feed can draw it whole at its own shape
+   * before it loads. Missing on older posts (measured on load instead).
+   */
+  photo_width?: number | null;
+  photo_height?: number | null;
   /** Demo-mode placeholder: emoji + gradient instead of a real photo */
   photo_emoji?: string | null;
   blurb: string;
@@ -328,6 +334,9 @@ export interface NotificationPrefs {
 export interface NewPostInput {
   meal_slot: MealSlot;
   photo_url: string | null;
+  /** Pixel size of the photo, from pickImage. */
+  photo_width?: number | null;
+  photo_height?: number | null;
   photo_emoji?: string | null;
   blurb: string;
   restaurant?: PlaceResult | null;

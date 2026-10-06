@@ -547,6 +547,8 @@ export class MockService implements DataService {
       user_id: me.id,
       meal_slot: input.meal_slot,
       photo_url: input.photo_url,
+      photo_width: input.photo_width ?? null,
+      photo_height: input.photo_height ?? null,
       photo_emoji: input.photo_emoji ?? null,
       blurb: clamp(input.blurb, LIMITS.blurb),
       restaurant_place_id: input.restaurant?.place_id ?? null,

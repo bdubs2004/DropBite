@@ -52,6 +52,17 @@ create table if not exists public.posts (
   photo_url text not null constraint posts_photo_url_https check (
     photo_url ~ '^https://[^\s]+$' and char_length(photo_url) <= 1000
   ),
+  -- The photo's pixel size, so the feed can draw it whole at its own shape
+  -- before it loads. Null on posts from before photos kept their shape.
+  photo_width integer,
+  photo_height integer,
+  constraint posts_photo_size_valid check (
+    (photo_width is null and photo_height is null)
+    or (
+      photo_width is not null and photo_height is not null
+      and photo_width between 1 and 10000 and photo_height between 1 and 10000
+    )
+  ),
   -- verbatim user words, source of truth. Never rewritten by AI.
   blurb text not null default ''
     constraint posts_blurb_len check (char_length(blurb) <= 2000),
@@ -63,6 +74,19 @@ create table if not exists public.posts (
   lng double precision constraint posts_lng_range check (lng is null or lng between -180 and 180),
   created_at timestamptz not null default now()
 );
+-- For databases created before photos kept their shape.
+alter table public.posts
+  add column if not exists photo_width integer,
+  add column if not exists photo_height integer;
+alter table public.posts drop constraint if exists posts_photo_size_valid;
+alter table public.posts
+  add constraint posts_photo_size_valid check (
+    (photo_width is null and photo_height is null)
+    or (
+      photo_width is not null and photo_height is not null
+      and photo_width between 1 and 10000 and photo_height between 1 and 10000
+    )
+  );
 create index if not exists posts_user_created_idx on public.posts (user_id, created_at desc);
 create index if not exists posts_created_idx on public.posts (created_at desc);
 

@@ -36,7 +36,7 @@ export function AvatarPicker({
   const run = async (fromCamera: boolean) => {
     setChoosing(false);
     setError(null);
-    const res = await pickImage({ fromCamera, aspect: [1, 1], width: 512 });
+    const res = await pickImage({ fromCamera, crop: [1, 1], width: 512 });
     if (res.error) {
       setError(res.error);
       return;

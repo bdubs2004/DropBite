@@ -1,6 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { Avatar } from '../components/Avatar';
 import { PostPhoto } from '../components/PostPhoto';
 import { getDataService } from '../services';
@@ -24,6 +31,12 @@ export function PostPeekScreen({ navigation, route }: any) {
   const postId: string = route.params.postId;
   const svc = getDataService();
   const { user } = useApp();
+  // Tallest the photo can be and still leave room for the rest of the card
+  // (about 320pt: header, blurb, buttons, margins). On a big phone that's a
+  // full 3:4 photo; on a small one the photo fits inside a shorter frame.
+  const { width: winW, height: winH } = useWindowDimensions();
+  const cardW = Math.min(winW - spacing.lg * 2, 420);
+  const photoMax = Math.max(0.75, (winH - 320) / cardW);
 
   const [post, setPost] = useState<Post | null>(null);
   const [liked, setLiked] = useState(false);
@@ -112,7 +125,9 @@ export function PostPeekScreen({ navigation, route }: any) {
               ) : null}
             </View>
 
-            <PostPhoto post={post} ratio={1} />
+            {/* The whole photo at its own shape, as tall as the screen allows
+                with the header, words and buttons around it. */}
+            <PostPhoto post={post} maxRatio={photoMax} />
 
             {post.blurb ? (
               <Text style={styles.blurb} numberOfLines={3}>
