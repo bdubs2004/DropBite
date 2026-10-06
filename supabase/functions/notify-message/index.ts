@@ -73,9 +73,11 @@ Deno.serve(async (req) => {
     const senderName = sender?.display_name || (sender?.handle ? '@' + sender.handle : 'Someone');
 
     // Group name, if any, so the title reads "Name (Group)".
+    // `*` rather than naming is_group, so this still works on a database that
+    // hasn't run migration 0025 yet.
     const { data: conv } = await admin
       .from('conversations')
-      .select('title')
+      .select('*')
       .eq('id', conversationId)
       .maybeSingle();
 
@@ -104,7 +106,10 @@ Deno.serve(async (req) => {
           : msg.image_url
             ? 'Sent a photo'
             : 'New message';
-    const isGroup = (recipients ?? []).length + 1 > 2;
+    // Remembered on the thread (migration 0025): a group that's down to two
+    // people after someone left still opens as a group.
+    const isGroup =
+      typeof conv?.is_group === 'boolean' ? conv.is_group : (recipients ?? []).length + 1 > 2;
     const title = conv?.title ? `${senderName} · ${conv.title}` : senderName;
     // Header title to show if the recipient taps through: the group's name, else
     // the sender (who, in a 1:1, is exactly who they're talking to).

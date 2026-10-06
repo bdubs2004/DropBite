@@ -263,6 +263,11 @@ export interface Message {
   shared_user_id?: string | null;
   /** An attached photo. */
   image_url?: string | null;
+  /**
+   * 'left' is the centred "Dan left the chat" line a group shows when someone
+   * leaves (the sender is the person who left). Missing means a normal message.
+   */
+  kind?: 'message' | 'left';
   created_at: string;
   // hydrated client-side
   sender?: User;

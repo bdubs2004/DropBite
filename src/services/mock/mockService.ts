@@ -82,7 +82,7 @@ interface Db {
   collections?: { id: string; user_id: string; name: string; created_at: string }[];
   collectionPosts?: { collection_id: string; post_id: string; added_at: string }[];
   commentReactions: { comment_id: string; user_id: string }[];
-  conversations: { id: string; created_at: string; updated_at: string }[];
+  conversations: { id: string; created_at: string; updated_at: string; is_group?: boolean }[];
   conversationMembers: {
     conversation_id: string;
     user_id: string;
@@ -655,12 +655,18 @@ export class MockService implements DataService {
           id: conv.id,
           other: others[0],
           others,
-          is_group: others.length > 1,
+          // Remembered from when it started, so a group that drops to two
+          // people after someone leaves is still a group.
+          is_group: conv.is_group ?? others.length > 1,
           title: (conv as any).title ?? null,
           last_message: last ? this.hydrateMessage(db, last, me.id) : null,
-          // Unread = messages from others since I last opened it.
+          // Unread = messages from others since I last opened it. "Left the
+          // chat" lines don't count.
           unread_count: msgs.filter(
-            (m) => m.sender_id !== me.id && m.created_at > membership.last_read_at,
+            (m) =>
+              m.sender_id !== me.id &&
+              m.kind !== 'left' &&
+              m.created_at > membership.last_read_at,
           ).length,
           updated_at: conv.updated_at,
         } as Conversation;
@@ -785,7 +791,7 @@ export class MockService implements DataService {
 
     // Reuse an existing strictly-1:1 thread (exactly the two of us) rather than
     // stacking duplicates — and never a group we happen to share.
-    const existing = this.findConversationWithMembers(db, [me.id, userId]);
+    const existing = this.findConversationWithMembers(db, [me.id, userId], false);
     if (existing) return existing;
 
     // DMs are opt-in: you can only open a thread with someone you follow.
@@ -800,7 +806,7 @@ export class MockService implements DataService {
 
     const now = new Date().toISOString();
     const id = uid('conv-');
-    db.conversations.push({ id, created_at: now, updated_at: now });
+    db.conversations.push({ id, created_at: now, updated_at: now, is_group: false });
     db.conversationMembers.push({ conversation_id: id, user_id: me.id, last_read_at: now });
     db.conversationMembers.push({ conversation_id: id, user_id: userId, last_read_at: '1970-01-01T00:00:00.000Z' });
     await this.save();
@@ -821,12 +827,13 @@ export class MockService implements DataService {
     }
 
     const wanted = [me.id, ...targets];
-    const existing = this.findConversationWithMembers(db, wanted);
+    const isGroup = targets.length > 1;
+    const existing = this.findConversationWithMembers(db, wanted, isGroup);
     if (existing) return existing;
 
     const now = new Date().toISOString();
     const id = uid('conv-');
-    db.conversations.push({ id, created_at: now, updated_at: now });
+    db.conversations.push({ id, created_at: now, updated_at: now, is_group: isGroup });
     db.conversationMembers.push({ conversation_id: id, user_id: me.id, last_read_at: now });
     for (const t of targets) {
       db.conversationMembers.push({
@@ -839,12 +846,19 @@ export class MockService implements DataService {
     return id;
   }
 
-  /** Find a thread whose member set is exactly `memberIds` (order-independent). */
+  /**
+   * Find a thread whose member set is exactly `memberIds` (order-independent)
+   * and that is (or isn't) a group, so a group that has dwindled to two people
+   * is never reused as a 1:1.
+   */
   private findConversationWithMembers(
     db: ReturnType<MockService['dmTables']>,
     memberIds: string[],
+    isGroup: boolean,
   ): string | null {
     const want = [...new Set(memberIds)].sort().join(',');
+    const groupOf = (convId: string, size: number) =>
+      db.conversations.find((c) => c.id === convId)?.is_group ?? size > 2;
     const byConv = new Map<string, string[]>();
     for (const m of db.conversationMembers) {
       const list = byConv.get(m.conversation_id) ?? [];
@@ -852,7 +866,8 @@ export class MockService implements DataService {
       byConv.set(m.conversation_id, list);
     }
     for (const [convId, ids] of byConv) {
-      if ([...new Set(ids)].sort().join(',') === want) return convId;
+      const set = [...new Set(ids)];
+      if (set.sort().join(',') === want && groupOf(convId, set.length) === isGroup) return convId;
     }
     return null;
   }
@@ -1044,10 +1059,35 @@ export class MockService implements DataService {
   }
 
   async deleteConversation(conversationId: string): Promise<void> {
+    await this.leaveConversation(conversationId);
+  }
+
+  async leaveConversation(conversationId: string): Promise<void> {
     const db = this.dmTables(await this.load());
     const me = await this.me();
+    const inIt = db.conversationMembers.some(
+      (m) => m.conversation_id === conversationId && m.user_id === me.id,
+    );
+    if (!inIt) return;
+    // Same as the database: a group gets a "<you> left the chat" line for the
+    // people still in it; a 1:1 just leaves your inbox.
+    const conv = db.conversations.find((c) => c.id === conversationId);
+    const size = db.conversationMembers.filter((m) => m.conversation_id === conversationId).length;
+    if (conv && (conv.is_group ?? size > 2)) {
+      const now = new Date().toISOString();
+      db.messages.push({
+        id: uid('m-'),
+        conversation_id: conversationId,
+        sender_id: me.id,
+        text: '',
+        shared_post_id: null,
+        kind: 'left',
+        created_at: now,
+      });
+      conv.updated_at = now;
+    }
     // Leave, don't destroy: drop only my membership so the thread disappears
-    // from my inbox while the other person keeps theirs.
+    // from my inbox while everyone else keeps theirs.
     db.conversationMembers = db.conversationMembers.filter(
       (m) => !(m.conversation_id === conversationId && m.user_id === me.id),
     );

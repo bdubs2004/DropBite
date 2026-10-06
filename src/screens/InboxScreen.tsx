@@ -15,6 +15,7 @@ import { ActionSheet } from '../components/ActionSheet';
 import { Avatar } from '../components/Avatar';
 import { Muted } from '../components/ui';
 import { RenameGroupSheet } from '../components/RenameGroupSheet';
+import { leftLine } from '../lib/chatTimeline';
 import { conversationDisplayName, conversationTitle } from '../lib/conversationName';
 import { relativeTime } from '../lib/time';
 import { getDataService } from '../services';
@@ -82,6 +83,7 @@ export function InboxScreen({ navigation }: any) {
 
   const preview = (c: Conversation) => {
     if (!c.last_message) return 'Say hello';
+    if (c.last_message.kind === 'left') return leftLine(c.last_message);
     if (c.last_message.shared_post_id && !c.last_message.text) return 'Shared a post';
     if (c.last_message.shared_user_id && !c.last_message.text) return 'Shared a profile';
     if (c.last_message.image_url && !c.last_message.text) return 'Sent a photo';

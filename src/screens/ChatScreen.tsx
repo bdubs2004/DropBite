@@ -23,7 +23,7 @@ import { PhotoViewer } from '../components/PhotoViewer';
 import { PostThumb } from '../components/PostThumb';
 import { RenameGroupSheet } from '../components/RenameGroupSheet';
 import { Muted } from '../components/ui';
-import { buildTimeline, clockTime, TimelineItem } from '../lib/chatTimeline';
+import { buildTimeline, clockTime, leftLine, TimelineItem } from '../lib/chatTimeline';
 import { makeTapHandler, TapHandler } from '../lib/doubleTap';
 import { pickImage } from '../lib/pickImage';
 import { useKeyboardVisible } from '../lib/useKeyboardVisible';
@@ -149,6 +149,19 @@ export function ChatScreen({ navigation, route }: any) {
       alive = false;
     };
   }, [svc, conversationId]);
+
+  // Leave the group: everyone still in it sees "<you> left the chat", and
+  // you're taken back to your inbox, where the thread is gone.
+  const leaveGroup = async () => {
+    try {
+      await svc.leaveConversation(conversationId);
+      setDetailsOpen(false);
+      navigation.goBack();
+    } catch (e: any) {
+      setDetailsOpen(false);
+      setNotice(e?.message ?? 'Could not leave the chat. Try again.');
+    }
+  };
 
   const toggleMute = async (next: boolean) => {
     setMuted(next); // optimistic
@@ -345,6 +358,15 @@ export function ChatScreen({ navigation, route }: any) {
               );
             }
             const item = entry.message;
+            // Someone left the group: a centred line in the same style as the
+            // day labels, not a bubble.
+            if (item.kind === 'left') {
+              return (
+                <Text testID={`chat-left-${item.id}`} style={styles.dayDivider}>
+                  {leftLine(item)}
+                </Text>
+              );
+            }
             const mine = item.sender_id === user?.id;
             // A photo — or a shared-post card — on its own reads better as the
             // thing itself, not wrapped in a thick coloured frame.
@@ -653,6 +675,7 @@ export function ChatScreen({ navigation, route }: any) {
         members={members}
         muted={muted}
         onToggleMute={toggleMute}
+        onLeave={leaveGroup}
         onOpenProfile={(uid) => {
           setDetailsOpen(false);
           navigation.navigate('UserProfile', { userId: uid });

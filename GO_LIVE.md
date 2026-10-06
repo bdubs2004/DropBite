@@ -131,6 +131,19 @@ from `supabase/migrations/`:
 | `0010_function_grants.sql` | **Security fix** — stops anon calling the RLS-bypassing helpers |
 | `0011_feedback.sql` | In-app feedback and bug reports |
 | `0012_nutrition.sql` | Nutrition labels and serving sizes on recipe cards |
+| `0013_report_comments_and_accounts.sql` | Report a comment or a whole account |
+| `0014_start_conversation_rpc.sql` | Start a 1:1 DM in one server-side call |
+| `0015_comment_photos.sql` | Photos in comments |
+| `0016_comment_replies.sql` | Threaded replies on comments |
+| `0017_group_conversations.sql` | Group DMs |
+| `0018_post_preview_rpc.sql` | Rich preview for shared post links |
+| `0019_group_title.sql` | Name a group chat |
+| `0020_conversation_mute.sql` | Mute a chat |
+| `0021_push_tokens.sql` | Push notifications for DMs |
+| `0022_collections.sql` | Collections on profiles |
+| `0023_message_reactions.sql` | Reactions on DMs |
+| `0024_profile_shares_and_tags.sql` | Share a profile in a DM; tag people in posts |
+| `0025_leave_group.sql` | Leave a group chat ("Dan left the chat") |
 
 They are all safe to run twice, and so is `schema.sql` itself. What re-running
 `schema.sql` will **not** do is add a column to a table that already exists —

@@ -201,8 +201,14 @@ create table if not exists public.conversations (
   -- Bumped on every message so the inbox can sort without a join.
   updated_at timestamptz not null default now(),
   -- Optional custom name for a group thread; null = show the members' names.
-  title text constraint conversations_title_len check (title is null or char_length(title) <= 60)
+  title text constraint conversations_title_len check (title is null or char_length(title) <= 60),
+  -- Set when the thread starts as a group, and kept: a group that drops to
+  -- two people after someone leaves is still a group, not a 1:1.
+  is_group boolean not null default false
 );
+-- For databases created before leaving groups.
+alter table public.conversations
+  add column if not exists is_group boolean not null default false;
 
 create table if not exists public.conversation_members (
   conversation_id uuid not null references public.conversations (id) on delete cascade,
@@ -214,6 +220,14 @@ create table if not exists public.conversation_members (
   primary key (conversation_id, user_id)
 );
 create index if not exists conversation_members_user_idx on public.conversation_members (user_id);
+-- Databases from before is_group: anything named or with 3+ members is a group.
+update public.conversations c
+set is_group = true
+where not c.is_group
+  and (
+    c.title is not null
+    or (select count(*) from public.conversation_members m where m.conversation_id = c.id) > 2
+  );
 
 -- Expo push tokens, so the server can push a DM to a recipient's device. The
 -- notify-message edge function reads these with the service role; users manage
@@ -315,6 +329,13 @@ create table if not exists public.messages (
 -- For databases created before profile shares.
 alter table public.messages
   add column if not exists shared_user_id uuid references public.users (id) on delete set null;
+-- 'message' for everything people send; 'left' for the centred "Dan left the
+-- chat" line, which only leave_conversation() writes.
+alter table public.messages
+  add column if not exists kind text not null default 'message';
+alter table public.messages drop constraint if exists messages_kind_valid;
+alter table public.messages
+  add constraint messages_kind_valid check (kind in ('message', 'left'));
 -- "A message must carry something" is checked when a message is SENT, not
 -- forever after. As a CHECK constraint it also ran when a shared post or
 -- profile was deleted and ON DELETE SET NULL emptied the message, which made
@@ -329,7 +350,8 @@ language plpgsql
 set search_path = ''
 as $$
 begin
-  if char_length(new.text) = 0
+  if new.kind = 'message'
+     and char_length(new.text) = 0
      and new.shared_post_id is null
      and new.image_url is null
      and new.shared_user_id is null then
@@ -444,9 +466,11 @@ begin
     raise exception 'You cannot message this person.';
   end if;
 
-  -- Reuse only a strictly 1:1 thread (exactly the two of us), never a group.
+  -- Reuse only a strictly 1:1 thread (exactly the two of us), never a group,
+  -- not even one that has dwindled to the two of us.
   select mc.conversation_id into conv
   from public.conversation_members mc
+  join public.conversations c on c.id = mc.conversation_id and not c.is_group
   group by mc.conversation_id
   having array_agg(mc.user_id order by mc.user_id) = (
     select array_agg(u order by u) from (select me as u union select target) s
@@ -477,6 +501,7 @@ declare
   me uuid := auth.uid();
   t uuid;
   wanted uuid[];
+  grp boolean;
   conv uuid;
 begin
   if me is null then raise exception 'Not authenticated'; end if;
@@ -505,15 +530,17 @@ begin
   if array_length(wanted, 1) is null or array_length(wanted, 1) < 2 then
     raise exception 'Pick at least one person to message.';
   end if;
+  grp := array_length(wanted, 1) > 2;
 
   select mc.conversation_id into conv
   from public.conversation_members mc
+  join public.conversations c on c.id = mc.conversation_id and c.is_group = grp
   group by mc.conversation_id
   having array_agg(mc.user_id order by mc.user_id) = wanted
   limit 1;
   if conv is not null then return conv; end if;
 
-  insert into public.conversations default values returning id into conv;
+  insert into public.conversations (is_group) values (grp) returning id into conv;
   insert into public.conversation_members (conversation_id, user_id, last_read_at)
     values (conv, me, now());
   foreach t in array wanted loop
@@ -528,6 +555,37 @@ $$;
 
 revoke all on function public.start_group_conversation(uuid[]) from public, anon;
 grant execute on function public.start_group_conversation(uuid[]) to authenticated;
+
+-- Leave a thread. In a group, first posts "<you> left the chat" for the people
+-- still in it (and bumps the thread so they see it). In a 1:1 it just takes the
+-- thread out of your inbox, as deleting one always has; nobody is told.
+create or replace function public.leave_conversation(conv uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  me uuid := auth.uid();
+  grp boolean;
+begin
+  if me is null then raise exception 'Not authenticated'; end if;
+  if not public.is_conversation_member(conv, me) then return; end if;
+
+  select c.is_group into grp from public.conversations c where c.id = conv;
+  if coalesce(grp, false) then
+    insert into public.messages (conversation_id, sender_id, text, kind)
+      values (conv, me, '', 'left');
+    update public.conversations set updated_at = now() where id = conv;
+  end if;
+
+  delete from public.conversation_members
+  where conversation_id = conv and user_id = me;
+end;
+$$;
+
+revoke all on function public.leave_conversation(uuid) from public, anon;
+grant execute on function public.leave_conversation(uuid) to authenticated;
 
 -- Public preview for a shared post link. Read (before sign-in) by the web page
 -- behind niblgo.com/post/<id> to render a rich preview card. Returns only the
@@ -1079,6 +1137,7 @@ drop policy if exists "send messages as self" on public.messages;
 create policy "send messages as self" on public.messages
   for insert to authenticated with check (
     sender_id = auth.uid()
+    and kind = 'message'
     and public.is_conversation_member(conversation_id, auth.uid())
     and not public.conversation_has_block(conversation_id, auth.uid())
   );
