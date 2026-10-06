@@ -4,7 +4,7 @@
  * Run with: npm run test:timeline
  */
 import { Message } from '../../types';
-import { buildTimeline, clockTime, dayDividerLabel } from '../chatTimeline';
+import { buildTimeline, clockTime, dayDividerLabel, leftLine } from '../chatTimeline';
 
 let failures = 0;
 function check(label: string, pass: boolean, got?: string) {
@@ -45,6 +45,12 @@ check(
   shape,
 );
 check('no messages, no dividers', buildTimeline([], now).length === 0);
+
+// Someone leaving a group
+const left = (sender: any) => ({ id: 'x', kind: 'left', sender }) as Message;
+check('left line uses their name', leftLine(left({ display_name: 'Dan Okafor', handle: 'dan' })) === 'Dan Okafor left the chat', leftLine(left({ display_name: 'Dan Okafor', handle: 'dan' })));
+check('falls back to their handle', leftLine(left({ display_name: '', handle: 'dan' })) === '@dan left the chat', leftLine(left({ display_name: '', handle: 'dan' })));
+check('and to "Someone" for a deleted account', leftLine(left(undefined)) === 'Someone left the chat', leftLine(left(undefined)));
 
 if (failures) {
   console.log(`\n${failures} FAILED`);

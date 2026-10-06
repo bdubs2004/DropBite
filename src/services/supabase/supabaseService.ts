@@ -117,20 +117,22 @@ export class SupabaseService implements DataService {
    * when they exist. Asking PostgREST for a relationship that isn't there
    * fails the WHOLE query, so a database that hasn't run migration 0023/0024
    * yet would otherwise lose its feed and chats instead of just the new bits.
+   * `leave` is migration 0025 (leaving groups, and the is_group flag).
    */
-  private caps = { tags: false, profileShares: false, reactions: false };
+  private caps = { tags: false, profileShares: false, reactions: false, leave: false };
   private capsLoaded: Promise<void> | null = null;
   private loadCaps(): Promise<void> {
     if (!this.capsLoaded) {
       this.capsLoaded = (async () => {
-        const [tags, shares, reactions] = await Promise.all([
+        const [tags, shares, reactions, leave] = await Promise.all([
           this.sb.from('post_tags').select('post_id').limit(1),
           this.sb.from('messages').select('shared_user_id').limit(1),
           this.sb.from('message_reactions').select('message_id').limit(1),
+          this.sb.from('conversations').select('is_group').limit(1),
         ]);
-        // All three failing is a network problem, not a schema answer:
+        // All of them failing is a network problem, not a schema answer:
         // try again on the next call rather than switching everything off.
-        if (tags.error && shares.error && reactions.error) {
+        if (tags.error && shares.error && reactions.error && leave.error) {
           this.capsLoaded = null;
           return;
         }
@@ -138,6 +140,7 @@ export class SupabaseService implements DataService {
           tags: !tags.error,
           profileShares: !shares.error,
           reactions: !reactions.error,
+          leave: !leave.error,
         };
       })().catch(() => {
         this.capsLoaded = null;
@@ -864,7 +867,9 @@ export class SupabaseService implements DataService {
     // My memberships carry last_read_at, which drives the unread count.
     const { data: memberships, error } = await this.sb
       .from('conversation_members')
-      .select('conversation_id, last_read_at, conversations(id, updated_at, title)')
+      .select(
+        `conversation_id, last_read_at, conversations(id, updated_at, title${this.caps.leave ? ', is_group' : ''})`,
+      )
       .eq('user_id', meId);
     if (error) throw error;
 
@@ -928,11 +933,14 @@ export class SupabaseService implements DataService {
           id: r.conversation_id,
           other: others[0],
           others,
-          is_group: others.length > 1,
+          // Remembered from when it started (migration 0025), so a group that
+          // drops to two people after someone leaves is still a group.
+          is_group: r.conversations?.is_group ?? others.length > 1,
           title: r.conversations?.title ?? null,
           last_message: last ? this.hydrateMessageRow(last) : null,
+          // "Left the chat" lines don't count as unread.
           unread_count: list.filter(
-            (m) => m.sender_id !== meId && m.created_at > r.last_read_at,
+            (m) => m.sender_id !== meId && m.kind !== 'left' && m.created_at > r.last_read_at,
           ).length,
           updated_at: r.conversations?.updated_at ?? new Date(0).toISOString(),
         } as Conversation;
@@ -1216,9 +1224,22 @@ export class SupabaseService implements DataService {
   }
 
   async deleteConversation(conversationId: string): Promise<void> {
+    await this.leaveConversation(conversationId);
+  }
+
+  async leaveConversation(conversationId: string): Promise<void> {
     const meId = await this.myId();
-    // "leave conversations" RLS lets you delete only your own membership, so
-    // this removes the thread from your inbox without touching theirs.
+    if (this.caps.leave) {
+      // One server-side call: in a group it posts "<you> left the chat" for
+      // the people still in it, then removes you. A client can't write that
+      // line itself (RLS only lets it send ordinary messages).
+      const { error } = await this.sb.rpc('leave_conversation', { conv: conversationId });
+      if (error) throw new Error(error.message || 'Could not leave the chat.');
+      return;
+    }
+    // Before migration 0025: just leave quietly. "leave conversations" RLS
+    // lets you delete only your own membership, so this removes the thread
+    // from your inbox without touching anyone else's.
     const { error } = await this.sb
       .from('conversation_members')
       .delete()

@@ -50,3 +50,12 @@ export function buildTimeline(messages: Message[], now = new Date()): TimelineIt
   }
   return out;
 }
+
+/**
+ * The centred line a group shows when someone leaves: "Dan left the chat".
+ * Their display name, falling back to their handle, then "Someone".
+ */
+export function leftLine(m: Message): string {
+  const who = m.sender?.display_name || (m.sender?.handle ? `@${m.sender.handle}` : 'Someone');
+  return `${who} left the chat`;
+}

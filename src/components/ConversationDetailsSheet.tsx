@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Modal,
   Pressable,
@@ -16,8 +16,9 @@ import { Avatar } from './Avatar';
 import { Muted } from './ui';
 
 /**
- * The details panel behind a DM's "…" button: who's in the thread, and a mute
- * toggle. Slides over as a bottom sheet; tapping a member opens their profile.
+ * The details panel behind a DM's "…" button: who's in the thread, a mute
+ * toggle, and (for a group) Leave group. Slides over as a bottom sheet;
+ * tapping a member opens their profile.
  */
 export function ConversationDetailsSheet({
   visible,
@@ -26,6 +27,7 @@ export function ConversationDetailsSheet({
   members,
   muted,
   onToggleMute,
+  onLeave,
   onOpenProfile,
   onClose,
 }: {
@@ -35,10 +37,21 @@ export function ConversationDetailsSheet({
   members: User[];
   muted: boolean;
   onToggleMute: (next: boolean) => void;
+  /** Leave the group. Only offered for groups. */
+  onLeave?: () => Promise<void> | void;
   onOpenProfile: (userId: string) => void;
   onClose: () => void;
 }) {
   const insets = useSafeAreaInsets();
+  // Leaving asks once, right here in the sheet (no pop-up).
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  useEffect(() => {
+    if (!visible) {
+      setConfirmLeave(false);
+      setLeaving(false);
+    }
+  }, [visible]);
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -102,6 +115,51 @@ export function ConversationDetailsSheet({
               </Pressable>
             ))}
           </ScrollView>
+
+          {isGroup && onLeave ? (
+            confirmLeave ? (
+              <View testID="details-leave-confirm" style={styles.leaveConfirm}>
+                <Text style={styles.leaveConfirmText}>
+                  Leave this group? Everyone in it will see that you left
+                </Text>
+                <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                  <Pressable
+                    testID="details-leave-cancel"
+                    onPress={() => setConfirmLeave(false)}
+                    style={[styles.leaveBtn, styles.leaveCancel]}
+                  >
+                    <Text style={styles.leaveCancelText}>Cancel</Text>
+                  </Pressable>
+                  <Pressable
+                    testID="details-leave-yes"
+                    disabled={leaving}
+                    onPress={async () => {
+                      setLeaving(true);
+                      try {
+                        await onLeave();
+                      } finally {
+                        setLeaving(false);
+                      }
+                    }}
+                    style={[styles.leaveBtn, styles.leaveYes, leaving && { opacity: 0.6 }]}
+                  >
+                    <Text style={styles.leaveYesText}>{leaving ? 'Leaving' : 'Leave'}</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : (
+              <Pressable
+                testID="details-leave"
+                style={styles.leaveRow}
+                onPress={() => setConfirmLeave(true)}
+              >
+                <View style={[styles.muteIcon, styles.leaveIcon]}>
+                  <Ionicons name="exit-outline" size={19} color={colors.danger} />
+                </View>
+                <Text style={styles.leaveLabel}>Leave group</Text>
+              </Pressable>
+            )
+          ) : null}
         </Pressable>
       </Pressable>
     </Modal>
@@ -170,4 +228,33 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   memberName: { fontFamily: fonts.bold, fontSize: 15, color: colors.cocoa },
+  leaveRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.white,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginTop: spacing.sm,
+  },
+  leaveIcon: { backgroundColor: 'rgba(201, 79, 46, 0.12)' },
+  leaveLabel: { fontFamily: fonts.bold, fontSize: 15, color: colors.danger },
+  leaveConfirm: {
+    backgroundColor: colors.white,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginTop: spacing.sm,
+    gap: spacing.md,
+  },
+  leaveConfirmText: { fontFamily: fonts.bold, fontSize: 14, color: colors.cocoa },
+  leaveBtn: {
+    flex: 1,
+    alignItems: 'center',
+    borderRadius: radius.pill,
+    paddingVertical: 10,
+  },
+  leaveCancel: { backgroundColor: colors.creamDark },
+  leaveCancelText: { fontFamily: fonts.bold, fontSize: 14, color: colors.cocoa },
+  leaveYes: { backgroundColor: colors.danger },
+  leaveYesText: { fontFamily: fonts.bold, fontSize: 14, color: colors.white },
 });

@@ -175,9 +175,15 @@ export interface DataService {
   markConversationRead(conversationId: string): Promise<void>;
   /**
    * Remove a thread from YOUR inbox by leaving it. The other person keeps
-   * their copy — one side cannot destroy the other's history.
+   * their copy — one side cannot destroy the other's history. For a group
+   * this is the same as leaveConversation.
    */
   deleteConversation(conversationId: string): Promise<void>;
+  /**
+   * Leave a thread. In a group, everyone still in it sees "<you> left the
+   * chat"; in a 1:1 it just leaves your inbox, and nobody is told.
+   */
+  leaveConversation(conversationId: string): Promise<void>;
   /** Total unread messages across all threads, for the inbox badge. */
   getUnreadCount(): Promise<number>;
   /** Register this device's Expo push token so DMs can notify it. */
