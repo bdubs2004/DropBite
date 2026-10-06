@@ -320,7 +320,7 @@ export function AuthScreen() {
             <>
               <Input
                 label="Display name"
-                placeholder="Marge Halvorson"
+                placeholder="Joe Mama"
                 value={displayName}
                 onChangeText={setDisplayName}
                 autoCapitalize="words"
@@ -328,7 +328,7 @@ export function AuthScreen() {
               />
               <Input
                 label="Handle"
-                placeholder="margesbakes"
+                placeholder="joemama"
                 value={handle}
                 onChangeText={setHandle}
                 autoCapitalize="none"
@@ -340,7 +340,7 @@ export function AuthScreen() {
 
           <Input
             label="Email"
-            placeholder="you@example.com"
+            placeholder="joemama@example.com"
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"

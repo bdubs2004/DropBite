@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
   ActivityIndicator,
@@ -83,34 +84,57 @@ export function Button({
  */
 export const Input = React.forwardRef<TextInput, TextInputProps & { label?: string }>(
   function Input(props, ref) {
-    const { label, style, ...rest } = props;
+    const { label, style, secureTextEntry, ...rest } = props;
     // The browser's text box doesn't grow by itself like iOS's does, so grow
     // it by hand on web (otherwise it turns into a little scroll box again).
     const growOnWeb = Platform.OS === 'web' && !!rest.multiline && rest.scrollEnabled === undefined;
     const [webHeight, setWebHeight] = React.useState(0);
+    // Password boxes get an eye on the right to show or hide what you typed.
+    const [revealed, setRevealed] = React.useState(false);
+    const hideable = !!secureTextEntry;
     return (
       <View style={{ marginBottom: spacing.md }}>
         {label ? <Text style={styles.label}>{label}</Text> : null}
-        <TextInput
-          ref={ref}
-          placeholderTextColor={colors.cocoaFaint}
-          scrollEnabled={rest.multiline ? false : undefined}
-          {...rest}
-          onContentSizeChange={(e) => {
-            // Ignore 1px wobbles: the browser rounds the content height up,
-            // and chasing that would resize the box forever.
-            const h = Math.ceil(e.nativeEvent.contentSize.height);
-            if (growOnWeb) setWebHeight((prev) => (Math.abs(h - prev) > 1 ? h : prev));
-            rest.onContentSizeChange?.(e);
-          }}
-          style={[
-            styles.input,
-            rest.multiline && styles.inputMultiline,
-            style,
-            // + the 1.5px top and bottom border, which the content size leaves out.
-            growOnWeb && webHeight ? { height: webHeight + 3, overflow: 'hidden' } : null,
-          ]}
-        />
+        <View>
+          <TextInput
+            ref={ref}
+            placeholderTextColor={colors.cocoaFaint}
+            scrollEnabled={rest.multiline ? false : undefined}
+            secureTextEntry={hideable && !revealed}
+            {...rest}
+            onContentSizeChange={(e) => {
+              // Ignore 1px wobbles: the browser rounds the content height up,
+              // and chasing that would resize the box forever.
+              const h = Math.ceil(e.nativeEvent.contentSize.height);
+              if (growOnWeb) setWebHeight((prev) => (Math.abs(h - prev) > 1 ? h : prev));
+              rest.onContentSizeChange?.(e);
+            }}
+            style={[
+              styles.input,
+              rest.multiline && styles.inputMultiline,
+              style,
+              // + the 1.5px top and bottom border, which the content size leaves out.
+              growOnWeb && webHeight ? { height: webHeight + 3, overflow: 'hidden' } : null,
+              hideable ? styles.inputWithEye : null,
+            ]}
+          />
+          {hideable ? (
+            <Pressable
+              testID={rest.testID ? `${rest.testID}-eye` : 'password-eye'}
+              onPress={() => setRevealed((v) => !v)}
+              hitSlop={8}
+              style={styles.eye}
+              accessibilityRole="button"
+              accessibilityLabel={revealed ? 'Hide password' : 'Show password'}
+            >
+              <Ionicons
+                name={revealed ? 'eye-off-outline' : 'eye-outline'}
+                size={21}
+                color={colors.cocoaSoft}
+              />
+            </Pressable>
+          ) : null}
+        </View>
       </View>
     );
   },
@@ -173,6 +197,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: fonts.semi,
     color: colors.cocoa,
+  },
+  // Room on the right for the show/hide eye, so text never runs under it.
+  inputWithEye: { paddingRight: 48 },
+  eye: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   inputMultiline: {
     minHeight: 110,
