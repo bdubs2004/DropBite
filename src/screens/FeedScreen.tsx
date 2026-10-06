@@ -47,6 +47,7 @@ export function FeedScreen({ navigation }: any) {
   );
   const {
     like,
+    showLikes,
     comment,
     share,
     repost,
@@ -200,6 +201,7 @@ export function FeedScreen({ navigation }: any) {
           <PostCard
             post={item}
             onToggleLike={like}
+            onShowLikes={showLikes}
             onComment={comment}
             onShare={share}
             onRepost={repost}

@@ -20,6 +20,14 @@ export function usePostActions(navigation: any, refresh: () => void) {
     [svc],
   );
 
+  // The heart on your own post: who liked it, instead of liking it yourself.
+  const showLikes = useCallback(
+    (post: Post) => {
+      navigation.navigate('UserList', { mode: 'post_likes', postId: post.id });
+    },
+    [navigation],
+  );
+
   const comment = useCallback(
     (post: Post) => {
       navigation.navigate('Comments', { postId: post.id });
@@ -94,6 +102,7 @@ export function usePostActions(navigation: any, refresh: () => void) {
 
   return {
     like,
+    showLikes,
     comment,
     share,
     repost,

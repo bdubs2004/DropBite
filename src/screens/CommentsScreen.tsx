@@ -53,7 +53,12 @@ export function CommentsScreen({ navigation, route }: any) {
   const [replies, setReplies] = useState<Record<string, Comment[]>>({});
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [loadingReplies, setLoadingReplies] = useState<Set<string>>(new Set());
-  const [replyTo, setReplyTo] = useState<{ parentId: string; handle: string } | null>(null);
+  const [replyTo, setReplyTo] = useState<{
+    parentId: string;
+    handle: string;
+    /** Whose comment this answers, so they're the one notified. */
+    userId: string | null;
+  } | null>(null);
 
   const [text, setText] = useState('');
   const [photo, setPhoto] = useState<string | null>(null);
@@ -145,7 +150,7 @@ export function CommentsScreen({ navigation, route }: any) {
 
   const startReply = (c: Comment) => {
     // Replying to a reply attaches to its top-level parent (two levels only).
-    setReplyTo({ parentId: c.parent_id ?? c.id, handle: c.user?.handle ?? '' });
+    setReplyTo({ parentId: c.parent_id ?? c.id, handle: c.user?.handle ?? '', userId: c.user_id ?? null });
     inputRef.current?.focus();
   };
 
@@ -199,7 +204,13 @@ export function CommentsScreen({ navigation, route }: any) {
     setPosting(true);
     const parentId = replyTo?.parentId ?? null;
     try {
-      const created = await svc.addComment(postId, body, photo ?? undefined, parentId);
+      const created = await svc.addComment(
+        postId,
+        body,
+        photo ?? undefined,
+        parentId,
+        replyTo?.userId ?? null,
+      );
       setText('');
       setPhoto(null);
       setReplyTo(null);

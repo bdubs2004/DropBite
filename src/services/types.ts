@@ -112,7 +112,10 @@ export interface DataService {
   setPostTags(postId: string, userIds: string[]): Promise<void>;
   /** Delete one of your own posts, and everything attached to it. */
   deletePost(postId: string): Promise<void>;
+  /** Like or unlike someone else's post. Your own can't be liked. */
   toggleReaction(postId: string): Promise<void>;
+  /** The people who liked a post, most recent first. */
+  getPostLikers(postId: string): Promise<User[]>;
 
   // engagement (comments, reposts, shares)
   getComments(postId: string, limit?: number, offset?: number): Promise<Comment[]>;
@@ -122,6 +125,8 @@ export interface DataService {
     text: string,
     imageUri?: string,
     parentId?: string | null,
+    /** On a reply: whose comment you're answering, so they're the one told. */
+    replyToUserId?: string | null,
   ): Promise<Comment>;
   /** Like/unlike a comment. Idempotent per user. */
   toggleCommentLike(commentId: string): Promise<void>;

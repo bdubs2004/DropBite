@@ -19,23 +19,26 @@ import { User } from '../types';
  * opens but shows a private notice instead of the names.
  */
 export function UserListScreen({ navigation, route }: any) {
-  const { userId, mode, displayName, isPrivate, isMe, commentId } = route.params as {
+  const { userId, mode, displayName, isPrivate, isMe, commentId, postId } = route.params as {
     userId?: string;
-    mode: 'followers' | 'following' | 'comment_likes';
+    mode: 'followers' | 'following' | 'comment_likes' | 'post_likes';
     displayName?: string;
     isPrivate?: boolean;
     isMe?: boolean;
     /** Set when mode is 'comment_likes'. */
     commentId?: string;
+    /** Set when mode is 'post_likes' (the heart on your own post). */
+    postId?: string;
   };
   const svc = getDataService();
   const insets = useSafeAreaInsets();
-  const isFollowMode = mode !== 'comment_likes';
+  const isLikes = mode === 'comment_likes' || mode === 'post_likes';
+  const isFollowMode = !isLikes;
   // Which follow list is showing; starts on whichever one you tapped.
   const [tab, setTab] = useState<'followers' | 'following'>(
     mode === 'following' ? 'following' : 'followers',
   );
-  const listMode = isFollowMode ? tab : 'comment_likes';
+  const listMode = isFollowMode ? tab : mode;
   const [followers, setFollowers] = useState<User[]>([]);
   const [following, setFollowing] = useState<User[]>([]);
   const [likers, setLikers] = useState<User[]>([]);
@@ -55,6 +58,8 @@ export function UserListScreen({ navigation, route }: any) {
     }
     if (mode === 'comment_likes') {
       setLikers(await svc.getCommentLikers(commentId!));
+    } else if (mode === 'post_likes') {
+      setLikers(await svc.getPostLikers(postId!));
     } else {
       // Both at once, so the toggle flips instantly and shows both counts.
       const [a, b] = await Promise.all([
@@ -65,7 +70,7 @@ export function UserListScreen({ navigation, route }: any) {
       setFollowing(b);
     }
     setLoading(false);
-  }, [svc, userId, mode, gated, commentId]);
+  }, [svc, userId, mode, gated, commentId, postId]);
 
   const users =
     listMode === 'followers' ? followers : listMode === 'following' ? following : likers;
@@ -195,11 +200,15 @@ export function UserListScreen({ navigation, route }: any) {
                 <Text style={styles.emptyTitle}>No one matches “{query.trim()}”</Text>
                 <Muted style={styles.emptyBody}>Try part of their name or @handle</Muted>
               </View>
-            ) : listMode === 'comment_likes' ? (
-              <View style={styles.empty}>
+            ) : isLikes ? (
+              <View testID="likes-empty" style={styles.empty}>
                 <Ionicons name="heart-outline" size={44} color={colors.cocoaFaint} />
                 <Text style={styles.emptyTitle}>No likes yet</Text>
-                <Muted style={styles.emptyBody}>Be the first to like this comment</Muted>
+                <Muted style={styles.emptyBody}>
+                  {mode === 'post_likes'
+                    ? "When someone likes your post, they'll show up here"
+                    : 'Be the first to like this comment'}
+                </Muted>
               </View>
             ) : (
               // Give the empty case the same weight as the private one: an

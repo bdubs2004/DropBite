@@ -278,7 +278,8 @@ function Root() {
     };
   }, [svc, refreshMe]);
 
-  // Tapping a DM push opens that conversation. Handles both a warm tap and a
+  // Tapping a push opens what it's about: a DM opens the conversation, an
+  // Activity push opens the post or the person. Handles both a warm tap and a
   // cold start (the app was launched by the notification).
   useEffect(() => {
     let sub: { remove: () => void } | undefined;
@@ -287,8 +288,22 @@ function Root() {
       try {
         const Notifications = await import('expo-notifications');
         const openFromData = (data: any) => {
+          if (!navigationRef.isReady()) return;
+          // Activity pushes: a follow opens the person, anything about a
+          // comment opens the post with its comments, a like opens the post.
+          if (data?.kind === 'activity') {
+            if (data.type === 'follow' || data.type === 'follow_back') {
+              if (data.actorId) navigationRef.navigate('UserProfile', { userId: data.actorId });
+            } else if (data.postId) {
+              navigationRef.navigate('PostDetail', {
+                postId: data.postId,
+                openComments: ['comment', 'reply', 'comment_like'].includes(data.type),
+              });
+            }
+            return;
+          }
           const conversationId = data?.conversationId;
-          if (!conversationId || !navigationRef.isReady()) return;
+          if (!conversationId) return;
           navigationRef.navigate('Chat', {
             conversationId,
             title: data.title ?? 'Chat',

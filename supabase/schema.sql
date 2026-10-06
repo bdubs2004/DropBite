@@ -158,12 +158,17 @@ create table if not exists public.comments (
   -- A reply points at the top-level comment it sits under; NULL = top-level.
   -- Two levels only: replies to replies still attach to the top-level parent.
   parent_id uuid references public.comments (id) on delete cascade,
+  -- Who a reply is answering (checked against the thread in notify_comment).
+  reply_to_user_id uuid references public.users (id) on delete set null,
   created_at timestamptz not null default now(),
   -- A comment must carry something: a caption, a photo, or both.
   constraint comments_not_empty check (char_length(text) > 0 or image_url is not null)
 );
 create index if not exists comments_post_created_idx on public.comments (post_id, created_at);
 create index if not exists comments_parent_idx on public.comments (parent_id);
+-- For databases from before replies remembered who they answer.
+alter table public.comments
+  add column if not exists reply_to_user_id uuid references public.users (id) on delete set null;
 
 -- -------------------------------------------------------------- reposts
 create table if not exists public.reposts (
@@ -806,10 +811,13 @@ create table if not exists public.notifications (
   -- Who caused it.
   actor_id uuid not null references public.users (id) on delete cascade,
   type text not null constraint notifications_type_allowed
-    check (type in ('like', 'comment', 'repost', 'share', 'tag')),
+    check (type in ('like', 'comment', 'repost', 'share', 'tag',
+                    'follow', 'follow_back', 'comment_like', 'reply')),
   post_id uuid references public.posts (id) on delete cascade,
   comment_id uuid references public.comments (id) on delete cascade,
   read_at timestamptz,
+  -- When it was pushed to the person's phone (notify-activity sends each once).
+  pushed_at timestamptz,
   created_at timestamptz not null default now(),
   -- You are never notified about your own activity.
   constraint notifications_no_self check (user_id <> actor_id)
@@ -823,6 +831,25 @@ create index if not exists notifications_user_created_idx
 create unique index if not exists notifications_one_per_interaction
   on public.notifications (user_id, actor_id, type, post_id)
   where comment_id is null;
+
+-- For databases from before follows, comment likes and replies were in Activity.
+alter table public.notifications drop constraint if exists notifications_type_allowed;
+alter table public.notifications
+  add constraint notifications_type_allowed check (
+    type in ('like', 'comment', 'repost', 'share', 'tag',
+             'follow', 'follow_back', 'comment_like', 'reply')
+  );
+alter table public.notifications add column if not exists pushed_at timestamptz;
+
+-- One "followed you" per pair: unfollowing and following again doesn't stack.
+create unique index if not exists notifications_one_follow
+  on public.notifications (user_id, actor_id)
+  where type in ('follow', 'follow_back');
+-- One "liked your comment" per person per comment, same reason.
+create unique index if not exists notifications_one_comment_like
+  on public.notifications (user_id, actor_id, comment_id)
+  where type = 'comment_like';
+
 
 -- Shared by the like/repost/share triggers, which all fire on a table with
 -- (post_id, user_id). The interaction type comes in as a trigger argument.
@@ -859,17 +886,38 @@ set search_path = ''
 as $$
 declare
   owner uuid;
+  target uuid;
 begin
   select p.user_id into owner from public.posts p where p.id = new.post_id;
-  if owner is null or owner = new.user_id then
-    return new;
-  end if;
-  if public.is_blocked_pair(owner, new.user_id) then
-    return new;
+
+  -- A reply tells the person it answers: who the app says it's replying to,
+  -- if they really have a comment in this thread, otherwise the author of the
+  -- comment it sits under.
+  if new.parent_id is not null then
+    if new.reply_to_user_id is not null and exists (
+      select 1 from public.comments c
+      where c.user_id = new.reply_to_user_id
+        and c.id <> new.id
+        and (c.id = new.parent_id or c.parent_id = new.parent_id)
+    ) then
+      target := new.reply_to_user_id;
+    else
+      select c.user_id into target from public.comments c where c.id = new.parent_id;
+    end if;
+    if target is not null and target <> new.user_id
+       and not public.is_blocked_pair(target, new.user_id) then
+      insert into public.notifications (user_id, actor_id, type, post_id, comment_id)
+      values (target, new.user_id, 'reply', new.post_id, new.id);
+    end if;
   end if;
 
-  insert into public.notifications (user_id, actor_id, type, post_id, comment_id)
-  values (owner, new.user_id, 'comment', new.post_id, new.id);
+  -- The post's owner hears about every comment, unless this one was already a
+  -- reply to them (one notification per comment, not two).
+  if owner is not null and owner <> new.user_id and owner is distinct from target
+     and not public.is_blocked_pair(owner, new.user_id) then
+    insert into public.notifications (user_id, actor_id, type, post_id, comment_id)
+    values (owner, new.user_id, 'comment', new.post_id, new.id);
+  end if;
   return new;
 end;
 $$;
@@ -886,6 +934,65 @@ create trigger shares_notify after insert on public.shares
 drop trigger if exists comments_notify on public.comments;
 create trigger comments_notify after insert on public.comments
   for each row execute function public.notify_comment();
+
+create or replace function public.notify_follow()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  back boolean;
+begin
+  if public.is_blocked_pair(new.follower_id, new.followee_id) then
+    return new;
+  end if;
+  -- "Followed you back" when they already follow the person they just followed.
+  back := exists (
+    select 1 from public.follows f
+    where f.follower_id = new.followee_id and f.followee_id = new.follower_id
+  );
+  insert into public.notifications (user_id, actor_id, type)
+  values (new.followee_id, new.follower_id, case when back then 'follow_back' else 'follow' end)
+  on conflict do nothing;
+  return new;
+end;
+$$;
+revoke all on function public.notify_follow() from public, anon, authenticated;
+
+drop trigger if exists follows_notify on public.follows;
+create trigger follows_notify after insert on public.follows
+  for each row execute function public.notify_follow();
+
+create or replace function public.notify_comment_like()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  author uuid;
+  pid uuid;
+begin
+  select c.user_id, c.post_id into author, pid from public.comments c where c.id = new.comment_id;
+  if author is null or author = new.user_id then
+    return new;
+  end if;
+  if public.is_blocked_pair(author, new.user_id) then
+    return new;
+  end if;
+  insert into public.notifications (user_id, actor_id, type, post_id, comment_id)
+  values (author, new.user_id, 'comment_like', pid, new.comment_id)
+  on conflict do nothing;
+  return new;
+end;
+$$;
+revoke all on function public.notify_comment_like() from public, anon, authenticated;
+
+drop trigger if exists comment_reactions_notify on public.comment_reactions;
+create trigger comment_reactions_notify after insert on public.comment_reactions
+  for each row execute function public.notify_comment_like();
+
 
 -- ------------------------------------------------------------ post tags
 -- Tag people in a post. Only the author tags, nobody tags themselves or
@@ -1079,8 +1186,16 @@ drop policy if exists "reactions readable" on public.reactions;
 create policy "reactions readable" on public.reactions
   for select to authenticated using (true);
 drop policy if exists "react as self" on public.reactions;
+-- Not on your own post: the heart there shows who liked it instead.
 create policy "react as self" on public.reactions
-  for insert to authenticated with check (user_id = auth.uid());
+  for insert to authenticated with check (
+    user_id = auth.uid()
+    and not exists (select 1 from public.posts p where p.id = post_id and p.user_id = auth.uid())
+  );
+-- Likes people gave their own posts before that rule.
+delete from public.reactions r
+using public.posts p
+where p.id = r.post_id and p.user_id = r.user_id;
 drop policy if exists "unreact as self" on public.reactions;
 create policy "unreact as self" on public.reactions
   for delete to authenticated using (user_id = auth.uid());

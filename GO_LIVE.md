@@ -146,6 +146,7 @@ from `supabase/migrations/`:
 | `0025_leave_group.sql` | Leave a group chat ("Dan left the chat") |
 | `0026_photo_size.sql` | Photos keep their whole shape (stores each post photo's size) |
 | `0027_handle_capitals.sql` | Handles keep their capitals (JoeMama), still unique ignoring case |
+| `0028_activity.sql` | Follows, comment likes and replies in Activity; push for them; no liking your own post |
 
 They are all safe to run twice, and so is `schema.sql` itself. What re-running
 `schema.sql` will **not** do is add a column to a table that already exists —
@@ -301,6 +302,19 @@ eas build --profile development --platform ios     # or android
 One notification per meal. If you get two, that was the bug fixed in
 `src/lib/mealReminderPlan.ts`; make sure you're on a build that includes it, and
 the next sync cleans up the leftovers.
+
+### Push notifications for DMs and Activity
+
+These do go through Expo's push service, sent by two edge functions. Deploy
+both (after migration 0028):
+
+```bash
+supabase functions deploy notify-message    # DMs
+supabase functions deploy notify-activity   # likes, comments, replies, comment likes, follows
+```
+
+Shares, reposts, tags and saves show in Activity but don't push. Each Activity
+item is pushed at most once, and only right after it happens.
 
 ---
 

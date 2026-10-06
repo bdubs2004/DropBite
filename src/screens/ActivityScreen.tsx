@@ -108,6 +108,7 @@ export function ActivityScreen({ navigation, route }: any) {
 
   const {
     like,
+    showLikes,
     comment,
     share,
     repost,
@@ -238,6 +239,7 @@ export function ActivityScreen({ navigation, route }: any) {
             <PostCard
               post={item}
               onToggleLike={like}
+              onShowLikes={showLikes}
               onComment={comment}
               onShare={share}
               onRepost={repost}
