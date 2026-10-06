@@ -23,6 +23,7 @@ import { usePostActions } from '../lib/usePostActions';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
 import { colors, fonts, radius, spacing } from '../theme';
+import { Post } from '../types';
 
 export function FeedScreen({ navigation }: any) {
   const { feed, feedLoading, refreshFeed, streak, user } = useApp();
@@ -115,7 +116,50 @@ export function FeedScreen({ navigation }: any) {
     return unsub;
   }, [navigation, jumpToTopAndRefresh]);
 
-  const openProfile = (userId: string) => navigation.navigate('UserProfile', { userId });
+  const openProfile = useCallback(
+    (userId: string) => navigation.navigate('UserProfile', { userId }),
+    [navigation],
+  );
+
+  // Stable, so the posts on screen don't all re-render when something else on
+  // this screen changes, notably the scroll lock flipping as a pinch-zoom
+  // starts and ends (which made zooming stutter).
+  const meId = user?.id;
+  const renderPost = useCallback(
+    ({ item }: { item: Post }) => (
+      <PostCard
+        post={item}
+        onToggleLike={like}
+        onShowLikes={showLikes}
+        onComment={comment}
+        onShare={share}
+        onRepost={repost}
+        onToggleSave={save}
+        onPressUser={openProfile}
+        onDelete={remove}
+        onReport={report}
+        onAddToCollection={addToCollection}
+        onTagPeople={tagPeople}
+        onUntagMe={untagMe}
+        isMine={item.user_id === meId}
+      />
+    ),
+    [
+      like,
+      showLikes,
+      comment,
+      share,
+      repost,
+      save,
+      openProfile,
+      remove,
+      report,
+      addToCollection,
+      tagPeople,
+      untagMe,
+      meId,
+    ],
+  );
 
   return (
     <View style={styles.root}>
@@ -197,24 +241,7 @@ export function FeedScreen({ navigation }: any) {
         scrollEnabled={!zooming}
         data={feed}
         keyExtractor={(p) => p.id}
-        renderItem={({ item }) => (
-          <PostCard
-            post={item}
-            onToggleLike={like}
-            onShowLikes={showLikes}
-            onComment={comment}
-            onShare={share}
-            onRepost={repost}
-            onToggleSave={save}
-            onPressUser={openProfile}
-            onDelete={remove}
-            onReport={report}
-            onAddToCollection={addToCollection}
-            onTagPeople={tagPeople}
-            onUntagMe={untagMe}
-            isMine={item.user_id === user?.id}
-          />
-        )}
+        renderItem={renderPost}
         contentContainerStyle={{
           paddingTop: insets.top + HEADER_HEIGHT + spacing.md,
           paddingBottom: 120,
