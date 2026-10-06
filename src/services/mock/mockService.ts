@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { hashPassword, verifyPassword } from '../../lib/demoPassword';
+import { cleanHandle, sameHandle } from '../../lib/handle';
 import { uid } from '../../lib/id';
 import { appVersion, platformName } from '../../lib/appInfo';
 import { clamp, clampOrNull, LIMITS } from '../../lib/limits';
@@ -198,16 +199,14 @@ export class MockService implements DataService {
   }): Promise<SignUpResult> {
     const db = await this.load();
     const email = input.email.trim().toLowerCase();
-    const handle = input.handle
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9_]/g, '')
-      .slice(0, LIMITS.handle);
-    if (!handle) throw new Error('Pick a handle (letters, numbers, underscores).');
+    // Capitals are kept as typed (see lib/handle).
+    const handle = cleanHandle(input.handle);
+    if (handle.length < 2) throw new Error('Pick a handle (letters, numbers, underscores).');
     if (db.credentials.some((c) => c.email === email)) {
       throw new Error('That email already has an account. Sign in instead.');
     }
-    if (db.users.some((u) => u.handle === handle)) {
+    // Same rule as the database: JoeMama and joemama are the same handle.
+    if (db.users.some((u) => sameHandle(u.handle, handle))) {
       throw new Error('That handle is taken, try another.');
     }
     const user: User = {

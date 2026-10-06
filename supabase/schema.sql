@@ -14,7 +14,9 @@ end $$;
 -- identical databases, and future migrations can reference them by name.
 create table if not exists public.users (
   id uuid primary key references auth.users (id) on delete cascade,
-  handle text unique not null constraint users_handle_format check (handle ~ '^[a-z0-9_]{2,30}$'),
+  -- Capitals are kept as typed ("JoeMama"); uniqueness ignores them, see
+  -- users_handle_lower_key below.
+  handle text unique not null constraint users_handle_format check (handle ~ '^[A-Za-z0-9_]{2,30}$'),
   display_name text not null
     constraint users_display_name_len check (char_length(display_name) between 1 and 50),
   -- Length is tested separately from the pattern on purpose: Postgres caps
@@ -31,6 +33,12 @@ create table if not exists public.users (
   follows_private boolean not null default false,
   created_at timestamptz not null default now()
 );
+-- For databases from before handles kept their capitals.
+alter table public.users drop constraint if exists users_handle_format;
+alter table public.users
+  add constraint users_handle_format check (handle ~ '^[A-Za-z0-9_]{2,30}$');
+-- JoeMama and joemama are the same handle: only one of them can exist.
+create unique index if not exists users_handle_lower_key on public.users (lower(handle));
 
 -- -------------------------------------------------------------- follows
 create table if not exists public.follows (
