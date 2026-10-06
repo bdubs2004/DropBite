@@ -145,6 +145,7 @@ from `supabase/migrations/`:
 | `0024_profile_shares_and_tags.sql` | Share a profile in a DM; tag people in posts |
 | `0025_leave_group.sql` | Leave a group chat ("Dan left the chat") |
 | `0026_photo_size.sql` | Photos keep their whole shape (stores each post photo's size) |
+| `0027_handle_capitals.sql` | Handles keep their capitals (JoeMama), still unique ignoring case |
 
 They are all safe to run twice, and so is `schema.sql` itself. What re-running
 `schema.sql` will **not** do is add a column to a table that already exists —

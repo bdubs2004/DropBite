@@ -18,6 +18,7 @@ import {
 } from '../../types';
 import { EMAIL_CONFIRM_URL, PASSWORD_RESET_URL } from '../../config';
 import { appVersion, platformName } from '../../lib/appInfo';
+import { cleanHandle } from '../../lib/handle';
 import { clamp, clampOrNull, LIMITS } from '../../lib/limits';
 import { collectionNameProblem, tidyCollectionName } from '../../lib/collectionName';
 import { sanitizeSearchTerm } from '../../lib/searchTerm';
@@ -182,11 +183,8 @@ export class SupabaseService implements DataService {
     display_name: string;
     avatar_emoji?: string;
   }): Promise<SignUpResult> {
-    const handle = input.handle
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9_]/g, '')
-      .slice(0, LIMITS.handle);
+    // Capitals are kept as typed (see lib/handle).
+    const handle = cleanHandle(input.handle);
     const display_name = clamp(input.display_name, LIMITS.displayName);
 
     // Carry the profile fields in the auth user's metadata. With email
@@ -254,12 +252,12 @@ export class SupabaseService implements DataService {
     // A handle is required and must be unique. If metadata is missing — an
     // account made outside this app, say — derive one rather than fail, and
     // add a suffix so a collision doesn't lock the account out entirely.
-    const base =
-      rawHandle.replace(/[^a-z0-9_]/g, '').slice(0, LIMITS.handle) ||
+    let base =
+      cleanHandle(rawHandle) ||
       (auth.user.email ?? 'user').split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20) ||
       'user';
 
-    for (let attempt = 0; attempt < 5; attempt++) {
+    for (let attempt = 0; attempt < 6; attempt++) {
       const handle = attempt === 0 ? base : `${base.slice(0, 24)}${Math.floor(Math.random() * 10000)}`;
       const { data: created, error } = await this.sb
         .from('users')
@@ -277,8 +275,17 @@ export class SupabaseService implements DataService {
         .select()
         .single();
       if (!error) return created as User;
+      const code = (error as { code?: string }).code;
+      // 23514 is check_violation: a database that hasn't run migration 0027
+      // still only allows lowercase handles. Keep the handle, just lowercased,
+      // rather than leave the account without a profile.
+      if (code === '23514' && base !== base.toLowerCase()) {
+        base = base.toLowerCase();
+        attempt--;
+        continue;
+      }
       // 23505 is unique_violation: the handle is taken, try another.
-      if ((error as { code?: string }).code !== '23505') throw error;
+      if (code !== '23505') throw error;
     }
     throw new Error('Could not pick an available handle. Please try a different one.');
   }
