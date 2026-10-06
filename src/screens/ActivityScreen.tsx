@@ -19,7 +19,8 @@ export type ActivityTab = 'liked' | 'saved' | 'commented' | 'tagged';
 type Layout = 'grid' | 'list';
 
 const GRID_COLUMNS = 3;
-const GRID_GAP = 2;
+/** Space between photos: a little more air than the profile grid. */
+const GRID_GAP = 6;
 /** Remembers the viewer's grid/list preference across visits. */
 const LAYOUT_KEY = 'niblgo.activityLayout';
 
@@ -144,10 +145,19 @@ export function ActivityScreen({ navigation, route }: any) {
         >
           <Ionicons
             name={t.icon}
-            size={15}
+            size={17}
             color={tab === t.key ? colors.amberDark : colors.cocoaSoft}
           />
-          <Text style={[styles.tabText, tab === t.key && styles.tabTextActive]}>{t.label}</Text>
+          {/* Icon above the word, so all four words fit their bubble even on a
+              small phone ("Comments" used to spill out). */}
+          <Text
+            style={[styles.tabText, tab === t.key && styles.tabTextActive]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.85}
+          >
+            {t.label}
+          </Text>
         </Pressable>
       ))}
     </View>
@@ -209,15 +219,16 @@ export function ActivityScreen({ navigation, route }: any) {
           data={gridData}
           keyExtractor={(p, i) => p?.id ?? `spacer-${i}`}
           numColumns={GRID_COLUMNS}
-          columnWrapperStyle={{ gap: GRID_GAP }}
+          columnWrapperStyle={styles.gridRow}
           ListHeaderComponent={tabsRow}
-          contentContainerStyle={{ gap: GRID_GAP, paddingBottom: 120 }}
+          contentContainerStyle={styles.grid}
           renderItem={({ item }) =>
             item ? (
               <PostThumb
                 post={item}
                 onPress={() => openPostFeed(navigation, posts, item.id, active.label)}
                 onLongPress={() => navigation.navigate('PostPeek', { postId: item.id })}
+                radius={radius.md}
                 style={{ flex: 1 }}
               />
             ) : (
@@ -292,23 +303,27 @@ const styles = StyleSheet.create({
   tabs: {
     flexDirection: 'row',
     backgroundColor: colors.creamDark,
-    borderRadius: radius.pill,
+    borderRadius: radius.xl,
     padding: 4,
     marginHorizontal: spacing.lg,
-    marginBottom: spacing.md,
+    marginTop: spacing.xs,
+    marginBottom: spacing.lg,
     gap: 4,
   },
   tab: {
     flex: 1,
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 5,
-    paddingVertical: 9,
-    borderRadius: radius.pill,
+    gap: 3,
+    paddingVertical: 8,
+    paddingHorizontal: 2,
+    borderRadius: radius.lg,
   },
   tabActive: { backgroundColor: colors.white, ...(shadowSoft as object) },
-  tabText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.cocoaSoft },
+  tabText: { fontFamily: fonts.bold, fontSize: 12, color: colors.cocoaSoft },
+  // Photos sit inside the page's side margins with a little air between them.
+  grid: { gap: GRID_GAP, paddingBottom: 120 },
+  gridRow: { gap: GRID_GAP, paddingHorizontal: spacing.lg },
   tabTextActive: { color: colors.amberDark },
   empty: { alignItems: 'center', gap: spacing.sm, marginTop: 80 },
 });
