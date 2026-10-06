@@ -147,19 +147,27 @@ export function PostDetailScreen({ navigation, route }: any) {
     addToCollection,
     tagPeople,
     untagMe,
-  } = usePostActions(
-    navigation,
-    () => {},
-  );
+  } = usePostActions(navigation, NO_REFRESH);
 
   // Deleting a post takes it out of the list; if it was the only one, there's
   // nothing left to show, so step back.
-  const removeAndUpdate = async (p: Post) => {
-    await remove(p);
-    const rest = posts.filter((x) => x.id !== p.id);
-    setPosts(rest);
-    if (!isFeed || rest.length === 0) navigation.goBack();
-  };
+  // Stable (reads the list through a ref) so the memoised post cards don't
+  // all re-render whenever this screen does.
+  const postsRef = useRef(posts);
+  postsRef.current = posts;
+  const removeAndUpdate = useCallback(
+    async (p: Post) => {
+      await remove(p);
+      const rest = postsRef.current.filter((x) => x.id !== p.id);
+      setPosts(rest);
+      if (!isFeed || rest.length === 0) navigation.goBack();
+    },
+    [remove, isFeed, navigation],
+  );
+  const openUser = useCallback(
+    (uid: string) => navigation.push('UserProfile', { userId: uid }),
+    [navigation],
+  );
 
   // Open with the tapped post at the top. FlatList can only jump to a row once
   // the rows above it have been measured, so render down to it up front, jump
@@ -289,7 +297,7 @@ export function PostDetailScreen({ navigation, route }: any) {
                 onShare={share}
                 onRepost={repost}
                 onToggleSave={save}
-                onPressUser={(uid) => navigation.push('UserProfile', { userId: uid })}
+                onPressUser={openUser}
                 onDelete={removeAndUpdate}
                 onReport={report}
                 onAddToCollection={addToCollection}
@@ -309,6 +317,9 @@ export function PostDetailScreen({ navigation, route }: any) {
     </View>
   );
 }
+
+/** This screen refreshes its posts itself; stable so actions stay stable. */
+const NO_REFRESH = () => {};
 
 /** Space above the first post in the list. */
 const LIST_TOP_PAD = spacing.md;

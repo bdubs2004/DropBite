@@ -32,6 +32,16 @@ type Host = {
 
 const ZoomContext = createContext<Host | null>(null);
 const ZoomingContext = createContext(false);
+const ZoomCopyContext = createContext(false);
+
+/**
+ * True inside the copy of a photo that's drawn while you pinch it. A photo
+ * uses it to appear instantly there (no fade-in) at the shape it already
+ * knows, so swapping the real photo for its copy is invisible.
+ */
+export function useIsZoomCopy() {
+  return useContext(ZoomCopyContext);
+}
 
 /**
  * True while a photo is being pinched. Lists of posts pass
@@ -91,7 +101,7 @@ export function ZoomHost({ children }: { children: ReactNode }) {
                   transform: [{ translateX: tx }, { translateY: ty }, { scale }],
                 }}
               >
-                {active.node}
+                <ZoomCopyContext.Provider value={true}>{active.node}</ZoomCopyContext.Provider>
               </Animated.View>
             </View>
           ) : null}
@@ -163,6 +173,9 @@ export function PinchZoom({
     measured: false,
     count: 0,
     startTouches: [] as Point[],
+    // Where the fingers were last seen, for starting the zoom from there once
+    // the photo has been measured (so it doesn't jump to catch up).
+    lastTouches: [] as Point[],
     baseScale: 1,
     baseT: { x: 0, y: 0 } as Point,
     scale: 1,
@@ -188,7 +201,17 @@ export function PinchZoom({
 
   const springBack = () => {
     const v = values();
-    const cfg = { useNativeDriver: useNative, friction: 7, tension: 80 };
+    // A firm, quick settle with no wobble: overshooting would shrink the photo
+    // below its size and bounce it, which reads as a glitch.
+    const cfg = {
+      useNativeDriver: useNative,
+      stiffness: 320,
+      damping: 32,
+      mass: 1,
+      overshootClamping: true,
+      restDisplacementThreshold: 0.001,
+      restSpeedThreshold: 0.001,
+    };
     Animated.parallel([
       Animated.spring(v.scale, { toValue: 1, ...cfg }),
       Animated.spring(v.tx, { toValue: 0, ...cfg }),
@@ -219,12 +242,20 @@ export function PinchZoom({
         g.measured = false;
         apply();
         rebase(touchesOf(e));
-        setZooming(true);
+        g.lastTouches = g.startTouches;
         hostRef.current?.lock(true);
+        // No host: the photo zooms in place, nothing to wait for.
+        if (!hostRef.current) setZooming(true);
         const found = (rect: Rect) => {
           g.rect = rect;
           g.measured = true;
+          // Start from where the fingers are now, not where they landed.
+          rebase(g.lastTouches);
+          // Show the copy and hide the original in the same update, so there's
+          // never a frame with no photo (the original used to vanish a frame
+          // or two before its copy appeared).
           hostRef.current?.show(childrenRef.current, rect);
+          setZooming(true);
         };
         if (Platform.OS === 'web') {
           // react-native-web's measureInWindow is approximate (it walks
@@ -239,9 +270,11 @@ export function PinchZoom({
       },
       onPanResponderMove: (e) => {
         const touches = touchesOf(e);
+        if (touches.length === 0) return;
+        g.lastTouches = touches;
         // Wait for the photo's position (one frame) so the zoom is anchored
-        // in the right place; the first measured move catches up.
-        if (touches.length === 0 || !g.measured) return;
+        // in the right place; it then starts from these latest touches.
+        if (!g.measured) return;
         if (touches.length !== g.count) {
           rebase(touches);
           return;
@@ -325,6 +358,7 @@ export function PinchZoom({
   return (
     <View
       ref={wrapRef}
+      testID="pinch-zoom"
       collapsable={false}
       style={[
         style,

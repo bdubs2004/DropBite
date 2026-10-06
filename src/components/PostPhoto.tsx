@@ -2,6 +2,7 @@ import { Image } from 'expo-image';
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { photoFrame } from '../lib/photoFrame';
+import { useIsZoomCopy } from './PinchZoom';
 import { colors } from '../theme';
 import { Post } from '../types';
 
@@ -31,6 +32,13 @@ const TILE_TONES: Record<string, [string, string]> = {
 };
 
 /**
+ * Shapes measured for photos without a stored size (older posts), so the same
+ * photo drawn again (the copy shown while you pinch it, the post in another
+ * list) starts at the right shape instead of 4:5 and then jumping.
+ */
+const measuredSizes = new Map<string, { w: number; h: number }>();
+
+/**
  * The whole photo at its own shape (see lib/photoFrame): the post's stored
  * size when it has one, so the feed lays out right before the photo loads;
  * measured on load for older posts. Pass `ratio` (height / width) only for a
@@ -47,7 +55,10 @@ export function PostPhoto({
   /** Cap how tall the frame can get; the photo fits inside, never cut. */
   maxRatio?: number;
 }) {
-  const [measured, setMeasured] = useState<{ w: number; h: number } | null>(null);
+  const isZoomCopy = useIsZoomCopy();
+  const [measured, setMeasured] = useState<{ w: number; h: number } | null>(
+    () => (post.photo_url ? measuredSizes.get(post.photo_url) ?? null : null),
+  );
   const known = post.photo_width && post.photo_height;
   const natural = photoFrame(
     known ? post.photo_width : measured?.w,
@@ -68,13 +79,17 @@ export function PostPhoto({
         style={[styles.photo, { aspectRatio: 1 / frame.ratio }]}
         contentFit={frame.fit}
         cachePolicy="memory-disk"
-        transition={150}
+        // The zoom copy must be there instantly: a fade-in would blink the
+        // photo every time a pinch starts.
+        transition={isZoomCopy ? 0 : 150}
         onLoad={
           known || ratio !== undefined
             ? undefined
             : (e) => {
                 const { width, height } = e.source ?? {};
-                if (width && height) setMeasured({ w: width, h: height });
+                if (!width || !height) return;
+                if (post.photo_url) measuredSizes.set(post.photo_url, { w: width, h: height });
+                setMeasured({ w: width, h: height });
               }
         }
       />

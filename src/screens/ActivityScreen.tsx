@@ -123,6 +123,10 @@ export function ActivityScreen({ navigation, route }: any) {
     navigation,
     load,
   );
+  const openUser = useCallback(
+    (uid: string) => navigation.navigate('UserProfile', { userId: uid }),
+    [navigation],
+  );
   const active = TABS.find((t) => t.key === tab)!;
 
   // Pad the last grid row so a lone item stays a third-width, not full-width.
@@ -255,7 +259,7 @@ export function ActivityScreen({ navigation, route }: any) {
               onShare={share}
               onRepost={repost}
               onToggleSave={save}
-              onPressUser={(uid) => navigation.navigate('UserProfile', { userId: uid })}
+              onPressUser={openUser}
               onDelete={remove}
               onReport={report}
               onAddToCollection={addToCollection}

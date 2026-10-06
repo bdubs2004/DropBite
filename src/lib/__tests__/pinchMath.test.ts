@@ -3,7 +3,15 @@
  *
  * Run with: npm run test:pinch
  */
-import { MAX_SCALE, pinchTransform, Point } from '../pinchMath';
+import {
+  MAX_SCALE,
+  MIN_SCALE,
+  OVER_ROOM,
+  pinchTransform,
+  Point,
+  rubberBand,
+  UNDER_ROOM,
+} from '../pinchMath';
 
 let failures = 0;
 function check(label: string, pass: boolean) {
@@ -67,7 +75,7 @@ const onScreen = (q: Point, s: number, t: Point) => ({
   check('one finger pans at the current zoom', near(r.scale, 3) && near(r.t.x, 40) && near(r.t.y, -25));
 }
 
-// Limits: can't shrink below normal size, can't zoom forever.
+// Limits are elastic: past them the photo gives a little, then stops giving.
 {
   const shrink = pinchTransform({
     center,
@@ -76,7 +84,10 @@ const onScreen = (q: Point, s: number, t: Point) => ({
     baseScale: 1,
     baseT: zero,
   });
-  check('pinching in stops at normal size', near(shrink.scale, 1));
+  check(
+    'pinching in shrinks only a little past normal size',
+    shrink.scale < MIN_SCALE && shrink.scale > MIN_SCALE - UNDER_ROOM,
+  );
   const huge = pinchTransform({
     center,
     start: [{ x: 199, y: 300 }, { x: 201, y: 300 }],
@@ -84,7 +95,17 @@ const onScreen = (q: Point, s: number, t: Point) => ({
     baseScale: 1,
     baseT: zero,
   });
-  check('zoom is capped', near(huge.scale, MAX_SCALE));
+  check(
+    'zooming far past the cap gives a little, never much',
+    huge.scale > MAX_SCALE && huge.scale < MAX_SCALE + OVER_ROOM,
+  );
+  check('inside the limits nothing is softened', near(rubberBand(2.5), 2.5) && near(rubberBand(1), 1));
+  check(
+    'the give is smooth: the further past, the more resistance',
+    rubberBand(0.9) > rubberBand(0.8) &&
+      MIN_SCALE - rubberBand(0.9) > (MIN_SCALE - rubberBand(0.8)) / 2 &&
+      rubberBand(6) < rubberBand(8),
+  );
 }
 
 if (failures) {

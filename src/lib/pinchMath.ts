@@ -11,6 +11,21 @@ export type Point = { x: number; y: number };
 
 export const MIN_SCALE = 1;
 export const MAX_SCALE = 5;
+/** How far past the limits the photo can be stretched, like a rubber band. */
+export const UNDER_ROOM = 0.25;
+export const OVER_ROOM = 1;
+
+/**
+ * Past a limit the zoom keeps following your fingers but with more and more
+ * resistance, approaching (never reaching) limit ± room. Feels elastic
+ * instead of hitting a wall; the photo springs back to the limit on release.
+ */
+export function rubberBand(raw: number): number {
+  const ease = (past: number, room: number) => room * (1 - 1 / (1 + past / room));
+  if (raw < MIN_SCALE) return MIN_SCALE - ease(MIN_SCALE - raw, UNDER_ROOM);
+  if (raw > MAX_SCALE) return MAX_SCALE + ease(raw - MAX_SCALE, OVER_ROOM);
+  return raw;
+}
 
 const mid = (ps: Point[]): Point =>
   ps.length >= 2
@@ -41,7 +56,7 @@ export function pinchTransform({
   const d = spread(now);
   // Two fingers set the zoom; one finger just drags at the current zoom.
   const raw = d0 > 0 && d > 0 ? baseScale * (d / d0) : baseScale;
-  const scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, raw));
+  const scale = rubberBand(raw);
 
   const p0 = mid(start);
   const p = mid(now);

@@ -15,7 +15,7 @@ import { RecipeCardView } from './RecipeCardView';
 import { RepostBubble } from './RepostBubble';
 import { TagDot } from './TagDot';
 
-export function PostCard({
+function PostCardView({
   post,
   onToggleLike,
   onShowLikes,
@@ -442,6 +442,14 @@ export function PostCard({
     </Pressable>
   );
 }
+
+/**
+ * Memoised: a post only re-renders when its own data or handlers change, not
+ * whenever the list around it does. Pinch-zooming locks and unlocks the list's
+ * scrolling, and without this every post on screen re-rendered at both ends
+ * of the pinch, which made zooming stutter.
+ */
+export const PostCard = React.memo(PostCardView);
 
 const styles = StyleSheet.create({
   card: {
