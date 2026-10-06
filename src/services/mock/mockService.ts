@@ -402,6 +402,9 @@ export class MockService implements DataService {
     const me = await this.me();
     if (!db.follows.some((f) => f.follower_id === me.id && f.followee_id === userId)) {
       db.follows.push({ follower_id: me.id, followee_id: userId });
+      // "Followed you back" when they already follow me.
+      const back = db.follows.some((f) => f.follower_id === userId && f.followee_id === me.id);
+      this.notifyUser(db, userId, me.id, back ? 'follow_back' : 'follow', null);
       await this.save();
     }
   }
@@ -1241,36 +1244,39 @@ export class MockService implements DataService {
   }
 
   /**
-   * Record "someone interacted with your post".
-   *
-   * Production writes these with a database trigger so a patched client can't
-   * forge them (see supabase/schema.sql). Demo mode has no database, so this
-   * mirrors the same rules: never notify yourself, never notify across a
-   * block, and one row per person per post for like/repost/share so unliking
-   * and re-liking doesn't stack duplicates.
+   * Write one Activity row, the way the database triggers do: never to
+   * yourself, never across a block, and one per person per like / follow /
+   * comment-like so undoing and redoing doesn't stack duplicates. Each comment
+   * and reply is its own event.
    */
-  private notify(
+  private notifyUser(
     db: Db,
+    recipient: string | undefined,
     actorId: string,
     type: AppNotification['type'],
-    postId: string,
+    postId: string | null,
     commentId?: string,
-  ): void {
+  ): boolean {
     if (!db.notifications) db.notifications = [];
-    const owner = db.posts.find((p) => p.id === postId)?.user_id;
-    if (!owner || owner === actorId) return;
-    if (this.blockedIds(db, owner).has(actorId)) return;
-
-    if (!commentId) {
+    if (!recipient || recipient === actorId) return false;
+    if (this.blockedIds(db, recipient).has(actorId)) return false;
+    const onePerPerson = type !== 'comment' && type !== 'reply';
+    if (onePerPerson) {
+      const follow = type === 'follow' || type === 'follow_back';
       const already = db.notifications.some(
-        (n) => n.user_id === owner && n.actor_id === actorId && n.type === type && n.post_id === postId,
+        (n) =>
+          n.user_id === recipient &&
+          n.actor_id === actorId &&
+          (follow
+            ? n.type === 'follow' || n.type === 'follow_back'
+            : n.type === type &&
+              (type === 'comment_like' ? n.comment_id === commentId : n.post_id === postId)),
       );
-      if (already) return;
+      if (already) return false;
     }
-
     db.notifications.push({
       id: uid('n-'),
-      user_id: owner,
+      user_id: recipient,
       actor_id: actorId,
       type,
       post_id: postId,
@@ -1278,7 +1284,21 @@ export class MockService implements DataService {
       read_at: null,
       created_at: new Date().toISOString(),
     });
+    return true;
   }
+
+  /** Activity for the owner of a post (likes, comments, reposts, shares). */
+  private notify(
+    db: Db,
+    actorId: string,
+    type: AppNotification['type'],
+    postId: string,
+    commentId?: string,
+  ): void {
+    const owner = db.posts.find((p) => p.id === postId)?.user_id;
+    this.notifyUser(db, owner, actorId, type, postId, commentId);
+  }
+
 
   async getNotifications(): Promise<AppNotification[]> {
     const db = await this.load();
@@ -1342,6 +1362,10 @@ export class MockService implements DataService {
     const idx = db.reactions.findIndex((r) => r.post_id === postId && r.user_id === me.id);
     if (idx >= 0) db.reactions.splice(idx, 1);
     else {
+      // Same as the database: your own post can't be liked.
+      if (db.posts.find((p) => p.id === postId)?.user_id === me.id) {
+        throw new Error('You can\'t like your own post');
+      }
       db.reactions.push({ post_id: postId, user_id: me.id });
       this.notify(db, me.id, 'like', postId);
     }
@@ -1406,8 +1430,18 @@ export class MockService implements DataService {
       (r) => r.comment_id === commentId && r.user_id === me.id,
     );
     if (idx >= 0) db.commentReactions.splice(idx, 1);
-    else db.commentReactions.push({ comment_id: commentId, user_id: me.id });
+    else {
+      db.commentReactions.push({ comment_id: commentId, user_id: me.id });
+      const c = db.comments.find((x) => x.id === commentId);
+      if (c) this.notifyUser(db, c.user_id, me.id, 'comment_like', c.post_id, c.id);
+    }
     await this.save();
+  }
+
+  async getPostLikers(postId: string): Promise<User[]> {
+    const db = await this.load();
+    const ids = db.reactions.filter((r) => r.post_id === postId).map((r) => r.user_id);
+    return ids.map((id) => db.users.find((u) => u.id === id)).filter(Boolean).reverse() as User[];
   }
 
   async getCommentLikers(commentId: string): Promise<User[]> {
@@ -1423,6 +1457,7 @@ export class MockService implements DataService {
     text: string,
     imageUri?: string,
     parentId?: string | null,
+    replyToUserId?: string | null,
   ): Promise<Comment> {
     const db = await this.load();
     const me = await this.me();
@@ -1436,7 +1471,26 @@ export class MockService implements DataService {
       created_at: new Date().toISOString(),
     };
     db.comments.push(comment);
-    this.notify(db, me.id, 'comment', postId, comment.id);
+    // Same as the database: a reply tells the person it answers (if they
+    // really have a comment in this thread, else the comment it sits under),
+    // and the post's owner hears about it unless they were that person.
+    let replied: string | undefined;
+    if (comment.parent_id) {
+      const inThread = (uid2: string) =>
+        db.comments.some(
+          (c) =>
+            c.id !== comment.id &&
+            c.user_id === uid2 &&
+            (c.id === comment.parent_id || c.parent_id === comment.parent_id),
+        );
+      replied =
+        replyToUserId && inThread(replyToUserId)
+          ? replyToUserId
+          : db.comments.find((c) => c.id === comment.parent_id)?.user_id;
+      this.notifyUser(db, replied, me.id, 'reply', postId, comment.id);
+    }
+    const owner = db.posts.find((p) => p.id === postId)?.user_id;
+    if (owner !== replied) this.notifyUser(db, owner, me.id, 'comment', postId, comment.id);
     await this.save();
     return { ...comment, user: me };
   }

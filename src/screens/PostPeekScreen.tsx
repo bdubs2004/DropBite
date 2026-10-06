@@ -74,6 +74,12 @@ export function PostPeekScreen({ navigation, route }: any) {
   };
 
   const like = () => {
+    // Your own post: the heart shows who liked it, like on the full post.
+    if (post && post.user_id === user?.id) {
+      navigation.goBack();
+      navigation.navigate('UserList', { mode: 'post_likes', postId });
+      return;
+    }
     const next = !liked;
     setLiked(next);
     setLikeCount((c) => c + (next ? 1 : -1));

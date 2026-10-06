@@ -205,7 +205,20 @@ export interface Feedback {
   created_at: string;
 }
 
-export type NotificationType = 'like' | 'comment' | 'repost' | 'share' | 'tag';
+export type NotificationType =
+  | 'like'
+  | 'comment'
+  | 'repost'
+  | 'share'
+  | 'tag'
+  /** Started following you. */
+  | 'follow'
+  /** Followed you after you followed them. */
+  | 'follow_back'
+  /** Liked one of your comments (comment_id is the comment). */
+  | 'comment_like'
+  /** Replied to your comment (comment_id is the reply). */
+  | 'reply';
 
 /**
  * "Marge liked your post." Written by database triggers, never by the client,
@@ -225,7 +238,7 @@ export interface AppNotification {
   actor?: User;
   /** The post that was interacted with, for the thumbnail. */
   post?: Post | null;
-  /** The comment's text, when this is a comment notification. */
+  /** The comment's text, for a comment, reply or comment-like notification. */
   comment_text?: string | null;
 }
 

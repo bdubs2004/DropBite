@@ -25,10 +25,19 @@ const KIND: Record<NotificationType, { icon: any; color: string; verb: string }>
   repost: { icon: 'repeat', color: colors.amberDark, verb: 'reposted your post' },
   share: { icon: 'paper-plane', color: colors.amberDark, verb: 'shared your post' },
   tag: { icon: 'pricetag', color: colors.amberDark, verb: 'tagged you in a post' },
+  follow: { icon: 'person-add', color: colors.amber, verb: 'started following you' },
+  follow_back: { icon: 'people', color: colors.amber, verb: 'followed you back' },
+  comment_like: { icon: 'heart', color: colors.danger, verb: 'liked your comment' },
+  reply: { icon: 'arrow-undo', color: colors.amberDark, verb: 'replied to your comment' },
 };
 
+/** Kinds that carry a comment's words (shown after the verb). */
+const SHOWS_COMMENT = new Set<NotificationType>(['comment', 'reply', 'comment_like']);
+const IS_FOLLOW = new Set<NotificationType>(['follow', 'follow_back']);
+
 /**
- * Everything that happened to your posts, newest first.
+ * Everything that happened to your posts and comments, and who followed you,
+ * newest first.
  *
  * Rows are written by database triggers, so this list is a read-only view of
  * what actually happened — the app never creates a notification itself. Opening
@@ -45,10 +54,16 @@ export function NotificationsScreen({ navigation }: any) {
   const [items, setItems] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  // Who I follow, for the Follow back button on follow rows.
+  const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
-    const list = await svc.getNotifications();
+    const [list, ids] = await Promise.all([
+      svc.getNotifications(),
+      svc.getFollowingIds().catch(() => [] as string[]),
+    ]);
     setItems(list);
+    setFollowingIds(new Set(ids));
     setLoading(false);
     // Read them after rendering, so the "new" highlight survives this pass.
     await svc.markNotificationsRead();
@@ -107,10 +122,29 @@ export function NotificationsScreen({ navigation }: any) {
     }
   };
 
+  // A follow opens the person; anything about a comment opens the comments;
+  // the rest open the post.
   const open = (n: AppNotification) => {
+    if (IS_FOLLOW.has(n.type)) {
+      openProfile(n.actor_id);
+      return;
+    }
     if (!n.post_id) return;
-    if (n.type === 'comment') navigation.navigate('Comments', { postId: n.post_id });
+    if (SHOWS_COMMENT.has(n.type)) navigation.navigate('Comments', { postId: n.post_id });
     else navigation.navigate('PostDetail', { postId: n.post_id });
+  };
+
+  const followBack = async (userId: string) => {
+    setFollowingIds((prev) => new Set(prev).add(userId)); // straight away
+    try {
+      await svc.follow(userId);
+    } catch {
+      setFollowingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(userId);
+        return next;
+      });
+    }
   };
 
   // Tapping the avatar opens the person; tapping the body opens the post.
@@ -207,7 +241,7 @@ export function NotificationsScreen({ navigation }: any) {
                     <Text style={styles.text}>
                       <Text style={styles.name}>{item.actor?.display_name ?? 'Someone'}</Text>{' '}
                       {kind.verb}
-                      {item.type === 'comment' && item.comment_text
+                      {SHOWS_COMMENT.has(item.type) && item.comment_text
                         ? `: ${item.comment_text}`
                         : ''}
                     </Text>
@@ -218,7 +252,22 @@ export function NotificationsScreen({ navigation }: any) {
                       and fall back to the same emoji tile used everywhere else. */}
                   {/* The picture always opens the post itself, even on a
                       comment (where the words open the comments). */}
-                  {item.post ? (
+                  {IS_FOLLOW.has(item.type) ? (
+                    followingIds.has(item.actor_id) ? (
+                      <View testID={`notification-following-${item.id}`} style={styles.followingPill}>
+                        <Text style={styles.followingText}>Following</Text>
+                      </View>
+                    ) : (
+                      <Pressable
+                        testID={`notification-follow-back-${item.id}`}
+                        onPress={() => followBack(item.actor_id)}
+                        style={styles.followBtn}
+                        hitSlop={6}
+                      >
+                        <Text style={styles.followText}>Follow back</Text>
+                      </Pressable>
+                    )
+                  ) : item.post ? (
                     <PostThumb
                       post={item.post}
                       radius={8}
@@ -354,6 +403,22 @@ const styles = StyleSheet.create({
   name: { fontFamily: fonts.bold },
   time: { fontSize: 11.5, marginTop: 2 },
   thumb: { width: 46, height: 46, marginLeft: spacing.md },
+  followBtn: {
+    marginLeft: spacing.md,
+    backgroundColor: colors.amber,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+  },
+  followText: { fontFamily: fonts.bold, fontSize: 13, color: colors.white },
+  followingPill: {
+    marginLeft: spacing.md,
+    backgroundColor: colors.white,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+  },
+  followingText: { fontFamily: fonts.bold, fontSize: 13, color: colors.cocoaSoft },
   empty: { alignItems: 'center', gap: spacing.sm, marginTop: 70, paddingHorizontal: spacing.xl },
   emptyTitle: { fontFamily: fonts.display, fontSize: 17, color: colors.cocoa },
 });

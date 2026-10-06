@@ -18,6 +18,7 @@ import { TagDot } from './TagDot';
 export function PostCard({
   post,
   onToggleLike,
+  onShowLikes,
   onComment,
   onShare,
   onRepost,
@@ -32,6 +33,8 @@ export function PostCard({
 }: {
   post: Post;
   onToggleLike: (post: Post) => void;
+  /** Your own post: the heart opens who liked it (you can't like your own). */
+  onShowLikes?: (post: Post) => void;
   onComment?: (post: Post) => void;
   onShare?: (post: Post) => void;
   onRepost?: (post: Post) => void;
@@ -91,6 +94,11 @@ export function PostCard({
   ]);
 
   const handleLike = () => {
+    // Your own post can't be liked: the heart shows who liked it instead.
+    if (isMine) {
+      onShowLikes?.(post);
+      return;
+    }
     setLikeCount((c) => c + (liked ? -1 : 1));
     setLiked((v) => !v);
     onToggleLike(post);
@@ -99,6 +107,7 @@ export function PostCard({
   // (never unlikes), and the heart pops either way so it feels answered.
   const burstRef = useRef<HeartBurstHandle>(null);
   const doubleTapLike = () => {
+    if (isMine) return; // nothing to like on your own post
     burstRef.current?.pop();
     if (!liked) handleLike();
   };
@@ -322,6 +331,7 @@ export function PostCard({
             onPress={handleLike}
             style={styles.actionBtn}
             hitSlop={8}
+            accessibilityLabel={isMine ? 'See who liked this' : liked ? 'Unlike' : 'Like'}
           >
             <Ionicons
               name={liked ? 'heart' : 'heart-outline'}

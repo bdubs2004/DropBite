@@ -119,7 +119,8 @@ export class SupabaseService implements DataService {
    * fails the WHOLE query, so a database that hasn't run migration 0023/0024
    * yet would otherwise lose its feed and chats instead of just the new bits.
    * `leave` is migration 0025 (leaving groups, and the is_group flag);
-   * `photoSize` is 0026 (photo width/height on posts).
+   * `photoSize` is 0026 (photo width/height on posts); `activity` is 0028
+   * (follow / reply / comment-like Activity, and pushes for it).
    */
   private caps = {
     tags: false,
@@ -127,21 +128,30 @@ export class SupabaseService implements DataService {
     reactions: false,
     leave: false,
     photoSize: false,
+    activity: false,
   };
   private capsLoaded: Promise<void> | null = null;
   private loadCaps(): Promise<void> {
     if (!this.capsLoaded) {
       this.capsLoaded = (async () => {
-        const [tags, shares, reactions, leave, photoSize] = await Promise.all([
+        const [tags, shares, reactions, leave, photoSize, activity] = await Promise.all([
           this.sb.from('post_tags').select('post_id').limit(1),
           this.sb.from('messages').select('shared_user_id').limit(1),
           this.sb.from('message_reactions').select('message_id').limit(1),
           this.sb.from('conversations').select('is_group').limit(1),
           this.sb.from('posts').select('photo_width').limit(1),
+          this.sb.from('notifications').select('pushed_at').limit(1),
         ]);
         // All of them failing is a network problem, not a schema answer:
         // try again on the next call rather than switching everything off.
-        if (tags.error && shares.error && reactions.error && leave.error && photoSize.error) {
+        if (
+          tags.error &&
+          shares.error &&
+          reactions.error &&
+          leave.error &&
+          photoSize.error &&
+          activity.error
+        ) {
           this.capsLoaded = null;
           return;
         }
@@ -151,6 +161,7 @@ export class SupabaseService implements DataService {
           reactions: !reactions.error,
           leave: !leave.error,
           photoSize: !photoSize.error,
+          activity: !activity.error,
         };
       })().catch(() => {
         this.capsLoaded = null;
@@ -166,6 +177,18 @@ export class SupabaseService implements DataService {
       (this.caps.profileShares ? ', shared_user:users!messages_shared_user_id_fkey(*)' : '') +
       (this.caps.reactions ? ', message_reactions(user_id, emoji)' : '')
     );
+  }
+
+  /**
+   * Push what you just did (a like, comment, reply, comment like or follow)
+   * to the other person's phone. The Activity row is already written by a
+   * database trigger; notify-activity finds the fresh ones you caused and
+   * sends each once. Fire-and-forget: a missing or failing function never
+   * gets in the way of the like itself.
+   */
+  private pingActivity(): void {
+    if (!this.caps.activity) return;
+    this.sb.functions.invoke('notify-activity', { body: {} }).catch(() => {});
   }
 
   async getCurrentUser(): Promise<User | null> {
@@ -438,7 +461,8 @@ export class SupabaseService implements DataService {
 
   async follow(userId: string): Promise<void> {
     const meId = await this.myId();
-    await this.sb.from('follows').upsert({ follower_id: meId, followee_id: userId });
+    const { error } = await this.sb.from('follows').upsert({ follower_id: meId, followee_id: userId });
+    if (!error) this.pingActivity();
   }
 
   async unfollow(userId: string): Promise<void> {
@@ -1398,8 +1422,21 @@ export class SupabaseService implements DataService {
     if (data) {
       await this.sb.from('reactions').delete().match({ post_id: postId, user_id: meId });
     } else {
-      await this.sb.from('reactions').insert({ post_id: postId, user_id: meId, type: 'like' });
+      const { error } = await this.sb
+        .from('reactions')
+        .insert({ post_id: postId, user_id: meId, type: 'like' });
+      if (error) throw error;
+      this.pingActivity();
     }
+  }
+
+  async getPostLikers(postId: string): Promise<User[]> {
+    const { data } = await this.sb
+      .from('reactions')
+      .select('users(*)')
+      .eq('post_id', postId)
+      .order('created_at', { ascending: false });
+    return (data ?? []).map((r: any) => r.users as User).filter(Boolean);
   }
 
   /**
@@ -1491,7 +1528,10 @@ export class SupabaseService implements DataService {
         .delete()
         .match({ comment_id: commentId, user_id: meId });
     } else {
-      await this.sb.from('comment_reactions').insert({ comment_id: commentId, user_id: meId });
+      const { error } = await this.sb
+        .from('comment_reactions')
+        .insert({ comment_id: commentId, user_id: meId });
+      if (!error) this.pingActivity();
     }
   }
 
@@ -1500,6 +1540,7 @@ export class SupabaseService implements DataService {
     text: string,
     imageUri?: string,
     parentId?: string | null,
+    replyToUserId?: string | null,
   ): Promise<Comment> {
     const meId = await this.myId();
     const body = clamp(text, LIMITS.comment);
@@ -1520,10 +1561,15 @@ export class SupabaseService implements DataService {
         text: body,
         image_url: imageUrl,
         parent_id: parentId ?? null,
+        // Who the reply answers, so they're the one told (migration 0028).
+        ...(this.caps.activity && parentId && replyToUserId
+          ? { reply_to_user_id: replyToUserId }
+          : {}),
       })
       .select('*, users!comments_user_id_fkey(*)')
       .single();
     if (error) throw error;
+    this.pingActivity();
     return { ...(data as Comment), user: (data as any).users as User };
   }
 
