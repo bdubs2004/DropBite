@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ActionSheet } from '../components/ActionSheet';
 import { Avatar } from '../components/Avatar';
 import { ConversationDetailsSheet } from '../components/ConversationDetailsSheet';
+import { FitPhoto } from '../components/FitPhoto';
 import { PhotoViewer } from '../components/PhotoViewer';
 import { PostThumb } from '../components/PostThumb';
 import { RenameGroupSheet } from '../components/RenameGroupSheet';
@@ -262,7 +263,7 @@ export function ChatScreen({ navigation, route }: any) {
   };
 
   const attach = async (fromCamera: boolean) => {
-    const res = await pickImage({ fromCamera, aspect: [4, 5], width: 1200 });
+    const res = await pickImage({ fromCamera, width: 1200 });
     if (res.error) {
       setNotice(res.error);
       return;
@@ -492,13 +493,7 @@ export function ChatScreen({ navigation, route }: any) {
                           onLongPress={() => setMenuFor(item)}
                           delayLongPress={350}
                         >
-                          <Image
-                            source={{ uri: item.image_url }}
-                            style={styles.photo}
-                            contentFit="cover"
-                            cachePolicy="memory-disk"
-                            transition={120}
-                          />
+                          <FitPhoto uri={item.image_url} width={PHOTO_W} style={styles.photo} />
                         </Pressable>
                       ) : null}
 
@@ -850,8 +845,6 @@ const styles = StyleSheet.create({
   reactionChoiceOn: { backgroundColor: colors.amberSoft },
   reactionChoiceEmoji: { fontSize: 26 },
   photo: {
-    width: PHOTO_W,
-    height: Math.round((PHOTO_W * 5) / 4),
     borderRadius: 10,
     backgroundColor: colors.creamDark,
   },

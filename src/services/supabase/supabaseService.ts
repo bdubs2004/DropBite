@@ -117,22 +117,30 @@ export class SupabaseService implements DataService {
    * when they exist. Asking PostgREST for a relationship that isn't there
    * fails the WHOLE query, so a database that hasn't run migration 0023/0024
    * yet would otherwise lose its feed and chats instead of just the new bits.
-   * `leave` is migration 0025 (leaving groups, and the is_group flag).
+   * `leave` is migration 0025 (leaving groups, and the is_group flag);
+   * `photoSize` is 0026 (photo width/height on posts).
    */
-  private caps = { tags: false, profileShares: false, reactions: false, leave: false };
+  private caps = {
+    tags: false,
+    profileShares: false,
+    reactions: false,
+    leave: false,
+    photoSize: false,
+  };
   private capsLoaded: Promise<void> | null = null;
   private loadCaps(): Promise<void> {
     if (!this.capsLoaded) {
       this.capsLoaded = (async () => {
-        const [tags, shares, reactions, leave] = await Promise.all([
+        const [tags, shares, reactions, leave, photoSize] = await Promise.all([
           this.sb.from('post_tags').select('post_id').limit(1),
           this.sb.from('messages').select('shared_user_id').limit(1),
           this.sb.from('message_reactions').select('message_id').limit(1),
           this.sb.from('conversations').select('is_group').limit(1),
+          this.sb.from('posts').select('photo_width').limit(1),
         ]);
         // All of them failing is a network problem, not a schema answer:
         // try again on the next call rather than switching everything off.
-        if (tags.error && shares.error && reactions.error && leave.error) {
+        if (tags.error && shares.error && reactions.error && leave.error && photoSize.error) {
           this.capsLoaded = null;
           return;
         }
@@ -141,6 +149,7 @@ export class SupabaseService implements DataService {
           profileShares: !shares.error,
           reactions: !reactions.error,
           leave: !leave.error,
+          photoSize: !photoSize.error,
         };
       })().catch(() => {
         this.capsLoaded = null;
@@ -759,6 +768,13 @@ export class SupabaseService implements DataService {
         user_id: meId,
         meal_slot: input.meal_slot,
         photo_url: photoUrl,
+        // Only on a database with migration 0026, or the insert would fail.
+        ...(this.caps.photoSize && input.photo_width && input.photo_height
+          ? {
+              photo_width: Math.round(input.photo_width),
+              photo_height: Math.round(input.photo_height),
+            }
+          : {}),
         blurb: clamp(input.blurb, LIMITS.blurb),
         restaurant_place_id: input.restaurant?.place_id ?? null,
         restaurant_name: input.restaurant?.name ?? null,

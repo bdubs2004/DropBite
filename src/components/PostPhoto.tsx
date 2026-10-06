@@ -1,6 +1,7 @@
 import { Image } from 'expo-image';
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { photoFrame } from '../lib/photoFrame';
 import { colors } from '../theme';
 import { Post } from '../types';
 
@@ -29,22 +30,61 @@ const TILE_TONES: Record<string, [string, string]> = {
   '🥧': ['#B0854E', '#8D6839'],
 };
 
-export function PostPhoto({ post, ratio = 1.15 }: { post: Post; ratio?: number }) {
+/**
+ * The whole photo at its own shape (see lib/photoFrame): the post's stored
+ * size when it has one, so the feed lays out right before the photo loads;
+ * measured on load for older posts. Pass `ratio` (height / width) only for a
+ * fixed-shape crop, like a small cover tile.
+ */
+export function PostPhoto({
+  post,
+  ratio,
+  maxRatio,
+}: {
+  post: Post;
+  /** Force this frame (height / width) and crop to fill it. */
+  ratio?: number;
+  /** Cap how tall the frame can get; the photo fits inside, never cut. */
+  maxRatio?: number;
+}) {
+  const [measured, setMeasured] = useState<{ w: number; h: number } | null>(null);
+  const known = post.photo_width && post.photo_height;
+  const natural = photoFrame(
+    known ? post.photo_width : measured?.w,
+    known ? post.photo_height : measured?.h,
+  );
+  const frame =
+    ratio !== undefined
+      ? { ratio, fit: 'cover' as const }
+      : maxRatio !== undefined && natural.ratio > maxRatio
+        ? { ratio: maxRatio, fit: 'contain' as const }
+        : natural;
+
   if (post.photo_url) {
     return (
       <Image
+        testID="post-photo"
         source={{ uri: post.photo_url }}
-        style={[styles.photo, { aspectRatio: 1 / ratio }]}
-        contentFit="cover"
+        style={[styles.photo, { aspectRatio: 1 / frame.ratio }]}
+        contentFit={frame.fit}
         cachePolicy="memory-disk"
         transition={150}
+        onLoad={
+          known || ratio !== undefined
+            ? undefined
+            : (e) => {
+                const { width, height } = e.source ?? {};
+                if (width && height) setMeasured({ w: width, h: height });
+              }
+        }
       />
     );
   }
+  const tileRatio = ratio ?? 1.15;
   const emoji = post.photo_emoji || '🍽️';
   const [base, deep] = TILE_TONES[emoji] ?? ['#A98A62', '#87694A'];
   return (
-    <View style={[styles.photo, styles.tile, { aspectRatio: 1 / ratio, backgroundColor: base }]}>
+    <View style={[styles.photo, styles.tile, { aspectRatio: 1 / tileRatio, backgroundColor: base }]}>
       <View style={[styles.shade, { backgroundColor: deep }]} />
       <View style={styles.plate}>
         <Text style={styles.emoji}>{emoji}</Text>

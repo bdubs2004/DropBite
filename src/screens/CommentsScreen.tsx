@@ -17,6 +17,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ActionSheet } from '../components/ActionSheet';
 import { Avatar } from '../components/Avatar';
+import { FitPhoto } from '../components/FitPhoto';
 import { Muted } from '../components/ui';
 import { LIMITS } from '../lib/limits';
 import { pickImage } from '../lib/pickImage';
@@ -149,7 +150,7 @@ export function CommentsScreen({ navigation, route }: any) {
   };
 
   const attach = async (fromCamera: boolean) => {
-    const res = await pickImage({ fromCamera, aspect: [4, 5], width: 1200 });
+    const res = await pickImage({ fromCamera, width: 1200 });
     if (res.error) {
       setNotice(res.error);
       return;
@@ -251,13 +252,11 @@ export function CommentsScreen({ navigation, route }: any) {
           {c.text}
         </Text>
         {c.image_url ? (
-          <Image
+          <FitPhoto
             testID={`comment-photo-${c.id}`}
-            source={{ uri: c.image_url }}
+            uri={c.image_url}
+            width={150}
             style={styles.commentPhoto}
-            contentFit="cover"
-            cachePolicy="memory-disk"
-            transition={120}
           />
         ) : null}
         <View style={styles.metaRow}>
@@ -604,8 +603,6 @@ const styles = StyleSheet.create({
   handle: { fontFamily: fonts.bold, color: colors.cocoa },
   text: { fontFamily: fonts.semi, fontSize: 14.5, lineHeight: 20, color: colors.cocoa },
   commentPhoto: {
-    width: 150,
-    height: 188,
     borderRadius: 12,
     marginTop: spacing.sm,
     backgroundColor: colors.creamDark,

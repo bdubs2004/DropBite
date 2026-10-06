@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import React, { useState } from 'react';
 import {
-  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -19,6 +19,7 @@ import { NutritionPanel } from '../components/NutritionPanel';
 import { RecipeCardEditor } from '../components/RecipeCardEditor';
 import { Button, Input, Muted } from '../components/ui';
 import { LIMITS } from '../lib/limits';
+import { photoFrame } from '../lib/photoFrame';
 import { pickImage } from '../lib/pickImage';
 import { defaultMealSlot } from '../lib/time';
 import { totalForRecipe } from '../lib/nutrition';
@@ -39,6 +40,8 @@ export function ComposeScreen({ navigation }: any) {
   const svc = getDataService();
 
   const [photoUri, setPhotoUri] = useState<string | null>(null);
+  // The photo's size, so the preview (and later the feed) shows it whole.
+  const [photoSize, setPhotoSize] = useState<{ width: number; height: number } | null>(null);
   const [photoEmoji, setPhotoEmoji] = useState<string | null>(null);
   const [slot, setSlot] = useState<MealSlot>(defaultMealSlot());
   const [blurb, setBlurb] = useState('');
@@ -74,17 +77,19 @@ export function ComposeScreen({ navigation }: any) {
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
 
   const hasPhoto = Boolean(photoUri || photoEmoji);
+  const previewFrame = photoFrame(photoSize?.width, photoSize?.height);
   const canPost = hasPhoto && blurb.trim().length > 0 && !posting;
 
   const pickPhoto = async (fromCamera: boolean) => {
     setPhotoError(null);
-    const res = await pickImage({ fromCamera, aspect: [4, 5], width: 1600 });
+    const res = await pickImage({ fromCamera, width: 1600 });
     if (res.error) {
       setPhotoError(res.error);
       return;
     }
     if (!res.uri) return; // cancelled
     setPhotoUri(res.uri);
+    setPhotoSize({ width: res.width, height: res.height });
     setPhotoEmoji(null);
   };
 
@@ -165,6 +170,8 @@ export function ComposeScreen({ navigation }: any) {
       const created = await svc.createPost({
         meal_slot: slot,
         photo_url: photoUri,
+        photo_width: photoUri ? photoSize?.width ?? null : null,
+        photo_height: photoUri ? photoSize?.height ?? null : null,
         photo_emoji: photoEmoji,
         blurb: blurb.trim(),
         restaurant: place,
@@ -231,8 +238,20 @@ export function ComposeScreen({ navigation }: any) {
         <Text style={styles.stepLabel}>Photo</Text>
         {photoUri ? (
           <View>
-            <Image source={{ uri: photoUri }} style={styles.photoPreview} />
-            <Pressable onPress={() => setPhotoUri(null)} style={styles.photoClear}>
+            {/* The whole photo, at the shape it will have in the feed. */}
+            <Image
+              testID="compose-photo"
+              source={{ uri: photoUri }}
+              style={[styles.photoPreview, { aspectRatio: 1 / previewFrame.ratio }]}
+              contentFit={previewFrame.fit}
+            />
+            <Pressable
+              onPress={() => {
+                setPhotoUri(null);
+                setPhotoSize(null);
+              }}
+              style={styles.photoClear}
+            >
               <Ionicons name="close" size={18} color={colors.white} />
             </Pressable>
           </View>
