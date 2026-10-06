@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   FlatList,
+  Platform,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -179,6 +180,52 @@ export function PostDetailScreen({ navigation, route }: any) {
     setTimeout(jumpToStart, 25);
   }, [positioned, startIndex]);
 
+  // Stay on the tapped post after the jump, too. The posts above it keep
+  // changing height for a moment (their photos load and take their real
+  // shape, text settles), and every change slid the list so you ended up
+  // looking at the next post. Until you scroll yourself, re-pin the tapped
+  // post to the top whenever the content changes size. Once you scroll, the
+  // list is yours (and on a phone maintainVisibleContentPosition keeps what
+  // you're looking at still while things above it resize).
+  const userMoved = useRef(false);
+  // Each post's measured height. The pin adds up the posts above the tapped
+  // one itself rather than asking the list where it is: the list only notices
+  // a post moved when that post's own size changes, so after one above it
+  // grows its record of where the tapped post sits is out of date.
+  const heights = useRef(new Map<string, number>());
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
+  const holdStart = useCallback(() => {
+    if (!positioned || userMoved.current || startIndex === 0) return;
+    const pin = () => {
+      if (userMoved.current) return;
+      const above = visibleRef.current.slice(0, startIndex);
+      const sizes = above.map((p) => heights.current.get(p.id));
+      if (sizes.some((h) => h === undefined)) {
+        // Something above isn't measured yet: fall back to the list's own idea.
+        listRef.current?.scrollToIndex({ index: startIndex, animated: false });
+        return;
+      }
+      const offset = LIST_TOP_PAD + sizes.reduce((sum: number, h) => sum + (h as number), 0);
+      listRef.current?.scrollToOffset({ offset, animated: false });
+    };
+    // The size change can be reported before the list has re-measured the
+    // post that changed, so pin again once those measurements are in.
+    requestAnimationFrame(pin);
+    setTimeout(pin, 80);
+    setTimeout(pin, 250);
+  }, [positioned, startIndex]);
+  const letGo = () => {
+    userMoved.current = true;
+  };
+  // A mouse wheel in a web browser fires none of the touch events above, so
+  // there the hold just ends after a few seconds rather than fight a scroll.
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !positioned) return;
+    const t = setTimeout(letGo, 4000);
+    return () => clearTimeout(t);
+  }, [positioned]);
+
   const title = isFeed
     ? route.params?.title ?? 'Posts'
     : posts[0]?.user?.display_name
@@ -208,11 +255,16 @@ export function PostDetailScreen({ navigation, route }: any) {
           data={visible}
           keyExtractor={(p) => p.id}
           style={{ opacity: positioned ? 1 : 0 }}
-          contentContainerStyle={{ paddingTop: spacing.md, paddingBottom: 120 }}
+          contentContainerStyle={{ paddingTop: LIST_TOP_PAD, paddingBottom: 120 }}
           initialNumToRender={startIndex + 2}
           onContentSizeChange={() => {
             if (!positioned) setTimeout(jumpToStart, 0);
+            else holdStart();
           }}
+          onTouchStart={letGo}
+          onScrollBeginDrag={letGo}
+          onMomentumScrollBegin={letGo}
+          maintainVisibleContentPosition={isFeed ? { minIndexForVisible: 0 } : undefined}
           onScrollToIndexFailed={() => {
             jumpFailed.current = true;
           }}
@@ -227,21 +279,23 @@ export function PostDetailScreen({ navigation, route }: any) {
             />
           }
           renderItem={({ item }) => (
-            <PostCard
-              post={item}
-              onToggleLike={like}
-              onComment={comment}
-              onShare={share}
-              onRepost={repost}
-              onToggleSave={save}
-              onPressUser={(uid) => navigation.push('UserProfile', { userId: uid })}
-              onDelete={removeAndUpdate}
-              onReport={report}
-              onAddToCollection={addToCollection}
-              onTagPeople={tagPeople}
-              onUntagMe={untagMe}
-              isMine={item.user_id === user?.id}
-            />
+            <View onLayout={(e) => heights.current.set(item.id, e.nativeEvent.layout.height)}>
+              <PostCard
+                post={item}
+                onToggleLike={like}
+                onComment={comment}
+                onShare={share}
+                onRepost={repost}
+                onToggleSave={save}
+                onPressUser={(uid) => navigation.push('UserProfile', { userId: uid })}
+                onDelete={removeAndUpdate}
+                onReport={report}
+                onAddToCollection={addToCollection}
+                onTagPeople={tagPeople}
+                onUntagMe={untagMe}
+                isMine={item.user_id === user?.id}
+              />
+            </View>
           )}
           ListEmptyComponent={
             <Muted style={{ textAlign: 'center', marginTop: spacing.xl }}>
@@ -253,6 +307,9 @@ export function PostDetailScreen({ navigation, route }: any) {
     </View>
   );
 }
+
+/** Space above the first post in the list. */
+const LIST_TOP_PAD = spacing.md;
 
 const styles = StyleSheet.create({
   root: {
