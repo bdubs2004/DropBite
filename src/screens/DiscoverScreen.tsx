@@ -19,7 +19,7 @@ import { useApp } from '../state/AppContext';
 import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
 import { DiscoverPerson, Post } from '../types';
 
-type Tab = 'posts' | 'people';
+type Tab = 'dishes' | 'people';
 
 const GRID_COLUMNS = 3;
 const GRID_GAP = 2;
@@ -27,8 +27,9 @@ const GRID_GAP = 2;
 /**
  * Discover: browse everything on NiblGo, not just your feed.
  *
- * Two modes — a photo grid of recent posts (Instagram/TikTok explore) and a
- * list of people with a taste of what they cook. No search box here; Discover
+ * Two modes — Dishes, a photo grid of recent posts that come with a recipe,
+ * for scrolling around to find a meal to make (Instagram/TikTok explore), and
+ * a list of people with a taste of what they cook. No search box here; Discover
  * is for browsing, the Search tab is for looking something up.
  */
 export function DiscoverScreen({ navigation }: any) {
@@ -38,7 +39,7 @@ export function DiscoverScreen({ navigation }: any) {
   const { refreshFeed, hiddenIds } = useApp();
   const insets = useSafeAreaInsets();
 
-  const [tab, setTab] = useState<Tab>('posts');
+  const [tab, setTab] = useState<Tab>('dishes');
   const [posts, setPosts] = useState<Post[]>([]);
   const [people, setPeople] = useState<DiscoverPerson[]>([]);
   const [loading, setLoading] = useState(true);
@@ -131,10 +132,10 @@ export function DiscoverScreen({ navigation }: any) {
     <View style={styles.header}>
       <ScreenTitle>Discover</ScreenTitle>
       <Muted>
-        {tab === 'posts' ? 'What everyone is eating right now' : 'People worth following'}
+        {tab === 'dishes' ? 'Scroll around and find your next meal' : 'People worth following'}
       </Muted>
       <View style={styles.tabs}>
-        <TabButton label="Posts" active={tab === 'posts'} onPress={() => setTab('posts')} />
+        <TabButton label="Dishes" active={tab === 'dishes'} onPress={() => setTab('dishes')} />
         <TabButton label="People" active={tab === 'people'} onPress={() => setTab('people')} />
       </View>
     </View>
@@ -165,7 +166,7 @@ export function DiscoverScreen({ navigation }: any) {
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
-      {tab === 'posts' ? (
+      {tab === 'dishes' ? (
         <FlatList
           ref={gridRef}
           testID="discover-grid"
@@ -186,6 +187,7 @@ export function DiscoverScreen({ navigation }: any) {
                 onPress={() => openPost(item)}
                 onLongPress={() => navigation.navigate('PostPeek', { postId: item.id })}
                 style={{ flex: 1 }}
+                showRecipeBadge={false}
               />
             ) : (
               <View style={{ flex: 1 }} />
@@ -193,7 +195,7 @@ export function DiscoverScreen({ navigation }: any) {
           }
           ListEmptyComponent={
             <Muted style={styles.empty}>
-              Nothing to discover yet. Once other people post, their meals show up here.
+              No dishes yet. When people post a meal with a recipe, it shows up here.
             </Muted>
           }
         />

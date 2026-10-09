@@ -24,12 +24,15 @@ export function PostThumb({
   onLongPress,
   style,
   radius = 0,
+  showRecipeBadge = true,
 }: {
   post: Post;
   onPress?: () => void;
   onLongPress?: () => void;
   style?: ViewStyle;
   radius?: number;
+  /** Off where every tile has a recipe (Discover's Dishes), so it says nothing. */
+  showRecipeBadge?: boolean;
 }) {
   const styles = useStyles();
   const emoji = post.photo_emoji || '🍽️';
@@ -60,7 +63,7 @@ export function PostThumb({
           <Text style={styles.emoji}>{emoji}</Text>
         </View>
       )}
-      {post.recipe ? (
+      {post.recipe && showRecipeBadge ? (
         // Marks posts that carry a recipe card, so the grid reads as more than
         // pictures — recipes are the thing worth discovering.
         <View style={styles.recipeBadge}>
