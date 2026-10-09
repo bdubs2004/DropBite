@@ -625,11 +625,15 @@ export class SupabaseService implements DataService {
 
   async getDiscoverPosts(): Promise<Post[]> {
     const meId = await this.myId();
-    // Everyone's posts, not just your feed. Your own are excluded.
+    // Dishes: everyone's posts that come with a recipe you could make, not
+    // just your feed. Your own are excluded. The inner join drops posts with
+    // no recipe card, and the filter drops cards left blank (no ingredients
+    // and no steps).
     const { data, error } = await this.sb
       .from('posts')
-      .select(this.POST_SELECT)
+      .select(this.POST_SELECT.replace('recipes(*)', 'recipes!inner(*)'))
       .neq('user_id', meId)
+      .or('ingredients.neq.[],steps.neq.[]', { referencedTable: 'recipes' })
       .order('created_at', { ascending: false })
       .limit(120);
     if (error) throw error;

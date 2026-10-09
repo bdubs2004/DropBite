@@ -469,11 +469,16 @@ export class MockService implements DataService {
   async getDiscoverPosts(): Promise<Post[]> {
     const db = await this.load();
     const me = await this.me();
-    // Everyone's posts, not just people you follow — that's the whole point of
-    // Discover. Your own are excluded; you already know what you cooked.
+    // Dishes: everyone's posts that come with a recipe you could make, not
+    // just people you follow. Your own are excluded; you already know what you
+    // cooked. A card left blank (no ingredients, no steps) doesn't count.
     const blocked = this.blockedIds(db, me.id);
+    const hasRecipe = (postId: string) =>
+      db.recipes.some(
+        (r) => r.post_id === postId && (r.ingredients.length > 0 || r.steps.length > 0),
+      );
     return db.posts
-      .filter((p) => p.user_id !== me.id && !blocked.has(p.user_id))
+      .filter((p) => p.user_id !== me.id && !blocked.has(p.user_id) && hasRecipe(p.id))
       .sort((a, b) => b.created_at.localeCompare(a.created_at))
       .map((p) => this.hydrate(db, p, me.id));
   }
