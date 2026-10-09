@@ -114,6 +114,8 @@ export function DiscoverScreen({ navigation }: any) {
 
   const toggleFollow = async (person: DiscoverPerson) => {
     // Flip locally first so the button responds immediately, then persist.
+    // The card stays put showing "Following" (so a mis-tap can be undone);
+    // the next reload drops it, since People only lists who you don't follow.
     setPeople((prev) =>
       prev.map((p) =>
         p.user.id === person.user.id ? { ...p, is_following: !p.is_following } : p,
@@ -215,7 +217,7 @@ export function DiscoverScreen({ navigation }: any) {
             />
           )}
           ListEmptyComponent={
-            <Muted style={styles.empty}>No one to show yet. Invite your friends to join.</Muted>
+            <Muted style={styles.empty}>No one new to show yet. Invite your friends to join.</Muted>
           }
         />
       )}
