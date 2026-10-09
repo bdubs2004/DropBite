@@ -19,14 +19,14 @@ import { COLLECTION_NAME_MAX, collectionNameProblem } from '../lib/collectionNam
 import { openPostFeed } from '../lib/postFeed';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
-import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
+import { fonts, radius, spacing, makeStyles, useColors, photoGrid } from '../theme';
 import { Collection, Post, Streak, User } from '../types';
 
 /**
  * Shows either my own profile (tab) or another user's (pushed from feed).
  */
-const GRID_COLUMNS = 3;
-const GRID_GAP = 2;
+const GRID_COLUMNS = photoGrid.columns;
+const GRID_GAP = photoGrid.gap;
 
 export function ProfileScreen({ navigation, route }: any) {
   const styles = useStyles();
@@ -477,7 +477,7 @@ export function ProfileScreen({ navigation, route }: any) {
           numColumns={GRID_COLUMNS}
           onScrollToIndexFailed={() => {}}
           ListHeaderComponent={header}
-          columnWrapperStyle={{ gap: GRID_GAP }}
+          columnWrapperStyle={{ gap: GRID_GAP, paddingHorizontal: photoGrid.side }}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -501,6 +501,7 @@ export function ProfileScreen({ navigation, route }: any) {
                 }
                 onLongPress={() => navigation.navigate('PostPeek', { postId: item.id })}
                 style={{ flex: 1 }}
+                radius={photoGrid.radius}
               />
             ) : (
               <View style={{ flex: 1 }} />

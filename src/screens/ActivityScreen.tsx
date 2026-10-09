@@ -12,15 +12,15 @@ import { openPostFeed } from '../lib/postFeed';
 import { usePostActions } from '../lib/usePostActions';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
-import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
+import { fonts, radius, spacing, makeStyles, useColors, photoGrid } from '../theme';
 import { Post } from '../types';
 
 export type ActivityTab = 'liked' | 'saved' | 'commented' | 'tagged';
 type Layout = 'grid' | 'list';
 
-const GRID_COLUMNS = 3;
+const GRID_COLUMNS = photoGrid.columns;
 /** Space between photos: a little more air than the profile grid. */
-const GRID_GAP = 6;
+const GRID_GAP = photoGrid.gap;
 /** Remembers the viewer's grid/list preference across visits. */
 const LAYOUT_KEY = 'niblgo.activityLayout';
 
@@ -272,7 +272,7 @@ export function ActivityScreen({ navigation, route }: any) {
                 post={item}
                 onPress={() => openPostFeed(navigation, posts, item.id, active.label)}
                 onLongPress={() => navigation.navigate('PostPeek', { postId: item.id })}
-                radius={radius.md}
+                radius={photoGrid.radius}
                 style={{ flex: 1 }}
               />
             ) : (
@@ -367,7 +367,7 @@ const useStyles = makeStyles((colors, { shadowSoft }) => ({
   tabText: { fontFamily: fonts.bold, fontSize: 12, color: colors.cocoaSoft },
   // Photos sit inside the page's side margins with a little air between them.
   grid: { gap: GRID_GAP, paddingBottom: 120 },
-  gridRow: { gap: GRID_GAP, paddingHorizontal: spacing.lg },
+  gridRow: { gap: GRID_GAP, paddingHorizontal: photoGrid.side },
   tabTextActive: { color: colors.amberDark },
   empty: { alignItems: 'center', gap: spacing.sm, marginTop: 80 },
 }));

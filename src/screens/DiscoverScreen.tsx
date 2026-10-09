@@ -16,13 +16,13 @@ import { Button, Muted, ScreenTitle } from '../components/ui';
 import { openPostFeed } from '../lib/postFeed';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
-import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
+import { fonts, radius, spacing, makeStyles, useColors, photoGrid } from '../theme';
 import { DiscoverPerson, Post } from '../types';
 
 type Tab = 'dishes' | 'people';
 
-const GRID_COLUMNS = 3;
-const GRID_GAP = 2;
+const GRID_COLUMNS = photoGrid.columns;
+const GRID_GAP = photoGrid.gap;
 
 /**
  * Discover: browse everything on NiblGo, not just your feed.
@@ -175,7 +175,7 @@ export function DiscoverScreen({ navigation }: any) {
           keyExtractor={(p, i) => p?.id ?? `spacer-${i}`}
           numColumns={GRID_COLUMNS}
           ListHeaderComponent={header}
-          columnWrapperStyle={{ gap: GRID_GAP }}
+          columnWrapperStyle={{ gap: GRID_GAP, paddingHorizontal: photoGrid.side }}
           contentContainerStyle={{ gap: GRID_GAP, paddingBottom: 120 }}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.amber} />
@@ -187,6 +187,7 @@ export function DiscoverScreen({ navigation }: any) {
                 onPress={() => openPost(item)}
                 onLongPress={() => navigation.navigate('PostPeek', { postId: item.id })}
                 style={{ flex: 1 }}
+                radius={photoGrid.radius}
                 showRecipeBadge={false}
               />
             ) : (
