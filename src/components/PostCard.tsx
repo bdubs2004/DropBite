@@ -604,6 +604,10 @@ const useStyles = makeStyles((colors, { shadow }) => ({
     maxWidth: '100%',
     flexDirection: 'row',
     alignItems: 'center',
+    // If the bubble ends up wider than a short title (iOS can measure a
+    // custom-font title a little wide), keep the title centered in it rather
+    // than leaving a gap on the right.
+    justifyContent: 'center',
     gap: 5,
     backgroundColor: colors.cream,
     borderRadius: radius.pill,
@@ -614,6 +618,7 @@ const useStyles = makeStyles((colors, { shadow }) => ({
   },
   recipeToggleText: {
     flexShrink: 1,
+    textAlign: 'center',
     fontFamily: fonts.bold,
     fontSize: 13,
     color: colors.amberDark,
