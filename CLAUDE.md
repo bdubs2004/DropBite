@@ -59,7 +59,7 @@ Rules:
 
 - Prompt the model to return strict JSON: {title, ingredients: [{item, quantity, unit}], steps: [], cook_time_minutes}. Parse defensively; on parse failure, fall back gracefully (show blurb only, offer retry) — never block the post.
 - The user reviews the card before posting and can edit every field inline (this is a hard requirement).
-- If the blurb clearly isn't a recipe (restaurant meal, "just cereal lol"), skip the recipe card entirely — don't force it.
+- The AI is only called when the user taps "Format recipe", and that tap always produces a card (owner decision): restaurant, store-bought or simple food gets the homemade / put-it-together version, and if there's genuinely nothing to work from the app opens a blank card titled from their words. Posting without a card is still the default.
 - Keep prompts and model choice in one config module so cost/quality tuning is easy later.
 
 ## Engineering Conventions

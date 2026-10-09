@@ -239,16 +239,38 @@ const FOOD_WORDS = [
 const COOKING_VERBS =
   /\b(brown(?:ed)?|sear(?:ed)?|saut[ée](?:ed|d)?|roast(?:ed)?|bake(?:d)?|boil(?:ed)?|simmer(?:ed)?|fr(?:y|ied)|grill(?:ed)?|mix(?:ed)?|whisk(?:ed)?|stir(?:red)?|chop(?:ped)?|dice(?:d)?|mince(?:d)?|toss(?:ed)?|threw|throw|add(?:ed)?|marinat(?:e|ed)|season(?:ed)?|caramelize(?:d)?|reduce(?:d)?|fold(?:ed)?|knead(?:ed)?|smoke(?:d)?)\b/i;
 
+const SMALL_WORDS = new Set(['a', 'an', 'and', 'in', 'of', 'on', 'or', 'the', 'to', 'with', 'for', 'at']);
+
+/**
+ * A recipe title from someone's own words, for when there's nothing better:
+ * the first phrase, up to six words, in title case. "tyson chicken strips
+ * tossed in wing sauce. so good" -> "Tyson Chicken Strips Tossed in Wing".
+ */
+export function titleFromBlurb(blurb: string): string {
+  const phrase = blurb.split(/[.!?\n,;:]/)[0] ?? '';
+  const words = phrase
+    .replace(/[^\p{L}\p{N}'&\s-]/gu, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 6);
+  if (!words.length) return 'My Recipe';
+  return words
+    .map((w, i) =>
+      i > 0 && SMALL_WORDS.has(w.toLowerCase())
+        ? w.toLowerCase()
+        : w.charAt(0).toUpperCase() + w.slice(1),
+    )
+    .join(' ');
+}
+
+/**
+ * Demo-mode stand-in for the AI. Like the real thing, tapping Format always
+ * gives you a card: from cooking words when there are some, otherwise a
+ * simple put-it-together card you can edit.
+ */
 export function heuristicFormat(blurb: string): FormattedRecipe {
   const lower = blurb.toLowerCase();
-  const looksLikeRecipe =
-    COOKING_VERBS.test(blurb) ||
-    FOOD_WORDS.filter((w) => lower.includes(w)).length >= 2;
-  const notRecipe = NOT_RECIPE_HINTS.some((h) => lower.includes(h));
-
-  if (!looksLikeRecipe || notRecipe) {
-    return { is_recipe: false, title: '', ingredients: [], steps: [], cook_time_minutes: null };
-  }
+  const boughtOrOut = NOT_RECIPE_HINTS.some((h) => lower.includes(h));
 
   // quantities like "2 tbsp butter", "1/2 cup flour"
   const ingredients: Ingredient[] = [];
@@ -293,19 +315,22 @@ export function heuristicFormat(blurb: string): FormattedRecipe {
     cookTime = /h/i.test(t[0]) ? parseInt(t[1], 10) * 60 : parseInt(t[1], 10);
   }
 
-  // title: main protein/dish word + style
+  // title: main protein/dish word + style, else the person's own words
   const main = FOOD_WORDS.find((w) => lower.includes(w));
-  const title = main
-    ? `${main.charAt(0).toUpperCase() + main.slice(1)} ${
-        /roast/i.test(blurb) ? 'Roast' : /soup|broth/i.test(blurb) ? 'Soup' : /salad/i.test(blurb) ? 'Salad' : 'Dish'
-      }`
-    : 'My Recipe';
+  const title =
+    main && !boughtOrOut
+      ? `${main.charAt(0).toUpperCase() + main.slice(1)} ${
+          /roast/i.test(blurb) ? 'Roast' : /soup|broth/i.test(blurb) ? 'Soup' : /salad/i.test(blurb) ? 'Salad' : 'Dish'
+        }`
+      : titleFromBlurb(blurb);
 
   return {
     is_recipe: true,
     title,
     ingredients,
-    steps: steps.length ? steps : ['Cook it the way you described. Edit this card to add detail.'],
+    steps: steps.length
+      ? steps
+      : ['Get everything ready.', 'Put it together the way you described. Edit this card to add detail.'],
     cook_time_minutes: cookTime,
   };
 }

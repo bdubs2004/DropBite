@@ -9,6 +9,9 @@
 //
 // Request:  POST { blurb: string }
 // Response: { is_recipe, title, ingredients: [{item,quantity,unit}], steps: [], cook_time_minutes }
+// The person asked for a card, so the prompt always produces one; is_recipe is
+// false only when the text names no food at all (the app then opens a blank,
+// editable card titled from their words).
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
@@ -16,16 +19,19 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 const MODEL = 'claude-haiku-4-5';
 const MAX_TOKENS = 1024;
 const SYSTEM_PROMPT = [
-  'You turn a casual home-cook blurb into a structured recipe.',
+  'You turn a casual description of a meal into a structured recipe card.',
   'Return STRICT JSON only, no prose, matching:',
   '{"is_recipe": boolean, "title": string, "ingredients": [{"item": string, "quantity": string, "unit": string}], "steps": [string], "cook_time_minutes": number | null}',
-  'If the blurb names or describes a dish someone could cook at home — even just',
-  'a dish name like "chicken alfredo" or "banana bread" — set is_recipe=true and',
-  'write a sensible standard version of that dish: its usual ingredients with',
-  'quantities, and clear step-by-step directions.',
-  'Only set is_recipe=false when it clearly is not a home-cooked dish: a',
-  'restaurant or takeout meal, a packaged snack, or a non-food blurb',
-  '("just cereal lol", "grabbed tacos with friends"). Then leave the rest minimal.',
+  'The person tapped "Format recipe", so always give them a recipe card.',
+  'Every description of food gets one: a home-cooked dish gets that dish; just a dish',
+  'name ("chicken alfredo", "banana bread") gets a sensible standard version with its',
+  'usual ingredients, quantities and clear steps; store-bought, frozen or restaurant',
+  'food gets the simplest way to make or put it together at home (frozen chicken',
+  'strips tossed in a bottled wing sauce: bake the strips, warm the sauce, toss),',
+  'keeping brand names as ingredients when that is what they used; even something',
+  'simple ("cereal", "a sandwich") gets a short assembly recipe.',
+  'Set is_recipe=true for all of these. Only set is_recipe=false when the text names',
+  'no food or drink at all.',
   'When the blurb already spells out ingredients or steps, stay close to what it',
   'says; only fill in a typical version when it is just a dish name.',
   'Quantities may be empty strings when unknown.',
