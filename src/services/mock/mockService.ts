@@ -145,6 +145,15 @@ export class MockService implements DataService {
   private db: Db | null = null;
 
   private async load(): Promise<Db> {
+    // Test hook: browser tests set this to give demo reads real-network-like
+    // latency (a number of ms, or a function returning one per read), which
+    // is how loading-state bugs that only show up on a phone get reproduced.
+    // Never set by the app.
+    const lag = (globalThis as any).__NIBL_DEMO_LAG_MS;
+    if (lag) {
+      const ms = typeof lag === 'function' ? lag() : lag;
+      if (ms > 0) await new Promise((r) => setTimeout(r, ms));
+    }
     if (this.db) return this.db;
     try {
       const raw = await AsyncStorage.getItem(KEY);

@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useZooming } from '../components/PinchZoom';
@@ -65,7 +65,22 @@ export function ActivityScreen({ navigation, route }: any) {
   // Hold the list still while a photo in it is being pinched.
   const zooming = useZooming();
 
-  const [tab, setTab] = useState<ActivityTab>(route.params?.tab ?? 'liked');
+  const [tab, setTabState] = useState<ActivityTab>(route.params?.tab ?? 'liked');
+  // Follow the tab you asked for, not just the first one. This page can be
+  // brought back from further down the stack (Your activity -> a post -> your
+  // profile -> Your stuff -> Saved): navigation then only changes its params,
+  // and reading them once at the start left it on the old tab, so the tap
+  // looked like it did nothing.
+  const asked: ActivityTab | undefined = route.params?.tab;
+  useEffect(() => {
+    if (asked) setTabState(asked);
+  }, [asked]);
+  // Picking a tab here keeps the params in step, so asking for that same tab
+  // from Your stuff later counts as a change.
+  const setTab = (t: ActivityTab) => {
+    setTabState(t);
+    navigation.setParams({ tab: t });
+  };
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   // Grid (Instagram-style) or the richer list. Grid by default — it's what the
@@ -86,18 +101,35 @@ export function ActivityScreen({ navigation, route }: any) {
     AsyncStorage.setItem(LAYOUT_KEY, l).catch(() => {});
   };
 
+  // Only the newest request may fill the list. Switching tabs quickly used to
+  // let a slower, older answer land last, so the tab said Comments while the
+  // list still showed Saved.
+  const latest = useRef(0);
+  // Which tab the posts on screen belong to. Switching tabs clears them so a
+  // spinner shows instead of the old tab's posts; a reload of the same tab
+  // (coming back to the page) keeps them up while it refreshes.
+  const shownTab = useRef<ActivityTab | null>(null);
   const load = useCallback(async () => {
+    const mine = ++latest.current;
+    if (shownTab.current !== tab) setPosts([]);
     setLoading(true);
-    const next =
-      tab === 'liked'
-        ? await svc.getLikedPosts()
-        : tab === 'saved'
-          ? await svc.getSavedPosts()
-          : tab === 'tagged'
-            ? await svc.getTaggedPosts()
-            : await svc.getCommentedPosts();
-    setPosts(next);
-    setLoading(false);
+    try {
+      const next =
+        tab === 'liked'
+          ? await svc.getLikedPosts()
+          : tab === 'saved'
+            ? await svc.getSavedPosts()
+            : tab === 'tagged'
+              ? await svc.getTaggedPosts()
+              : await svc.getCommentedPosts();
+      if (mine !== latest.current) return;
+      shownTab.current = tab;
+      setPosts(next);
+    } catch {
+      if (mine === latest.current) setPosts([]);
+    } finally {
+      if (mine === latest.current) setLoading(false);
+    }
   }, [svc, tab]);
 
   // On focus so unliking or unsaving elsewhere is reflected when you come back.
@@ -167,12 +199,18 @@ export function ActivityScreen({ navigation, route }: any) {
     </View>
   );
 
+  const spinner = (
+    <ActivityIndicator testID="activity-loading" color={colors.amber} style={{ marginTop: spacing.xl }} />
+  );
+
   const emptyState = (
     <View style={styles.empty}>
       <Ionicons name={active.icon} size={40} color={colors.cocoaFaint} />
       <Muted style={{ textAlign: 'center', paddingHorizontal: spacing.xl }}>{active.empty}</Muted>
     </View>
   );
+
+  const listEmpty = loading ? spinner : emptyState;
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -210,12 +248,12 @@ export function ActivityScreen({ navigation, route }: any) {
         </View>
       </View>
 
-      {loading ? (
-        <>
-          {tabsRow}
-          <ActivityIndicator color={colors.amber} style={{ marginTop: spacing.xl }} />
-        </>
-      ) : layout === 'grid' ? (
+      {/* The list (and the tabs at its top) stays mounted while loading; the
+          spinner shows inside it. Swapping in a separate loading view tore the
+          tab buttons down and rebuilt them on every load, which swallowed taps
+          that landed meanwhile, so on a slow connection tapping a tab often
+          did nothing. */}
+      {layout === 'grid' ? (
         <FlatList
           // key forces a remount when switching columns count.
           key="grid"
@@ -239,7 +277,7 @@ export function ActivityScreen({ navigation, route }: any) {
               <View style={{ flex: 1 }} />
             )
           }
-          ListEmptyComponent={emptyState}
+          ListEmptyComponent={listEmpty}
         />
       ) : (
         <FlatList
@@ -268,7 +306,7 @@ export function ActivityScreen({ navigation, route }: any) {
               isMine={item.user_id === user?.id}
             />
           )}
-          ListEmptyComponent={emptyState}
+          ListEmptyComponent={listEmpty}
         />
       )}
     </View>
