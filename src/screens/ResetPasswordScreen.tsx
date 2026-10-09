@@ -3,7 +3,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
@@ -13,7 +12,7 @@ import { Button, Input, Muted } from '../components/ui';
 import { passwordMeetsAll } from '../lib/passwordRules';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
-import { colors, fonts, radius, spacing } from '../theme';
+import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
 
 /**
  * Shown when a password-reset deep link (niblgo://reset#...) is opened. By the
@@ -31,6 +30,8 @@ export function ResetPasswordScreen({
   error: string | null;
   onDone: () => void;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   const svc = getDataService();
   const { refreshMe } = useApp();
   const [password, setPassword] = useState('');
@@ -55,7 +56,7 @@ export function ResetPasswordScreen({
       setFormError(
         /rate|too many/i.test(raw)
           ? 'Too many attempts. Wait a minute and try again.'
-          : 'Could not set your password. The reset link may have expired — request a new one.',
+          : 'Could not set your password. The reset link may have expired, so request a new one.',
       );
     } finally {
       setBusy(false);
@@ -86,7 +87,7 @@ export function ResetPasswordScreen({
       <Frame>
         <Text style={styles.title}>Reset link expired</Text>
         <Muted style={styles.body}>
-          This password reset link is no longer valid — links can only be used once,
+          This password reset link is no longer valid. Links can only be used once,
           and some email scanners open them before you do. Head back and tap
           “Forgot password?” to get a fresh one.
         </Muted>
@@ -100,7 +101,7 @@ export function ResetPasswordScreen({
     return (
       <Frame>
         <Text style={styles.title}>Password updated</Text>
-        <Muted style={styles.body}>You’re all set — your new password is saved.</Muted>
+        <Muted style={styles.body}>You’re all set. Your new password is saved</Muted>
         <Button title="Continue" onPress={onDone} style={{ marginTop: spacing.lg }} />
       </Frame>
     );
@@ -149,7 +150,7 @@ export function ResetPasswordScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   scroll: {
     flexGrow: 1,
     justifyContent: 'center',
@@ -159,7 +160,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   hero: { alignItems: 'center', marginBottom: spacing.xl },
-  card: { backgroundColor: colors.white, borderRadius: radius.xl, padding: spacing.xl },
+  card: { backgroundColor: colors.card, borderRadius: radius.xl, padding: spacing.xl },
   title: {
     fontFamily: fonts.display,
     fontSize: 22,
@@ -177,4 +178,4 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     marginBottom: spacing.sm,
   },
-});
+}));

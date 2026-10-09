@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { colors, fonts } from '../theme';
+import { Text, View } from 'react-native';
+import { fonts, makeStyles, useColors } from '../theme';
 import { User } from '../types';
 
 function initials(name?: string | null): string {
@@ -11,6 +11,8 @@ function initials(name?: string | null): string {
 }
 
 export function Avatar({ user, size = 44 }: { user?: User | null; size?: number }) {
+  const styles = useStyles();
+  const colors = useColors();
   const style = {
     width: size,
     height: size,
@@ -33,7 +35,7 @@ export function Avatar({ user, size = 44 }: { user?: User | null; size?: number 
         style={{
           fontFamily: fonts.display,
           fontSize: size * 0.38,
-          color: colors.white,
+          color: colors.onAmber,
           letterSpacing: 0.5,
         }}
       >
@@ -43,7 +45,7 @@ export function Avatar({ user, size = 44 }: { user?: User | null; size?: number 
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   img: {
     backgroundColor: colors.creamDark,
   },
@@ -52,4 +54,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-});
+}));

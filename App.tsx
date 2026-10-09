@@ -11,6 +11,8 @@ import {
 } from '@expo-google-fonts/nunito';
 import { Ionicons } from '@expo/vector-icons';
 import {
+  DarkTheme,
+  DefaultTheme,
   NavigationContainer,
   LinkingOptions,
   createNavigationContainerRef,
@@ -20,7 +22,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LogoMark } from './src/components/Logo';
 import { ZoomHost } from './src/components/PinchZoom';
@@ -52,10 +54,11 @@ import { TagPeopleScreen } from './src/screens/TagPeopleScreen';
 import { TaggedPostsScreen } from './src/screens/TaggedPostsScreen';
 import { UserListScreen } from './src/screens/UserListScreen';
 import { AppProvider, useApp } from './src/state/AppContext';
+import { ThemeProvider } from './src/state/ThemeProvider';
 import { APP_LINK_BASE } from './src/config';
 import { parseAuthParams, sessionTokens } from './src/lib/authLink';
 import { LINK_PATHS } from './src/lib/links';
-import { colors, fonts, radius, shadow } from './src/theme';
+import { fonts, makeStyles, radius, useColors } from './src/theme';
 
 /**
  * Deep links. A shared post URL opens straight to that post.
@@ -113,6 +116,8 @@ const SLIDE_UP = {
 } as const;
 
 function TabBar({ state, navigation }: any) {
+  const styles = useStyles();
+  const colors = useColors();
   const insets = useSafeAreaInsets();
   const tabs = [
     { name: 'Feed', icon: 'home-outline', iconActive: 'home', label: 'Home' },
@@ -132,7 +137,7 @@ function TabBar({ state, navigation }: any) {
               style={styles.postBtn}
               onPress={() => navigation.getParent()?.navigate('Compose')}
             >
-              <Ionicons name="add" size={30} color={colors.white} />
+              <Ionicons name="add" size={30} color={colors.onAmber} />
             </Pressable>
           );
         }
@@ -211,6 +216,7 @@ function isConfirmLink(url: string): boolean {
 }
 
 function Root() {
+  const styles = useStyles();
   const { booted, user, refreshMe } = useApp();
   const svc = getDataService();
   // Password-recovery mode, entered via a niblgo://reset deep link. Rendered
@@ -415,6 +421,32 @@ function Root() {
 }
 
 export default function App() {
+  return (
+    <ThemeProvider>
+      <ThemedApp />
+    </ThemeProvider>
+  );
+}
+
+function ThemedApp() {
+  const styles = useStyles();
+  const colors = useColors();
+  // Screen backgrounds behind transitions and modals follow the theme too.
+  const navTheme = React.useMemo(() => {
+    const base = colors.dark ? DarkTheme : DefaultTheme;
+    return {
+      ...base,
+      colors: {
+        ...base.colors,
+        primary: colors.amber,
+        background: colors.cream,
+        card: colors.card,
+        text: colors.cocoa,
+        border: colors.hairline,
+        notification: colors.danger,
+      },
+    };
+  }, [colors]);
   const [fontsLoaded] = useFonts({
     Baloo2_800ExtraBold,
     Baloo2_600SemiBold,
@@ -431,8 +463,8 @@ export default function App() {
       <AppProvider>
         {/* Draws a pinched photo over everything while you zoom it. */}
         <ZoomHost>
-          <NavigationContainer ref={navigationRef} linking={linking}>
-            <StatusBar style="dark" />
+          <NavigationContainer ref={navigationRef} linking={linking} theme={navTheme}>
+            <StatusBar style={colors.dark ? 'light' : 'dark'} />
             <Root />
           </NavigationContainer>
         </ZoomHost>
@@ -441,7 +473,7 @@ export default function App() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, { shadow }) => ({
   splash: {
     flex: 1,
     backgroundColor: colors.cream,
@@ -458,7 +490,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,
     paddingTop: 10,
@@ -492,4 +524,4 @@ const styles = StyleSheet.create({
     borderColor: colors.cream,
     ...(shadow as object),
   },
-});
+}));

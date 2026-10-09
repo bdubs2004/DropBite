@@ -6,7 +6,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -14,7 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
-import { colors, fonts, radius, shadow, spacing } from '../theme';
+import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
 import { User } from '../types';
 import { Avatar } from './Avatar';
 
@@ -44,6 +43,8 @@ export function TagPeoplePicker({
   onChangeSelected?: (users: User[]) => void;
   onClose: () => void;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   const svc = getDataService();
   const { user, refreshFeed } = useApp();
   const insets = useSafeAreaInsets();
@@ -185,6 +186,7 @@ export function TagPeoplePicker({
         <View style={styles.searchBox}>
           <Ionicons name="search" size={17} color={colors.cocoaFaint} />
           <TextInput
+            keyboardAppearance={colors.dark ? 'dark' : 'light'}
             testID="tag-search"
             value={query}
             onChangeText={setQuery}
@@ -249,7 +251,7 @@ export function TagPeoplePicker({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, { shadow }) => ({
   root: { flex: 1, justifyContent: 'flex-end' },
   backdrop: {
     position: 'absolute',
@@ -287,7 +289,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.pill,
     paddingVertical: 4,
     paddingLeft: 4,
@@ -299,7 +301,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
     paddingVertical: 9,
@@ -337,4 +339,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingVertical: spacing.lg,
   },
-});
+}));

@@ -1,6 +1,6 @@
 import React from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
-import { colors, fonts } from '../theme';
+import { Image, Text, View } from 'react-native';
+import { fonts, makeStyles } from '../theme';
 
 /** The NiblGo fork-bubble mark. */
 export function LogoMark({ size = 72 }: { size?: number }) {
@@ -15,6 +15,7 @@ export function LogoMark({ size = 72 }: { size?: number }) {
 
 /** Mark + wordmark row for headers. */
 export function LogoLockup({ height = 34 }: { height?: number }) {
+  const styles = useStyles();
   return (
     <View style={styles.row}>
       <LogoMark size={height} />
@@ -23,15 +24,16 @@ export function LogoLockup({ height = 34 }: { height?: number }) {
   );
 }
 
-export function Wordmark({ size = 30, color = colors.cocoa }: { size?: number; color?: string }) {
+export function Wordmark({ size = 30, color }: { size?: number; color?: string }) {
+  const styles = useStyles();
   return (
     <View style={styles.row}>
-      <Text style={[styles.word, { fontSize: size, color }]}>NiblGo</Text>
+      <Text style={[styles.word, { fontSize: size }, color ? { color } : null]}>NiblGo</Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -41,4 +43,4 @@ const styles = StyleSheet.create({
     color: colors.cocoa,
     letterSpacing: -0.5,
   },
-});
+}));

@@ -4,13 +4,12 @@ import {
   Modal,
   Platform,
   Pressable,
-  StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, fonts, radius, shadow, spacing } from '../theme';
+import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
 
 /**
  * A small centred sheet for naming something: one field, two buttons.
@@ -43,6 +42,8 @@ export function RenameGroupSheet({
   error?: string | null;
   testIDPrefix?: string;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   const insets = useSafeAreaInsets();
   const [text, setText] = useState(initial);
 
@@ -61,6 +62,7 @@ export function RenameGroupSheet({
         <View style={[styles.card, { marginBottom: insets.bottom }]}>
           <Text style={styles.title}>{title}</Text>
           <TextInput
+            keyboardAppearance={colors.dark ? 'dark' : 'light'}
             testID={`${testIDPrefix}-input`}
             value={text}
             onChangeText={setText}
@@ -99,14 +101,14 @@ export function RenameGroupSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, { shadow }) => ({
   root: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
   // No dim: tapping outside the card still closes it.
   backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   card: {
     width: '100%',
     maxWidth: 420,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.xl,
     padding: spacing.lg,
     // With nothing dimmed behind it, the shadow is what lifts the card.
@@ -135,5 +137,5 @@ const styles = StyleSheet.create({
   cancel: { backgroundColor: colors.creamDark },
   cancelText: { fontFamily: fonts.bold, fontSize: 14.5, color: colors.cocoa },
   save: { backgroundColor: colors.amber },
-  saveText: { fontFamily: fonts.bold, fontSize: 14.5, color: colors.white },
-});
+  saveText: { fontFamily: fonts.bold, fontSize: 14.5, color: colors.onAmber },
+}));

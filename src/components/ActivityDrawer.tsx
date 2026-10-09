@@ -19,7 +19,7 @@ import {
   isHorizontalDrag,
   shouldCloseDrawer,
 } from '../lib/drawerGesture';
-import { colors, fonts, radius, shadow, spacing } from '../theme';
+import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
 
 type Item = {
   key: string;
@@ -56,6 +56,8 @@ export function ActivityDrawer({
   onClose: () => void;
   sections: Section[];
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   const insets = useSafeAreaInsets();
   // 0 = fully open, PANEL_WIDTH = fully off-screen to the right.
   const slide = useRef(new Animated.Value(PANEL_WIDTH)).current;
@@ -288,7 +290,7 @@ export function ActivityDrawer({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, { shadow }) => ({
   root: { flex: 1, flexDirection: 'row', justifyContent: 'flex-end' },
   backdropFill: {
     position: 'absolute',
@@ -344,7 +346,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.lg,
     padding: spacing.md,
     marginBottom: spacing.sm,
@@ -360,4 +362,4 @@ const styles = StyleSheet.create({
   iconWrapDanger: { backgroundColor: 'rgba(201, 79, 46, 0.12)' },
   label: { fontFamily: fonts.bold, fontSize: 15.5, color: colors.cocoa },
   hint: { fontFamily: fonts.semi, fontSize: 12.5, color: colors.cocoaFaint, marginTop: 1 },
-});
+}));

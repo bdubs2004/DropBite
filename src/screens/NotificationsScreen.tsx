@@ -15,20 +15,23 @@ import { PostThumb } from '../components/PostThumb';
 import { Muted } from '../components/ui';
 import { relativeTime } from '../lib/time';
 import { getDataService } from '../services';
-import { colors, fonts, radius, spacing } from '../theme';
+import { fonts, makeStyles, radius, spacing, useColors } from '../theme';
 import { AppNotification, NotificationType } from '../types';
 
 /** Icon and verb for each kind of interaction. */
-const KIND: Record<NotificationType, { icon: any; color: string; verb: string }> = {
-  like: { icon: 'heart', color: colors.danger, verb: 'liked your post' },
-  comment: { icon: 'chatbubble', color: colors.amberDark, verb: 'commented on your post' },
-  repost: { icon: 'repeat', color: colors.amberDark, verb: 'reposted your post' },
-  share: { icon: 'paper-plane', color: colors.amberDark, verb: 'shared your post' },
-  tag: { icon: 'pricetag', color: colors.amberDark, verb: 'tagged you in a post' },
-  follow: { icon: 'person-add', color: colors.amber, verb: 'started following you' },
-  follow_back: { icon: 'people', color: colors.amber, verb: 'followed you back' },
-  comment_like: { icon: 'heart', color: colors.danger, verb: 'liked your comment' },
-  reply: { icon: 'arrow-undo', color: colors.amberDark, verb: 'replied to your comment' },
+const KIND: Record<
+  NotificationType,
+  { icon: any; tone: 'danger' | 'amber' | 'amberDark'; verb: string }
+> = {
+  like: { icon: 'heart', tone: 'danger', verb: 'liked your post' },
+  comment: { icon: 'chatbubble', tone: 'amberDark', verb: 'commented on your post' },
+  repost: { icon: 'repeat', tone: 'amberDark', verb: 'reposted your post' },
+  share: { icon: 'paper-plane', tone: 'amberDark', verb: 'shared your post' },
+  tag: { icon: 'pricetag', tone: 'amberDark', verb: 'tagged you in a post' },
+  follow: { icon: 'person-add', tone: 'amber', verb: 'started following you' },
+  follow_back: { icon: 'people', tone: 'amber', verb: 'followed you back' },
+  comment_like: { icon: 'heart', tone: 'danger', verb: 'liked your comment' },
+  reply: { icon: 'arrow-undo', tone: 'amberDark', verb: 'replied to your comment' },
 };
 
 /** Kinds that carry a comment's words (shown after the verb). */
@@ -48,6 +51,8 @@ const IS_FOLLOW = new Set<NotificationType>(['follow', 'follow_back']);
  * circle on every row. Tick the ones to go (or Select all) and hit the trash.
  */
 export function NotificationsScreen({ navigation }: any) {
+  const styles = useStyles();
+  const colors = useColors();
   const svc = getDataService();
   const insets = useSafeAreaInsets();
 
@@ -226,8 +231,12 @@ export function NotificationsScreen({ navigation }: any) {
                   hitSlop={6}
                 >
                   <Avatar user={item.actor} size={44} />
-                  <View style={[styles.kindBadge, { backgroundColor: kind.color }]}>
-                    <Ionicons name={kind.icon} size={11} color={colors.white} />
+                  <View style={[styles.kindBadge, { backgroundColor: colors[kind.tone] }]}>
+                    <Ionicons
+                      name={kind.icon}
+                      size={11}
+                      color={kind.tone === 'danger' ? colors.white : colors.onAmber}
+                    />
                   </View>
                 </Pressable>
 
@@ -325,7 +334,7 @@ export function NotificationsScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   root: { flex: 1, backgroundColor: colors.cream },
   header: {
     flexDirection: 'row',
@@ -354,7 +363,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderTopWidth: 1,
     borderColor: colors.hairline,
   },
@@ -371,7 +380,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.lg,
     padding: spacing.md,
     marginBottom: spacing.sm,
@@ -397,7 +406,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: colors.white,
+    borderColor: colors.card,
   },
   text: { fontFamily: fonts.semi, fontSize: 14.5, lineHeight: 20, color: colors.cocoa },
   name: { fontFamily: fonts.bold },
@@ -410,10 +419,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: 8,
   },
-  followText: { fontFamily: fonts.bold, fontSize: 13, color: colors.white },
+  followText: { fontFamily: fonts.bold, fontSize: 13, color: colors.onAmber },
   followingPill: {
     marginLeft: spacing.md,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
     paddingVertical: 8,
@@ -421,4 +430,4 @@ const styles = StyleSheet.create({
   followingText: { fontFamily: fonts.bold, fontSize: 13, color: colors.cocoaSoft },
   empty: { alignItems: 'center', gap: spacing.sm, marginTop: 70, paddingHorizontal: spacing.xl },
   emptyTitle: { fontFamily: fonts.display, fontSize: 17, color: colors.cocoa },
-});
+}));

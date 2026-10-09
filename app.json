@@ -5,7 +5,7 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "scheme": "niblgo",
     "ios": {
       "supportsTablet": false,
@@ -52,7 +52,11 @@
         {
           "image": "./assets/splash-icon.png",
           "resizeMode": "contain",
-          "backgroundColor": "#FFF4DE"
+          "backgroundColor": "#FFF4DE",
+          "dark": {
+            "image": "./assets/splash-icon.png",
+            "backgroundColor": "#140E08"
+          }
         }
       ],
       [

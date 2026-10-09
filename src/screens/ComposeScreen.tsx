@@ -7,7 +7,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
@@ -35,12 +34,14 @@ import {
 import { searchPlaces } from '../services/places';
 import { LOCATION_TAGGING_ENABLED } from '../config';
 import { useApp } from '../state/AppContext';
-import { colors, fonts, MEAL_SLOT_META, radius, spacing } from '../theme';
+import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
 import { MealSlot, PlaceResult, User } from '../types';
 
 const SLOTS: MealSlot[] = ['breakfast', 'lunch', 'dinner', 'snack'];
 
 export function ComposeScreen({ navigation }: any) {
+  const styles = useStyles();
+  const colors = useColors();
   const { refreshFeed } = useApp();
   const insets = useSafeAreaInsets();
   const svc = getDataService();
@@ -367,7 +368,7 @@ export function ComposeScreen({ navigation }: any) {
         <Text style={styles.stepLabel}>Meal</Text>
         <View style={styles.slotRow}>
           {SLOTS.map((s) => {
-            const m = MEAL_SLOT_META[s];
+            const m = colors.meal[s];
             const active = s === slot;
             return (
               <Pressable
@@ -375,7 +376,7 @@ export function ComposeScreen({ navigation }: any) {
                 onPress={() => setSlot(s)}
                 style={[
                   styles.slotChip,
-                  { backgroundColor: active ? m.bg : colors.white },
+                  { backgroundColor: active ? m.bg : colors.card },
                   active && { borderColor: m.color },
                 ]}
               >
@@ -455,7 +456,7 @@ export function ComposeScreen({ navigation }: any) {
                 </Pressable>
                 {formatFailed === 'error' ? (
                   <Muted style={{ marginTop: spacing.sm }}>
-                    Rebuilding is unavailable right now — try again in a moment, or keep
+                    Rebuilding is unavailable right now. Try again in a moment, or keep
                     the card you have.
                   </Muted>
                 ) : null}
@@ -595,7 +596,7 @@ export function ComposeScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   scroll: {
     padding: spacing.lg,
     maxWidth: 560,
@@ -631,7 +632,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.lg,
     paddingHorizontal: spacing.md,
     paddingVertical: 14,
@@ -652,7 +653,7 @@ const styles = StyleSheet.create({
   },
   photoBtn: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.lg,
     borderWidth: 1.5,
     borderColor: colors.creamDark,
@@ -676,7 +677,7 @@ const styles = StyleSheet.create({
   tagRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.lg,
     paddingHorizontal: spacing.lg,
     paddingVertical: 15,
@@ -725,7 +726,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   placeRow: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.md,
     padding: spacing.md,
     marginBottom: spacing.sm,
@@ -766,4 +767,4 @@ const styles = StyleSheet.create({
     color: colors.cocoaSoft,
     textDecorationLine: 'underline',
   },
-});
+}));

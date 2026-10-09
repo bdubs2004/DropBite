@@ -1,6 +1,6 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { colors, fonts, radius, spacing } from '../theme';
+import { Pressable, Text, TextInput, View } from 'react-native';
+import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
 import { Ingredient } from '../types';
 import { FormattedRecipe } from '../services/ai';
 import { BittenCard } from './ui';
@@ -18,6 +18,8 @@ export function RecipeCardEditor({
   onChange: (next: FormattedRecipe) => void;
   onRemove: () => void;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   const setIngredient = (i: number, patch: Partial<Ingredient>) => {
     const ingredients = value.ingredients.map((ing, idx) =>
       idx === i ? { ...ing, ...patch } : ing,
@@ -40,6 +42,7 @@ export function RecipeCardEditor({
       </View>
 
       <TextInput
+        keyboardAppearance={colors.dark ? 'dark' : 'light'}
         value={value.title}
         onChangeText={(t) => onChange({ ...value, title: t })}
         style={styles.titleInput}
@@ -50,6 +53,7 @@ export function RecipeCardEditor({
       <View style={styles.timeRow}>
         <Text style={styles.timeLabel}>Cook time</Text>
         <TextInput
+          keyboardAppearance={colors.dark ? 'dark' : 'light'}
           value={value.cook_time_minutes != null ? String(value.cook_time_minutes) : ''}
           onChangeText={(t) => {
             const n = parseInt(t.replace(/[^0-9]/g, ''), 10);
@@ -67,6 +71,7 @@ export function RecipeCardEditor({
       {value.ingredients.map((ing, i) => (
         <View key={i} style={styles.ingRow}>
           <TextInput
+            keyboardAppearance={colors.dark ? 'dark' : 'light'}
             value={ing.quantity}
             onChangeText={(t) => setIngredient(i, { quantity: t })}
             style={[styles.cell, styles.qty]}
@@ -74,6 +79,7 @@ export function RecipeCardEditor({
             placeholderTextColor={colors.cocoaFaint}
           />
           <TextInput
+            keyboardAppearance={colors.dark ? 'dark' : 'light'}
             value={ing.unit}
             onChangeText={(t) => setIngredient(i, { unit: t })}
             style={[styles.cell, styles.unit]}
@@ -81,6 +87,7 @@ export function RecipeCardEditor({
             placeholderTextColor={colors.cocoaFaint}
           />
           <TextInput
+            keyboardAppearance={colors.dark ? 'dark' : 'light'}
             value={ing.item}
             onChangeText={(t) => setIngredient(i, { item: t })}
             style={[styles.cell, styles.item]}
@@ -116,6 +123,7 @@ export function RecipeCardEditor({
         <View key={i} style={styles.ingRow}>
           <Text style={styles.stepNum}>{i + 1}.</Text>
           <TextInput
+            keyboardAppearance={colors.dark ? 'dark' : 'light'}
             value={s}
             onChangeText={(t) => setStep(i, t)}
             style={[styles.cell, styles.item]}
@@ -143,7 +151,7 @@ export function RecipeCardEditor({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -184,7 +192,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
     fontSize: 14,
     color: colors.cocoa,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.sm,
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -207,7 +215,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   cell: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.sm,
     paddingHorizontal: 9,
     paddingVertical: 7,
@@ -238,4 +246,4 @@ const styles = StyleSheet.create({
     color: colors.amberDark,
     marginTop: 4,
   },
-});
+}));

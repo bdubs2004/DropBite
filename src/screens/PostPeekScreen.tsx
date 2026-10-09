@@ -3,7 +3,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
-  StyleSheet,
   Text,
   useWindowDimensions,
   View,
@@ -12,7 +11,7 @@ import { Avatar } from '../components/Avatar';
 import { PostPhoto } from '../components/PostPhoto';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
-import { colors, fonts, MEAL_SLOT_META, radius, shadow, spacing } from '../theme';
+import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
 import { Post } from '../types';
 
 /**
@@ -28,6 +27,8 @@ import { Post } from '../types';
  * blurb, or any gap opens the post — no explicit "Open post" button needed.
  */
 export function PostPeekScreen({ navigation, route }: any) {
+  const styles = useStyles();
+  const colors = useColors();
   const postId: string = route.params.postId;
   const svc = getDataService();
   const { user } = useApp();
@@ -92,7 +93,7 @@ export function PostPeekScreen({ navigation, route }: any) {
     svc.toggleSave(postId).catch(() => load());
   };
 
-  const slot = post ? MEAL_SLOT_META[post.meal_slot] : null;
+  const slot = post ? colors.meal[post.meal_slot] : null;
 
   return (
     <View style={styles.root}>
@@ -185,7 +186,7 @@ export function PostPeekScreen({ navigation, route }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, { shadow }) => ({
   root: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
   backdrop: {
     position: 'absolute',
@@ -198,7 +199,7 @@ const styles = StyleSheet.create({
   card: { width: '100%', maxWidth: 420, alignItems: 'stretch' },
   loading: { padding: spacing.xxl, alignItems: 'center' },
   sheet: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.xl,
     overflow: 'hidden',
     ...(shadow as object),
@@ -232,4 +233,4 @@ const styles = StyleSheet.create({
   },
   action: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   actionLabel: { fontFamily: fonts.bold, fontSize: 14, color: colors.cocoaSoft },
-});
+}));

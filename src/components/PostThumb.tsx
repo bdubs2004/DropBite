@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { colors, fonts } from '../theme';
+import { fonts, makeStyles } from '../theme';
 import { Post } from '../types';
 
 /**
@@ -31,6 +31,7 @@ export function PostThumb({
   style?: ViewStyle;
   radius?: number;
 }) {
+  const styles = useStyles();
   const emoji = post.photo_emoji || '🍽️';
   const tone = TILE_TONES[emoji] ?? '#A98A62';
 
@@ -98,7 +99,7 @@ export function PostThumb({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   tile: {
     aspectRatio: 1,
     backgroundColor: colors.creamDark,
@@ -126,4 +127,4 @@ const styles = StyleSheet.create({
     color: colors.white,
     letterSpacing: 0.3,
   },
-});
+}));

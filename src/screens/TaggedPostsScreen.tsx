@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PostThumb } from '../components/PostThumb';
@@ -8,7 +8,7 @@ import { Muted } from '../components/ui';
 import { openPostFeed } from '../lib/postFeed';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
-import { colors, fonts, spacing } from '../theme';
+import { fonts, spacing, makeStyles, useColors } from '../theme';
 import { Post } from '../types';
 
 const GRID_COLUMNS = 3;
@@ -22,6 +22,8 @@ const GRID_GAP = 2;
  * here so a stale link, say right after unfollowing, shows the lock instead.
  */
 export function TaggedPostsScreen({ navigation, route }: any) {
+  const styles = useStyles();
+  const colors = useColors();
   const { userId, name } = route.params as { userId: string; name?: string };
   const svc = getDataService();
   const { hiddenIds, user } = useApp();
@@ -122,7 +124,7 @@ export function TaggedPostsScreen({ navigation, route }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   root: { flex: 1, backgroundColor: colors.cream },
   header: {
     flexDirection: 'row',
@@ -135,4 +137,4 @@ const styles = StyleSheet.create({
   title: { fontFamily: fonts.display, fontSize: 18, color: colors.cocoa },
   sub: { fontFamily: fonts.semi, fontSize: 13, color: colors.cocoaFaint },
   empty: { alignItems: 'center', gap: spacing.md, marginTop: 60, paddingHorizontal: spacing.xl },
-});
+}));

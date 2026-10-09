@@ -10,7 +10,6 @@ import {
   Platform,
   Pressable,
   RefreshControl,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -30,7 +29,7 @@ import { pickImage } from '../lib/pickImage';
 import { useKeyboardVisible } from '../lib/useKeyboardVisible';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
-import { colors, fonts, MEAL_SLOT_META, radius, spacing } from '../theme';
+import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
 import { Message, User } from '../types';
 
 /** Bubble width for an attached photo, and the height of its 4:5 frame. */
@@ -70,6 +69,8 @@ function tally(reactions: Message['reactions'], meId?: string) {
  * iOS's "go back".
  */
 export function ChatScreen({ navigation, route }: any) {
+  const styles = useStyles();
+  const colors = useColors();
   const {
     conversationId,
     title: initialTitle,
@@ -443,7 +444,7 @@ export function ChatScreen({ navigation, route }: any) {
                               <Text style={styles.sharedBlurb} numberOfLines={2}>
                                 {item.shared_post.meal_slot ? (
                                   <Text style={styles.sharedTag}>
-                                    {MEAL_SLOT_META[item.shared_post.meal_slot].label}
+                                    {colors.meal[item.shared_post.meal_slot].label}
                                     {item.shared_post.blurb ? '  ' : ''}
                                   </Text>
                                 ) : null}
@@ -637,6 +638,7 @@ export function ChatScreen({ navigation, route }: any) {
           <Ionicons name="image-outline" size={22} color={colors.amberDark} />
         </Pressable>
         <TextInput
+          keyboardAppearance={colors.dark ? 'dark' : 'light'}
           testID="chat-input"
           value={text}
           onChangeText={setText}
@@ -652,7 +654,7 @@ export function ChatScreen({ navigation, route }: any) {
           disabled={!canSend}
           style={[styles.send, !canSend && { opacity: 0.4 }]}
         >
-          <Ionicons name="arrow-up" size={20} color={colors.white} />
+          <Ionicons name="arrow-up" size={20} color={colors.onAmber} />
         </Pressable>
       </View>
 
@@ -681,7 +683,7 @@ export function ChatScreen({ navigation, route }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -728,14 +730,14 @@ const styles = StyleSheet.create({
   },
   bubbleMine: { backgroundColor: colors.amber },
   bubbleBare: { backgroundColor: 'transparent', padding: 0 },
-  bubbleTheirs: { backgroundColor: colors.white },
+  bubbleTheirs: { backgroundColor: colors.card },
   text: { fontFamily: fonts.semi, fontSize: 15, lineHeight: 21, color: colors.cocoa },
-  textMine: { color: colors.white },
+  textMine: { color: colors.onAmber },
   sharedCard: {
     width: SHARED_W,
     borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.hairline,
   },
@@ -759,7 +761,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     paddingHorizontal: spacing.md,
     borderRadius: 16,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.hairline,
   },
@@ -777,7 +779,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: 8,
   },
-  profileBtnText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.white },
+  profileBtnText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.onAmber },
   sharedMeta: { paddingHorizontal: 12, paddingVertical: 11 },
   sharedBlurb: {
     fontFamily: fonts.semi,
@@ -816,7 +818,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.pill,
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -829,7 +831,7 @@ const styles = StyleSheet.create({
   reactionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.pill,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
@@ -862,7 +864,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderTopWidth: 1,
     borderColor: colors.hairline,
   },
@@ -885,7 +887,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderTopWidth: 1,
     borderColor: colors.hairline,
   },
@@ -908,4 +910,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-});
+}));

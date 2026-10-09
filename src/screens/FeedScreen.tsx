@@ -7,7 +7,6 @@ import {
   NativeSyntheticEvent,
   Pressable,
   RefreshControl,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
@@ -22,10 +21,12 @@ import { HeaderScrollState, nextHeaderState } from '../lib/autoHideHeader';
 import { usePostActions } from '../lib/usePostActions';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
-import { colors, fonts, radius, spacing } from '../theme';
+import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
 import { Post } from '../types';
 
 export function FeedScreen({ navigation }: any) {
+  const styles = useStyles();
+  const colors = useColors();
   const { feed, feedLoading, refreshFeed, streak, user } = useApp();
   const insets = useSafeAreaInsets();
   // Hold the list still while a photo in it is being pinched.
@@ -291,7 +292,7 @@ export function FeedScreen({ navigation }: any) {
 /** Height of the header bar below the safe-area inset. */
 const HEADER_HEIGHT = 58;
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   root: {
     flex: 1,
     backgroundColor: colors.cream,
@@ -341,7 +342,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.pill,
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -370,4 +371,4 @@ const styles = StyleSheet.create({
     color: colors.cocoa,
     marginVertical: spacing.md,
   },
-});
+}));

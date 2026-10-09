@@ -6,7 +6,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -15,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLLECTION_NAME_MAX, collectionNameProblem } from '../lib/collectionName';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
-import { colors, fonts, radius, shadow, spacing } from '../theme';
+import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
 import { Collection } from '../types';
 import { PostPhoto } from './PostPhoto';
 
@@ -44,6 +43,8 @@ export function CollectionPicker({
   onChangeSelected?: (ids: string[], names: string[]) => void;
   onClose: () => void;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   const svc = getDataService();
   const { user } = useApp();
   const insets = useSafeAreaInsets();
@@ -154,6 +155,7 @@ export function CollectionPicker({
         {creating ? (
           <View style={styles.newRow}>
             <TextInput
+              keyboardAppearance={colors.dark ? 'dark' : 'light'}
               testID="collection-name-input"
               value={name}
               onChangeText={(t) => {
@@ -248,7 +250,7 @@ export function CollectionPicker({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, { shadow }) => ({
   root: { flex: 1, justifyContent: 'flex-end' },
   backdrop: {
     position: 'absolute',
@@ -307,7 +309,7 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.lg,
     paddingHorizontal: spacing.md,
     paddingVertical: 12,
@@ -321,7 +323,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: 12,
   },
-  createText: { fontFamily: fonts.bold, fontSize: 14.5, color: colors.white },
+  createText: { fontFamily: fonts.bold, fontSize: 14.5, color: colors.onAmber },
   error: {
     fontFamily: fonts.semi,
     fontSize: 13,
@@ -336,4 +338,4 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     paddingHorizontal: spacing.md,
   },
-});
+}));

@@ -6,7 +6,6 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
@@ -17,7 +16,7 @@ import { Button, Muted, ScreenTitle } from '../components/ui';
 import { openPostFeed } from '../lib/postFeed';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
-import { colors, fonts, radius, shadowSoft, spacing } from '../theme';
+import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
 import { DiscoverPerson, Post } from '../types';
 
 type Tab = 'posts' | 'people';
@@ -33,6 +32,8 @@ const GRID_GAP = 2;
  * is for browsing, the Search tab is for looking something up.
  */
 export function DiscoverScreen({ navigation }: any) {
+  const styles = useStyles();
+  const colors = useColors();
   const svc = getDataService();
   const { refreshFeed, hiddenIds } = useApp();
   const insets = useSafeAreaInsets();
@@ -234,6 +235,7 @@ function TabButton({
   active: boolean;
   onPress: () => void;
 }) {
+  const styles = useStyles();
   return (
     <Pressable
       testID={`discover-tab-${label.toLowerCase()}`}
@@ -257,6 +259,7 @@ function PersonCard({
   onOpenPost: (post: Post) => void;
   onToggleFollow: () => void;
 }) {
+  const styles = useStyles();
   const { user, posts, post_count, is_following } = person;
   return (
     <View style={styles.personCard}>
@@ -309,7 +312,7 @@ function PersonCard({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, { shadowSoft }) => ({
   root: {
     flex: 1,
     backgroundColor: colors.cream,
@@ -333,7 +336,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tabActive: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.raised,
     ...(shadowSoft as object),
   },
   tabText: {
@@ -350,7 +353,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
   },
   personCard: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.lg,
     marginHorizontal: spacing.lg,
     marginBottom: spacing.md,
@@ -392,4 +395,4 @@ const styles = StyleSheet.create({
   stripThumb: {
     width: 104,
   },
-});
+}));

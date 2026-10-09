@@ -3,7 +3,6 @@ import {
   FlatList,
   Pressable,
   RefreshControl,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
@@ -20,7 +19,7 @@ import { COLLECTION_NAME_MAX, collectionNameProblem } from '../lib/collectionNam
 import { openPostFeed } from '../lib/postFeed';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
-import { colors, fonts, radius, shadowSoft, spacing } from '../theme';
+import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
 import { Collection, Post, Streak, User } from '../types';
 
 /**
@@ -30,6 +29,8 @@ const GRID_COLUMNS = 3;
 const GRID_GAP = 2;
 
 export function ProfileScreen({ navigation, route }: any) {
+  const styles = useStyles();
+  const colors = useColors();
   const { user: me, refreshFeed, hiddenIds } = useApp();
   const svc = getDataService();
   const insets = useSafeAreaInsets();
@@ -675,6 +676,13 @@ export function ProfileScreen({ navigation, route }: any) {
                 onPress: () => navigation.navigate('Settings', { section: 'notifications' }),
               },
               {
+                key: 'appearance',
+                label: 'Appearance',
+                hint: 'Light, dark, or match your phone',
+                icon: 'moon-outline',
+                onPress: () => navigation.navigate('Settings', { section: 'appearance' }),
+              },
+              {
                 key: 'privacy',
                 label: 'Privacy',
                 hint: 'Who can see your follower list',
@@ -732,6 +740,7 @@ function Stat({
   value: number;
   onPress?: () => void;
 }) {
+  const styles = useStyles();
   return (
     <Pressable style={styles.stat} onPress={onPress} hitSlop={6}>
       <Text style={styles.statNum}>{value}</Text>
@@ -740,7 +749,7 @@ function Stat({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, { shadowSoft }) => ({
   root: {
     flex: 1,
     backgroundColor: colors.cream,
@@ -761,7 +770,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   card: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.xl,
     padding: spacing.xl,
     ...(shadowSoft as object),
@@ -879,7 +888,7 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     borderRadius: radius.pill,
   },
-  profileTabActive: { backgroundColor: colors.white, ...(shadowSoft as object) },
+  profileTabActive: { backgroundColor: colors.raised, ...(shadowSoft as object) },
   profileTabText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.cocoaSoft },
   profileTabTextActive: { color: colors.amberDark },
   collectionTile: { flex: 1 },
@@ -904,4 +913,4 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   collectionCount: { fontFamily: fonts.semi, fontSize: 12.5, color: colors.cocoaFaint },
-});
+}));

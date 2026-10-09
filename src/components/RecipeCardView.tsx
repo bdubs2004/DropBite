@@ -1,12 +1,13 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { colors, fonts, spacing } from '../theme';
+import { Text, View } from 'react-native';
+import { fonts, spacing, makeStyles } from '../theme';
 import { Recipe } from '../types';
 import { NutritionPanel } from './NutritionPanel';
 import { BittenCard } from './ui';
 
 /** Read-only recipe card shown on feed posts. */
 export function RecipeCardView({ recipe }: { recipe: Recipe }) {
+  const styles = useStyles();
   return (
     <BittenCard>
       <Text style={styles.title}>{recipe.title}</Text>
@@ -60,7 +61,7 @@ export function formatTime(mins: number): string {
   return m ? `${h}h ${m}m` : `${h}h`;
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   title: {
     fontFamily: fonts.display,
     fontSize: 20,
@@ -87,7 +88,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
     fontSize: 12,
     color: colors.amberDark,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 3,
@@ -126,4 +127,4 @@ const styles = StyleSheet.create({
     color: colors.cocoa,
     flex: 1,
   },
-});
+}));

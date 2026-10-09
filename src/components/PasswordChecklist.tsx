@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { passwordChecks } from '../lib/passwordRules';
-import { colors, fonts, spacing } from '../theme';
+import { fonts, spacing, makeStyles, useColors } from '../theme';
 
 /**
  * Live password requirement checklist. Each rule ticks green the moment the
@@ -10,6 +10,8 @@ import { colors, fonts, spacing } from '../theme';
  * of guessing after a rejected submit.
  */
 export function PasswordChecklist({ password }: { password: string }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <View style={styles.list} testID="password-checklist">
       {passwordChecks(password).map((c) => (
@@ -26,9 +28,9 @@ export function PasswordChecklist({ password }: { password: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   list: { marginTop: spacing.sm, gap: 6 },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   label: { fontFamily: fonts.semi, fontSize: 13, color: colors.cocoaFaint },
   labelMet: { fontFamily: fonts.bold, color: colors.success },
-});
+}));

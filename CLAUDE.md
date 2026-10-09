@@ -68,6 +68,7 @@ Rules:
 - Keep components small; posting flow gets the most testing attention.
 - Image handling: compress client-side before upload; store originals at reasonable max resolution (photos are the product — don't over-compress).
 - All timestamps UTC in DB; convert to user timezone in UI.
+- Light and dark mode (dark is niblgo.com's dark theme). Never hardcode a palette color: write styles with `makeStyles((colors) => ({ ... }))` and read colors with `useColors()` from `src/theme.ts`, so every screen follows Settings > Appearance.
 - Feature-flag anything Phase 2/3 adjacent rather than half-building it.
 - Write a seed script with fake users/posts so the feed is testable immediately.
 - Privacy from day one: account deletion must actually work in MVP. **Self-serve
