@@ -416,9 +416,18 @@ function PostCardView({
         </Text>
 
         {post.recipe ? (
-          <Pressable onPress={() => setShowRecipe((v) => !v)} style={styles.recipeToggle}>
+          <Pressable
+            testID="post-recipe-toggle"
+            onPress={() => setShowRecipe((v) => !v)}
+            style={styles.recipeToggle}
+            accessibilityLabel={`Recipe: ${post.recipe.title}`}
+          >
             <Ionicons name="book-outline" size={14} color={colors.amberDark} />
-            <Text style={styles.recipeToggleText}>{post.recipe.title}</Text>
+            {/* One line, ending in "…" when it doesn't fit; the full title is
+                on the recipe card it opens. */}
+            <Text style={styles.recipeToggleText} numberOfLines={1} ellipsizeMode="tail">
+              {post.recipe.title}
+            </Text>
             <Ionicons
               name={showRecipe ? 'chevron-up' : 'chevron-down'}
               size={14}
@@ -587,7 +596,10 @@ const styles = StyleSheet.create({
   },
   recipeToggle: {
     marginTop: spacing.md,
+    // Hugs a short title, but never wider than the card: a long one used to
+    // push the bubble (and its arrow) off the right edge.
     alignSelf: 'flex-start',
+    maxWidth: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
@@ -599,6 +611,7 @@ const styles = StyleSheet.create({
     borderColor: colors.creamDark,
   },
   recipeToggleText: {
+    flexShrink: 1,
     fontFamily: fonts.bold,
     fontSize: 13,
     color: colors.amberDark,
