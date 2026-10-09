@@ -25,7 +25,13 @@ import { defaultMealSlot } from '../lib/time';
 import { totalForRecipe } from '../lib/nutrition';
 import { isSubstantialChange } from '../lib/textChange';
 import { getDataService } from '../services';
-import { formatRecipe, FormattedRecipe, lookupNutrition, NutritionResult } from '../services/ai';
+import {
+  formatRecipe,
+  FormattedRecipe,
+  lookupNutrition,
+  NutritionResult,
+  titleFromBlurb,
+} from '../services/ai';
 import { searchPlaces } from '../services/places';
 import { LOCATION_TAGGING_ENABLED } from '../config';
 import { useApp } from '../state/AppContext';
@@ -51,7 +57,10 @@ export function ComposeScreen({ navigation }: any) {
   // notice when the user rewrites the description out from under the card.
   const [recipeBlurb, setRecipeBlurb] = useState('');
   const [formatting, setFormatting] = useState(false);
-  const [formatFailed, setFormatFailed] = useState<null | 'not-recipe' | 'error'>(null);
+  const [formatFailed, setFormatFailed] = useState<null | 'error'>(null);
+  // Set when the card had to start blank (nothing in the description to build
+  // from), so it can say what to do with it.
+  const [recipeBlank, setRecipeBlank] = useState(false);
   // Nutrition is kept beside the recipe rather than inside it: the totals are
   // for the whole dish, and `servings` is only a display divisor.
   const [servings, setServings] = useState(1);
@@ -102,11 +111,16 @@ export function ComposeScreen({ navigation }: any) {
       setFormatFailed('error');
       return;
     }
-    if (!result.is_recipe) {
-      setFormatFailed('not-recipe');
-      return;
-    }
-    setRecipe(result);
+    // Tapping Format always gives you a card. The AI makes one for anything
+    // food-related; if it still couldn't (nothing to work from), open a blank
+    // one titled from your words for you to fill in.
+    const blank = !result.is_recipe;
+    setRecipeBlank(blank);
+    setRecipe(
+      blank
+        ? { ...result, is_recipe: true, title: titleFromBlurb(blurb), ingredients: [], steps: [] }
+        : result,
+    );
     setRecipeEdited(false);
     // Remember what this card was built from, and drop any nutrition that
     // belonged to the previous ingredients.
@@ -123,6 +137,7 @@ export function ComposeScreen({ navigation }: any) {
   const keepRecipe = () => setRecipeBlurb(blurb);
 
   const clearRecipe = () => {
+    setRecipeBlank(false);
     setRecipe(null);
     setNutrition(null);
     setRecipeBlurb('');
@@ -399,12 +414,6 @@ export function ComposeScreen({ navigation }: any) {
               style={{ backgroundColor: colors.amberSoft, borderWidth: 1, borderColor: colors.amber }}
               textStyle={{ color: colors.amberDark }}
             />
-            {formatFailed === 'not-recipe' ? (
-              <Muted style={{ marginTop: spacing.sm }}>
-                That reads like a meal out rather than a cooking description, so no recipe
-                card is needed. Your description is the post.
-              </Muted>
-            ) : null}
             {formatFailed === 'error' ? (
               <Muted style={{ marginTop: spacing.sm }}>
                 Formatting is unavailable right now. Your post works fine without it, or
@@ -444,12 +453,6 @@ export function ComposeScreen({ navigation }: any) {
                 >
                   <Text style={styles.driftKeepText}>Keep what I have</Text>
                 </Pressable>
-                {formatFailed === 'not-recipe' ? (
-                  <Muted style={{ marginTop: spacing.sm }}>
-                    The new description reads like a meal out, so there is no recipe to
-                    rebuild. Clear the card if you no longer want it.
-                  </Muted>
-                ) : null}
                 {formatFailed === 'error' ? (
                   <Muted style={{ marginTop: spacing.sm }}>
                     Rebuilding is unavailable right now — try again in a moment, or keep
@@ -459,6 +462,14 @@ export function ComposeScreen({ navigation }: any) {
               </View>
             ) : null}
 
+            {recipeBlank ? (
+              <View testID="recipe-blank-hint" style={{ marginBottom: spacing.sm }}>
+                <Muted>
+                  Couldn't work out a recipe from that, so here's a blank card. Add the
+                  ingredients and steps, or clear it.
+                </Muted>
+              </View>
+            ) : null}
             <RecipeCardEditor
             value={recipe}
             onChange={(r) => {
