@@ -25,13 +25,13 @@ import {
 } from '../lib/recentSearches';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
-import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
+import { fonts, radius, spacing, makeStyles, useColors, photoGrid } from '../theme';
 import { Post, User } from '../types';
 
 type Tab = 'dishes' | 'people';
 
-const GRID_COLUMNS = 3;
-const GRID_GAP = 2;
+const GRID_COLUMNS = photoGrid.columns;
+const GRID_GAP = photoGrid.gap;
 const DEBOUNCE_MS = 250;
 
 /**
@@ -325,7 +325,7 @@ export function SearchScreen({ navigation }: any) {
           numColumns={GRID_COLUMNS}
           ListHeaderComponent={header}
           keyboardShouldPersistTaps="handled"
-          columnWrapperStyle={{ gap: GRID_GAP }}
+          columnWrapperStyle={{ gap: GRID_GAP, paddingHorizontal: photoGrid.side }}
           contentContainerStyle={{ gap: GRID_GAP, paddingBottom: 120 }}
           renderItem={({ item }) =>
             item ? (
@@ -337,6 +337,7 @@ export function SearchScreen({ navigation }: any) {
                   navigation.navigate('PostPeek', { postId: item.id });
                 }}
                 style={{ flex: 1 }}
+                radius={photoGrid.radius}
               />
             ) : (
               <View style={{ flex: 1 }} />

@@ -17,11 +17,11 @@ import { COLLECTION_NAME_MAX, collectionNameProblem } from '../lib/collectionNam
 import { openPostFeed } from '../lib/postFeed';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
-import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
+import { fonts, radius, spacing, makeStyles, useColors, photoGrid } from '../theme';
 import { Collection, Post } from '../types';
 
-const GRID_COLUMNS = 3;
-const GRID_GAP = 2;
+const GRID_COLUMNS = photoGrid.columns;
+const GRID_GAP = photoGrid.gap;
 
 /** Pad to whole rows so a lone final tile stays a third wide. */
 const padRows = (items: Post[]): (Post | null)[] => {
@@ -215,7 +215,7 @@ export function CollectionScreen({ navigation, route }: any) {
           data={padRows(myPosts)}
           keyExtractor={(p, i) => p?.id ?? `spacer-${i}`}
           numColumns={GRID_COLUMNS}
-          columnWrapperStyle={{ gap: GRID_GAP }}
+          columnWrapperStyle={{ gap: GRID_GAP, paddingHorizontal: photoGrid.side }}
           contentContainerStyle={{ gap: GRID_GAP, paddingBottom: 120 }}
           ListHeaderComponent={
             <Muted style={styles.pickHint}>
@@ -225,7 +225,7 @@ export function CollectionScreen({ navigation, route }: any) {
           renderItem={({ item }) =>
             item ? (
               <View style={{ flex: 1 }}>
-                <PostThumb post={item} onPress={() => flip(item.id)} />
+                <PostThumb post={item} onPress={() => flip(item.id)} radius={photoGrid.radius} />
                 <View pointerEvents="none" style={styles.tick}>
                   <Ionicons
                     name={chosen.has(item.id) ? 'checkmark-circle' : 'ellipse-outline'}
@@ -251,7 +251,7 @@ export function CollectionScreen({ navigation, route }: any) {
           data={padRows(visible)}
           keyExtractor={(p, i) => p?.id ?? `spacer-${i}`}
           numColumns={GRID_COLUMNS}
-          columnWrapperStyle={{ gap: GRID_GAP }}
+          columnWrapperStyle={{ gap: GRID_GAP, paddingHorizontal: photoGrid.side }}
           contentContainerStyle={{ gap: GRID_GAP, paddingBottom: 120 }}
           ListHeaderComponent={
             count > 0 ? (
@@ -265,6 +265,7 @@ export function CollectionScreen({ navigation, route }: any) {
                 onPress={() => openPostFeed(navigation, visible, item.id, name)}
                 onLongPress={() => navigation.navigate('PostPeek', { postId: item.id })}
                 style={{ flex: 1 }}
+                radius={photoGrid.radius}
               />
             ) : (
               <View style={{ flex: 1 }} />

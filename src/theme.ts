@@ -118,6 +118,18 @@ export const radius = {
   pill: 999,
 };
 
+/**
+ * Every photo grid (profiles, Dishes, Search, Your activity, tagged posts,
+ * collections) uses the same look: three across, a little air between the
+ * tiles, padded in from the screen edges, rounded corners.
+ */
+export const photoGrid = {
+  columns: 3,
+  gap: 6,
+  side: spacing.lg,
+  radius: radius.md,
+};
+
 export type Shadows = { shadow: object; shadowSoft: object };
 
 function makeShadows(c: Palette): Shadows {

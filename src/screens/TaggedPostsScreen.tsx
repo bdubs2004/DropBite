@@ -8,11 +8,11 @@ import { Muted } from '../components/ui';
 import { openPostFeed } from '../lib/postFeed';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
-import { fonts, spacing, makeStyles, useColors } from '../theme';
+import { fonts, spacing, makeStyles, useColors, photoGrid } from '../theme';
 import { Post } from '../types';
 
-const GRID_COLUMNS = 3;
-const GRID_GAP = 2;
+const GRID_COLUMNS = photoGrid.columns;
+const GRID_GAP = photoGrid.gap;
 
 /**
  * Posts someone has been tagged in, opened from "Tagged posts" in their
@@ -96,7 +96,7 @@ export function TaggedPostsScreen({ navigation, route }: any) {
           data={gridData}
           keyExtractor={(p, i) => p?.id ?? `spacer-${i}`}
           numColumns={GRID_COLUMNS}
-          columnWrapperStyle={{ gap: GRID_GAP }}
+          columnWrapperStyle={{ gap: GRID_GAP, paddingHorizontal: photoGrid.side }}
           contentContainerStyle={{ gap: GRID_GAP, paddingBottom: 120 }}
           renderItem={({ item }) =>
             item ? (
@@ -105,6 +105,7 @@ export function TaggedPostsScreen({ navigation, route }: any) {
                 onPress={() => openPostFeed(navigation, visible, item.id, 'Tagged')}
                 onLongPress={() => navigation.navigate('PostPeek', { postId: item.id })}
                 style={{ flex: 1 }}
+                radius={photoGrid.radius}
               />
             ) : (
               <View style={{ flex: 1 }} />
