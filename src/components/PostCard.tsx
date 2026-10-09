@@ -598,9 +598,10 @@ const useStyles = makeStyles((colors, { shadow }) => ({
   },
   recipeToggle: {
     marginTop: spacing.md,
-    // Hugs a short title, but never wider than the card: a long one used to
-    // push the bubble (and its arrow) off the right edge.
-    alignSelf: 'flex-start',
+    // Hugs a short title and sits centered under the post; never wider than
+    // the card: a long one used to push the bubble (and its arrow) off the
+    // right edge.
+    alignSelf: 'center',
     maxWidth: '100%',
     flexDirection: 'row',
     alignItems: 'center',
