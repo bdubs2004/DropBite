@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useZooming } from '../components/PinchZoom';
 import { PostCard } from '../components/PostCard';
@@ -12,7 +12,7 @@ import { openPostFeed } from '../lib/postFeed';
 import { usePostActions } from '../lib/usePostActions';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
-import { colors, fonts, radius, shadowSoft, spacing } from '../theme';
+import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
 import { Post } from '../types';
 
 export type ActivityTab = 'liked' | 'saved' | 'commented' | 'tagged';
@@ -59,6 +59,8 @@ const TABS: { key: ActivityTab; label: string; icon: any; empty: string }[] = [
  * in production RLS keeps saved_posts owner-only.
  */
 export function ActivityScreen({ navigation, route }: any) {
+  const styles = useStyles();
+  const colors = useColors();
   const svc = getDataService();
   const { user } = useApp();
   const insets = useSafeAreaInsets();
@@ -313,7 +315,7 @@ export function ActivityScreen({ navigation, route }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, { shadowSoft }) => ({
   root: { flex: 1, backgroundColor: colors.cream },
   header: {
     flexDirection: 'row',
@@ -341,7 +343,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  layoutBtnActive: { backgroundColor: colors.white, ...(shadowSoft as object) },
+  layoutBtnActive: { backgroundColor: colors.raised, ...(shadowSoft as object) },
   tabs: {
     flexDirection: 'row',
     backgroundColor: colors.creamDark,
@@ -361,11 +363,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
     borderRadius: radius.lg,
   },
-  tabActive: { backgroundColor: colors.white, ...(shadowSoft as object) },
+  tabActive: { backgroundColor: colors.raised, ...(shadowSoft as object) },
   tabText: { fontFamily: fonts.bold, fontSize: 12, color: colors.cocoaSoft },
   // Photos sit inside the page's side margins with a little air between them.
   grid: { gap: GRID_GAP, paddingBottom: 120 },
   gridRow: { gap: GRID_GAP, paddingHorizontal: spacing.lg },
   tabTextActive: { color: colors.amberDark },
   empty: { alignItems: 'center', gap: spacing.sm, marginTop: 80 },
-});
+}));

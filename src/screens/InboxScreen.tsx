@@ -6,7 +6,6 @@ import {
   FlatList,
   Pressable,
   RefreshControl,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
@@ -19,11 +18,13 @@ import { leftLine } from '../lib/chatTimeline';
 import { conversationDisplayName, conversationTitle } from '../lib/conversationName';
 import { relativeTime } from '../lib/time';
 import { getDataService } from '../services';
-import { colors, fonts, radius, shadowSoft, spacing } from '../theme';
+import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
 import { Conversation } from '../types';
 
 /** Your DM threads, most recently active first. */
 export function InboxScreen({ navigation }: any) {
+  const styles = useStyles();
+  const colors = useColors();
   const svc = getDataService();
   const insets = useSafeAreaInsets();
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -252,7 +253,7 @@ export function InboxScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, { shadowSoft }) => ({
   root: { flex: 1, backgroundColor: colors.cream },
   header: {
     flexDirection: 'row',
@@ -273,7 +274,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.lg,
     padding: spacing.md,
     marginBottom: spacing.sm,
@@ -305,7 +306,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badgeText: { fontFamily: fonts.bold, fontSize: 12, color: colors.white },
+  badgeText: { fontFamily: fonts.bold, fontSize: 12, color: colors.onAmber },
   confirmBar: {
     backgroundColor: colors.cream,
     borderTopWidth: 1,
@@ -322,4 +323,4 @@ const styles = StyleSheet.create({
   confirmDeleteText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.white },
   empty: { alignItems: 'center', gap: spacing.sm, marginTop: 80 },
   emptyTitle: { fontFamily: fonts.display, fontSize: 19, color: colors.cocoa },
-});
+}));

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import {
   Nutrition,
   NutritionSource,
@@ -8,7 +8,7 @@ import {
   roundForDisplay,
   servingFractionLabel,
 } from '../lib/nutrition';
-import { colors, fonts, radius, spacing } from '../theme';
+import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
 
 /**
  * The nutrition label, with the serving-size control that makes it mean
@@ -38,6 +38,8 @@ export function NutritionPanel({
   onChangeServings?: (n: number) => void;
   onRecalculate?: () => void;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   if (loading) {
     return (
       <View style={styles.card}>
@@ -63,7 +65,7 @@ export function NutritionPanel({
           Add a nutrition estimate from your ingredients.
         </Text>
         <Pressable testID="nutrition-calculate" onPress={onRecalculate} style={styles.calcBtn}>
-          <Ionicons name="calculator-outline" size={16} color={colors.white} />
+          <Ionicons name="calculator-outline" size={16} color={colors.onAmber} />
           <Text style={styles.calcBtnText}>Estimate nutrition</Text>
         </Pressable>
       </View>
@@ -162,15 +164,16 @@ function sourceLine(source: NutritionSource | null): string {
     case 'usda':
       return 'These are estimates, worked out from your ingredients using the USDA FoodData Central database. The real numbers shift with how you cook, the brands you use, and how much you actually eat.';
     case 'demo':
-      return 'Sample figures for demo mode — not real nutrition data.';
+      return 'Sample figures for demo mode, not real nutrition data.';
     case 'estimated':
-      return 'A rough ballpark from your ingredients — it isn’t matched to a nutrition database, so take it loosely.';
+      return 'A rough ballpark from your ingredients. It isn’t matched to a nutrition database, so take it loosely.';
     default:
-      return 'Just an estimate — please don’t lean on it for medical or dietary decisions.';
+      return 'Just an estimate, so please don’t lean on it for medical or dietary decisions.';
   }
 }
 
 function Macro({ label, value, testID }: { label: string; value: string; testID?: string }) {
+  const styles = useStyles();
   return (
     <View style={styles.macro}>
       <Text testID={testID} style={styles.macroValue}>
@@ -181,9 +184,9 @@ function Macro({ label, value, testID }: { label: string; value: string; testID?
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   card: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.lg,
     padding: spacing.md,
     marginTop: spacing.md,
@@ -209,7 +212,7 @@ const styles = StyleSheet.create({
   stepper: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   stepBtn: {
     width: 32, height: 32, borderRadius: 16,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     alignItems: 'center', justifyContent: 'center',
   },
   stepValue: { fontFamily: fonts.display, fontSize: 18, color: colors.cocoa, minWidth: 26, textAlign: 'center' },
@@ -235,9 +238,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     backgroundColor: colors.amber, borderRadius: radius.pill, paddingVertical: 10,
   },
-  calcBtnText: { fontFamily: fonts.bold, fontSize: 14, color: colors.white },
+  calcBtnText: { fontFamily: fonts.bold, fontSize: 14, color: colors.onAmber },
   recalc: {
     fontFamily: fonts.bold, fontSize: 12.5, color: colors.amberDark,
     marginTop: spacing.md, textAlign: 'center',
   },
-});
+}));

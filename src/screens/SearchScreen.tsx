@@ -4,7 +4,6 @@ import {
   ActivityIndicator,
   FlatList,
   Pressable,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -27,7 +26,7 @@ import {
 } from '../lib/recentSearches';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
-import { colors, fonts, radius, shadowSoft, spacing } from '../theme';
+import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
 import { Post, User } from '../types';
 
 type Tab = 'dishes' | 'people';
@@ -44,6 +43,8 @@ const DEBOUNCE_MS = 250;
  * things the caption never mentioned.
  */
 export function SearchScreen({ navigation }: any) {
+  const styles = useStyles();
+  const colors = useColors();
   const svc = getDataService();
   const { hiddenIds } = useApp();
   const insets = useSafeAreaInsets();
@@ -406,6 +407,7 @@ function TabButton({
   active: boolean;
   onPress: () => void;
 }) {
+  const styles = useStyles();
   return (
     <Pressable
       testID={`search-tab-${label.toLowerCase()}`}
@@ -417,7 +419,7 @@ function TabButton({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, { shadowSoft }) => ({
   root: { flex: 1, backgroundColor: colors.cream },
   header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.md },
   tabs: {
@@ -427,13 +429,13 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   tab: { flex: 1, paddingVertical: 9, borderRadius: radius.pill, alignItems: 'center' },
-  tabActive: { backgroundColor: colors.white, ...(shadowSoft as object) },
+  tabActive: { backgroundColor: colors.raised, ...(shadowSoft as object) },
   tabText: { fontFamily: fonts.bold, fontSize: 14.5, color: colors.cocoaSoft },
   tabTextActive: { color: colors.amberDark },
   userRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.lg,
     padding: spacing.md,
     marginBottom: spacing.sm,
@@ -444,7 +446,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.lg,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
@@ -476,4 +478,4 @@ const styles = StyleSheet.create({
   recentsClear: { fontFamily: fonts.bold, fontSize: 13, color: colors.amberDark },
   empty: { alignItems: 'center', gap: spacing.sm, marginTop: 60 },
   emptyText: { textAlign: 'center', paddingHorizontal: spacing.xl },
-});
+}));

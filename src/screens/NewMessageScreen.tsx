@@ -1,12 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '../components/Avatar';
 import { Button, Muted } from '../components/ui';
 import { conversationTitle } from '../lib/conversationName';
 import { getDataService } from '../services';
-import { colors, fonts, radius, spacing } from '../theme';
+import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
 import { User } from '../types';
 
 /**
@@ -17,6 +17,8 @@ import { User } from '../types';
  * schema.sql) — this list just means you never see a name you can't message.
  */
 export function NewMessageScreen({ navigation }: any) {
+  const styles = useStyles();
+  const colors = useColors();
   const svc = getDataService();
   const insets = useSafeAreaInsets();
   const [people, setPeople] = useState<User[]>([]);
@@ -164,7 +166,7 @@ export function NewMessageScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   root: { flex: 1, backgroundColor: colors.cream },
   header: {
     flexDirection: 'row',
@@ -179,7 +181,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.lg,
     padding: spacing.md,
     marginBottom: spacing.sm,
@@ -195,7 +197,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     borderTopWidth: 1,
     borderColor: colors.hairline,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
   },
   notice: {
     flexDirection: 'row',
@@ -208,4 +210,4 @@ const styles = StyleSheet.create({
     backgroundColor: colors.creamDark,
   },
   noticeText: { flex: 1, fontFamily: fonts.semi, fontSize: 13, color: colors.cocoa },
-});
+}));

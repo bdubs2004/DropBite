@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useRef } from 'react';
-import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Modal, Pressable, Text, View } from 'react-native';
 import { formatTime, timeOptions } from '../lib/mealTimes';
-import { colors, fonts, radius, spacing } from '../theme';
+import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
 
 /**
  * Pick a time of day.
@@ -26,6 +26,8 @@ export function TimePickerModal({
   onSelect: (next: string) => void;
   onClose: () => void;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   const options = useMemo(() => timeOptions(15), []);
   const listRef = useRef<FlatList<string>>(null);
   const selectedIndex = Math.max(0, options.indexOf(value));
@@ -92,7 +94,7 @@ export function TimePickerModal({
 
 const ROW_HEIGHT = 48;
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   // No dim: tapping outside the card still closes it.
   backdrop: {
     flex: 1,
@@ -101,7 +103,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   sheet: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.xl,
     width: '100%',
     maxWidth: 360,
@@ -145,4 +147,4 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
     color: colors.amberDark,
   },
-});
+}));

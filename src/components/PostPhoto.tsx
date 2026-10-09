@@ -1,9 +1,9 @@
 import { Image } from 'expo-image';
 import React, { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { photoFrame } from '../lib/photoFrame';
 import { useIsZoomCopy } from './PinchZoom';
-import { colors } from '../theme';
+import { makeStyles } from '../theme';
 import { Post } from '../types';
 
 /**
@@ -55,6 +55,7 @@ export function PostPhoto({
   /** Cap how tall the frame can get; the photo fits inside, never cut. */
   maxRatio?: number;
 }) {
+  const styles = useStyles();
   const isZoomCopy = useIsZoomCopy();
   const [measured, setMeasured] = useState<{ w: number; h: number } | null>(
     () => (post.photo_url ? measuredSizes.get(post.photo_url) ?? null : null),
@@ -109,7 +110,7 @@ export function PostPhoto({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   photo: {
     width: '100%',
     backgroundColor: colors.creamDark,
@@ -149,4 +150,4 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 244, 222, 0.75)',
     letterSpacing: 0.4,
   },
-});
+}));

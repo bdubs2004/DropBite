@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { LOCATION_TAGGING_ENABLED } from '../config';
 import { relativeTime } from '../lib/time';
 import { useApp } from '../state/AppContext';
-import { colors, fonts, MEAL_SLOT_META, radius, shadow, spacing } from '../theme';
+import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
 import { Post } from '../types';
 import { ActionSheet } from './ActionSheet';
 import { Avatar } from './Avatar';
@@ -53,11 +53,13 @@ function PostCardView({
   /** True when the signed-in user wrote this post. */
   isMine?: boolean;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   const [showRecipe, setShowRecipe] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const slot = MEAL_SLOT_META[post.meal_slot];
+  const slot = colors.meal[post.meal_slot];
 
   // Optimistic like/repost/save so the button responds instantly and the
   // screen doesn't have to re-pull the whole list on every tap (that full
@@ -460,9 +462,9 @@ function PostCardView({
  */
 export const PostCard = React.memo(PostCardView);
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, { shadow }) => ({
   card: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.xl,
     marginHorizontal: spacing.lg,
     marginBottom: spacing.xl,
@@ -616,4 +618,4 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.amberDark,
   },
-});
+}));

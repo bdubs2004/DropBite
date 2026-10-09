@@ -6,7 +6,6 @@ import {
   Platform,
   Pressable,
   RefreshControl,
-  StyleSheet,
   Text,
   View,
   ViewToken,
@@ -20,7 +19,7 @@ import { feedWindow, takePosts } from '../lib/postFeed';
 import { usePostActions } from '../lib/usePostActions';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
-import { colors, fonts, spacing } from '../theme';
+import { fonts, spacing, makeStyles, useColors } from '../theme';
 import { Post } from '../types';
 
 /**
@@ -33,6 +32,8 @@ import { Post } from '../types';
  * are current and it works when the caller only has an id.
  */
 export function PostDetailScreen({ navigation, route }: any) {
+  const styles = useStyles();
+  const colors = useColors();
   const postId: string = route.params.postId;
   const svc = getDataService();
   const { user, hiddenIds } = useApp();
@@ -324,7 +325,7 @@ const NO_REFRESH = () => {};
 /** Space above the first post in the list. */
 const LIST_TOP_PAD = spacing.md;
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   root: {
     flex: 1,
     backgroundColor: colors.cream,
@@ -355,4 +356,4 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: colors.cocoa,
   },
-});
+}));

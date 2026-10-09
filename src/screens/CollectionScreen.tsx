@@ -4,7 +4,6 @@ import {
   ActivityIndicator,
   FlatList,
   Pressable,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
@@ -18,7 +17,7 @@ import { COLLECTION_NAME_MAX, collectionNameProblem } from '../lib/collectionNam
 import { openPostFeed } from '../lib/postFeed';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
-import { colors, fonts, radius, spacing } from '../theme';
+import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
 import { Collection, Post } from '../types';
 
 const GRID_COLUMNS = 3;
@@ -36,6 +35,8 @@ const padRows = (items: Post[]): (Post | null)[] => {
  * their own), rename and delete in the ··· menu.
  */
 export function CollectionScreen({ navigation, route }: any) {
+  const styles = useStyles();
+  const colors = useColors();
   const collectionId: string = route.params.collectionId;
   const svc = getDataService();
   const { user, hiddenIds } = useApp();
@@ -330,7 +331,7 @@ export function CollectionScreen({ navigation, route }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   root: { flex: 1, backgroundColor: colors.cream },
   header: {
     flexDirection: 'row',
@@ -366,9 +367,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     padding: spacing.md,
     borderRadius: radius.lg,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     gap: spacing.sm,
   },
   confirmText: { fontFamily: fonts.semi, fontSize: 14, color: colors.cocoa },
   confirmActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: spacing.sm },
-});
+}));

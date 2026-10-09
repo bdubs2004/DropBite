@@ -5,7 +5,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
@@ -17,7 +16,7 @@ import { LIMITS } from '../lib/limits';
 import { passwordMeetsAll } from '../lib/passwordRules';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
-import { colors, fonts, radius, spacing } from '../theme';
+import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -44,6 +43,8 @@ function authErrorMessage(e: any, mode: 'signin' | 'signup'): string {
 }
 
 export function AuthScreen() {
+  const styles = useStyles();
+  const colors = useColors();
   const { setUser } = useApp();
   const svc = getDataService();
   const [mode, setMode] = useState<'signin' | 'signup'>('signup');
@@ -417,7 +418,7 @@ export function AuthScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   legal: {
     fontFamily: fonts.semi,
     fontSize: 12,
@@ -483,7 +484,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   card: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.xl,
     padding: spacing.xl,
   },
@@ -509,7 +510,7 @@ const styles = StyleSheet.create({
     color: colors.cocoaSoft,
   },
   tabTextActive: {
-    color: colors.white,
+    color: colors.onAmber,
   },
   error: {
     fontFamily: fonts.bold,
@@ -517,4 +518,4 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     fontSize: 13.5,
   },
-});
+}));

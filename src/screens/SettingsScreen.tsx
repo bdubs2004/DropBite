@@ -4,7 +4,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Switch,
   Text,
   View,
@@ -19,7 +18,7 @@ import { LIMITS } from '../lib/limits';
 import { formatTime, MEAL_REMINDER_SLOTS, timeFor } from '../lib/mealTimes';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
-import { colors, fonts, radius, spacing } from '../theme';
+import { fonts, makeStyles, radius, spacing, ThemeMode, useColors, useTheme } from '../theme';
 import { MealReminderSlot } from '../types';
 
 const MEAL_LABELS: Record<MealReminderSlot, string> = {
@@ -28,9 +27,18 @@ const MEAL_LABELS: Record<MealReminderSlot, string> = {
   dinner: 'Dinner',
 };
 
-export type SettingsSection = 'profile' | 'notifications' | 'privacy' | 'account';
+export type SettingsSection = 'profile' | 'notifications' | 'appearance' | 'privacy' | 'account';
+
+const APPEARANCE: { mode: ThemeMode; label: string; icon: any }[] = [
+  { mode: 'system', label: 'System', icon: 'phone-portrait-outline' },
+  { mode: 'light', label: 'Light', icon: 'sunny-outline' },
+  { mode: 'dark', label: 'Dark', icon: 'moon-outline' },
+];
 
 export function SettingsScreen({ navigation, route }: any) {
+  const styles = useStyles();
+  const colors = useColors();
+  const { mode, setMode } = useTheme();
   const { user, setUser, prefs, setPrefs, refreshMe } = useApp();
   const svc = getDataService();
   const insets = useSafeAreaInsets();
@@ -178,6 +186,37 @@ export function SettingsScreen({ navigation, route }: any) {
         onClose={() => setEditingSlot(null)}
       />
 
+      <Text style={styles.section} onLayout={rememberOffset('appearance')}>
+        Appearance
+      </Text>
+      <Card>
+        <View style={styles.segment} role="radiogroup">
+          {APPEARANCE.map((o) => {
+            const on = mode === o.mode;
+            return (
+              <Pressable
+                key={o.mode}
+                testID={`appearance-${o.mode}`}
+                onPress={() => setMode(o.mode)}
+                style={[styles.segBtn, on && styles.segBtnOn]}
+                role="radio"
+                aria-checked={on}
+              >
+                <Ionicons
+                  name={o.icon}
+                  size={17}
+                  color={on ? colors.amberDark : colors.cocoaSoft}
+                />
+                <Text style={[styles.segText, on && styles.segTextOn]}>{o.label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        <Muted style={{ marginTop: spacing.md }}>
+          System follows your phone, so NiblGo goes dark when your phone does
+        </Muted>
+      </Card>
+
       <Text style={styles.section} onLayout={rememberOffset('privacy')}>
         Privacy
       </Text>
@@ -256,6 +295,8 @@ function PrefRow({
   time?: string;
   onPressTime?: () => void;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <View style={[styles.prefRow, !last && styles.prefRowBorder]}>
       <Text style={styles.prefLabel}>{label}</Text>
@@ -285,7 +326,7 @@ function PrefRow({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, { shadowSoft }) => ({
   scroll: {
     padding: spacing.lg,
     maxWidth: 560,
@@ -316,6 +357,24 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
     marginBottom: spacing.sm,
   },
+  segment: {
+    flexDirection: 'row',
+    backgroundColor: colors.creamDark,
+    borderRadius: radius.pill,
+    padding: 4,
+  },
+  segBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 9,
+    borderRadius: radius.pill,
+  },
+  segBtnOn: { backgroundColor: colors.raised, ...(shadowSoft as object) },
+  segText: { fontFamily: fonts.bold, fontSize: 14, color: colors.cocoaSoft },
+  segTextOn: { color: colors.amberDark },
   prefRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -361,4 +420,4 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
-});
+}));

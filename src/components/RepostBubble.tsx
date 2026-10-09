@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useRef } from 'react';
-import { Animated, PanResponder, StyleSheet, Text, View } from 'react-native';
-import { colors, fonts } from '../theme';
+import { Animated, PanResponder, Text, View } from 'react-native';
+import { fonts, makeStyles, useColors } from '../theme';
 import { User } from '../types';
 import { Avatar } from './Avatar';
 
@@ -31,6 +31,8 @@ export function RepostBubble({
   /** Start this much higher (the photo's tag dot sits in the corner). */
   lift?: number;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   const pan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const start = useRef({ x: 0, y: 0 });
   const size = useRef({ w: 0, h: 0 });
@@ -97,7 +99,7 @@ export function RepostBubble({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   bubble: {
     position: 'absolute',
     left: PAD,
@@ -123,4 +125,4 @@ const styles = StyleSheet.create({
     color: colors.white,
     letterSpacing: 0.2,
   },
-});
+}));

@@ -5,7 +5,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
@@ -13,7 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Input, Muted } from '../components/ui';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
-import { colors, fonts, radius, spacing } from '../theme';
+import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
 import { ReportReason } from '../types';
 
 /**
@@ -40,6 +39,8 @@ const REASONS: { key: ReportReason; label: string; hint: string }[] = [
 ];
 
 export function ReportScreen({ navigation, route }: any) {
+  const styles = useStyles();
+  const colors = useColors();
   // Exactly one of these is set. Same reasons and same queue whichever it is;
   // only the wording and the service call differ.
   const { postId, messageId, commentId, reportedUserId } = route.params as {
@@ -198,7 +199,7 @@ export function ReportScreen({ navigation, route }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   root: {
     flex: 1,
     backgroundColor: colors.cream,
@@ -230,7 +231,7 @@ const styles = StyleSheet.create({
   reasonRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.lg,
     borderWidth: 1.5,
     borderColor: 'transparent',
@@ -282,4 +283,4 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     textAlign: 'center',
   },
-});
+}));

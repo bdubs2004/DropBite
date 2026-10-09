@@ -4,7 +4,6 @@ import {
   ActivityIndicator,
   Platform,
   Pressable,
-  StyleSheet,
   Text,
   TextInput,
   TextInputProps,
@@ -12,7 +11,7 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
-import { colors, fonts, radius, shadowSoft, spacing } from '../theme';
+import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
 
 export function Button({
   title,
@@ -36,6 +35,8 @@ export function Button({
   small?: boolean;
   testID?: string;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   const bg =
     variant === 'primary'
       ? colors.amber
@@ -45,8 +46,10 @@ export function Button({
           ? colors.creamDark
           : 'transparent';
   const fg =
-    variant === 'primary' || variant === 'danger'
-      ? colors.white
+    variant === 'primary'
+      ? colors.onAmber
+      : variant === 'danger'
+        ? colors.white
       : variant === 'secondary'
         ? colors.cocoa
         : colors.amberDark;
@@ -84,6 +87,8 @@ export function Button({
  */
 export const Input = React.forwardRef<TextInput, TextInputProps & { label?: string }>(
   function Input(props, ref) {
+    const styles = useStyles();
+    const colors = useColors();
     const { label, style, secureTextEntry, ...rest } = props;
     // The browser's text box doesn't grow by itself like iOS's does, so grow
     // it by hand on web (otherwise it turns into a little scroll box again).
@@ -97,6 +102,7 @@ export const Input = React.forwardRef<TextInput, TextInputProps & { label?: stri
         {label ? <Text style={styles.label}>{label}</Text> : null}
         <View>
           <TextInput
+            keyboardAppearance={colors.dark ? 'dark' : 'light'}
             ref={ref}
             placeholderTextColor={colors.cocoaFaint}
             scrollEnabled={rest.multiline ? false : undefined}
@@ -141,23 +147,27 @@ export const Input = React.forwardRef<TextInput, TextInputProps & { label?: stri
 );
 
 export function Card({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
+  const styles = useStyles();
   return <View style={[styles.card, style]}>{children}</View>;
 }
 
 /** Cream-toned card used for recipe cards. */
 export function BittenCard({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
+  const styles = useStyles();
   return <View style={[styles.card, styles.bittenCard, style]}>{children}</View>;
 }
 
 export function ScreenTitle({ children }: { children: React.ReactNode }) {
+  const styles = useStyles();
   return <Text style={styles.screenTitle}>{children}</Text>;
 }
 
 export function Muted({ children, style }: { children: React.ReactNode; style?: object }) {
+  const styles = useStyles();
   return <Text style={[styles.muted, style]}>{children}</Text>;
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, { shadowSoft }) => ({
   btn: {
     borderRadius: radius.pill,
     paddingVertical: 14,
@@ -188,7 +198,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
   },
   input: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.md,
     borderWidth: 1.5,
     borderColor: colors.hairline,
@@ -235,4 +245,4 @@ const styles = StyleSheet.create({
     color: colors.cocoaFaint,
     fontSize: 13,
   },
-});
+}));

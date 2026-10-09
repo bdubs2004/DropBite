@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import React, { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, fonts } from '../theme';
+import { fonts, makeStyles } from '../theme';
 
 /**
  * The brand animation that plays after a post goes up: a fork rises and pulls
@@ -24,6 +24,7 @@ export function PostSuccessOverlay({
   visible: boolean;
   onDone: () => void;
 }) {
+  const styles = useStyles();
   const [skippable, setSkippable] = useState(false);
 
   // Hold the latest callback without restarting the timer.
@@ -73,7 +74,7 @@ export function PostSuccessOverlay({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   root: {
     flex: 1,
     backgroundColor: colors.amber,
@@ -89,4 +90,4 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.85)',
     letterSpacing: 0.3,
   },
-});
+}));

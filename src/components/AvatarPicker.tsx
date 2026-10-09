@@ -4,12 +4,11 @@ import {
   ActivityIndicator,
   Alert,
   Pressable,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { pickImage } from '../lib/pickImage';
-import { colors, fonts, radius, shadow, spacing } from '../theme';
+import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
 import { User } from '../types';
 import { Avatar } from './Avatar';
 
@@ -29,6 +28,8 @@ export function AvatarPicker({
   onPick: (localUri: string) => Promise<void>;
   size?: number;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [choosing, setChoosing] = useState(false);
@@ -76,7 +77,7 @@ export function AvatarPicker({
           ) : null}
         </View>
         <View style={styles.plusBadge}>
-          <Ionicons name="add" size={20} color={colors.white} />
+          <Ionicons name="add" size={20} color={colors.onAmber} />
         </View>
       </Pressable>
 
@@ -104,7 +105,7 @@ export function AvatarPicker({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, { shadow }) => ({
   wrap: {
     alignItems: 'center',
     marginBottom: spacing.lg,
@@ -120,7 +121,7 @@ const styles = StyleSheet.create({
     // reads when the avatar fallback is itself amber.
     borderWidth: 3,
     borderColor: colors.amber,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     ...(shadow as object),
   },
   busy: {
@@ -145,7 +146,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 3,
-    borderColor: colors.white,
+    borderColor: colors.card,
     ...(shadow as object),
   },
   hint: {
@@ -184,4 +185,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: spacing.lg,
   },
-});
+}));

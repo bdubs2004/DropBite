@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useRef, useState } from 'react';
-import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { colors, fonts } from '../theme';
+import { Animated, Easing, Pressable, ScrollView, Text, View } from 'react-native';
+import { fonts, makeStyles, useColors } from '../theme';
 import { User } from '../types';
 
 const DOT = 30;
@@ -23,6 +23,8 @@ export function TagDot({
   maxWidth: number;
   onPressUser?: (userId: string) => void;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   const [open, setOpen] = useState(false);
   const roll = useRef(new Animated.Value(0)).current;
 
@@ -108,7 +110,7 @@ export function TagDot({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   wrap: {
     position: 'absolute',
     left: 10,
@@ -137,4 +139,4 @@ const styles = StyleSheet.create({
   nameRow: { flexDirection: 'row', alignItems: 'center' },
   sep: { color: 'rgba(255,255,255,0.6)', marginHorizontal: 6, fontFamily: fonts.bold },
   name: { fontFamily: fonts.bold, fontSize: 13, color: colors.white },
-});
+}));

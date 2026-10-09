@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, fonts, radius, shadow, spacing } from '../theme';
+import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
 
 export type SheetAction = {
   key: string;
@@ -37,6 +37,8 @@ export function ActionSheet({
   /** Extra content above the actions (the emoji row on a chat message). */
   header?: React.ReactNode;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   const insets = useSafeAreaInsets();
 
   return (
@@ -89,7 +91,7 @@ export function ActionSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, { shadow }) => ({
   // No dim: the screen behind stays exactly as it was. This full-screen
   // layer is only there so a tap outside the sheet closes it; the sheet's own
   // shadow is what sets it apart.
@@ -121,7 +123,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.lg,
     padding: spacing.md,
     marginBottom: spacing.sm,
@@ -144,4 +146,4 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   cancelText: { fontFamily: fonts.bold, fontSize: 15, color: colors.cocoaSoft },
-});
+}));

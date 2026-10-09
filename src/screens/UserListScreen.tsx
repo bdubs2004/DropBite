@@ -1,13 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useMemo, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Pressable, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '../components/Avatar';
 import { Muted } from '../components/ui';
 import { filterUsers } from '../lib/userFilter';
 import { getDataService } from '../services';
-import { colors, fonts, radius, shadowSoft, spacing } from '../theme';
+import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
 import { User } from '../types';
 
 /**
@@ -19,6 +19,8 @@ import { User } from '../types';
  * opens but shows a private notice instead of the names.
  */
 export function UserListScreen({ navigation, route }: any) {
+  const styles = useStyles();
+  const colors = useColors();
   const { userId, mode, displayName, isPrivate, isMe, commentId, postId } = route.params as {
     userId?: string;
     mode: 'followers' | 'following' | 'comment_likes' | 'post_likes';
@@ -115,6 +117,7 @@ export function UserListScreen({ navigation, route }: any) {
         <View style={styles.searchBox}>
           <Ionicons name="search" size={17} color={colors.cocoaFaint} />
           <TextInput
+            keyboardAppearance={colors.dark ? 'dark' : 'light'}
             testID="userlist-search"
             value={query}
             onChangeText={setQuery}
@@ -243,7 +246,7 @@ export function UserListScreen({ navigation, route }: any) {
                     style={styles.emptyCta}
                     onPress={() => navigation.navigate('Tabs', { screen: 'Discover' })}
                   >
-                    <Ionicons name="compass-outline" size={17} color={colors.white} />
+                    <Ionicons name="compass-outline" size={17} color={colors.onAmber} />
                     <Text style={styles.emptyCtaText}>Find people</Text>
                   </Pressable>
                 ) : null}
@@ -256,7 +259,7 @@ export function UserListScreen({ navigation, route }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, { shadowSoft }) => ({
   root: {
     flex: 1,
     backgroundColor: colors.cream,
@@ -280,7 +283,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.lg,
     padding: spacing.md,
     marginBottom: spacing.sm,
@@ -335,7 +338,7 @@ const styles = StyleSheet.create({
   emptyCtaText: {
     fontFamily: fonts.bold,
     fontSize: 14.5,
-    color: colors.white,
+    color: colors.onAmber,
   },
   listHeader: { marginHorizontal: -spacing.lg, marginBottom: spacing.sm },
   tabs: {
@@ -353,14 +356,14 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     borderRadius: radius.pill,
   },
-  tabActive: { backgroundColor: colors.white, ...(shadowSoft as object) },
+  tabActive: { backgroundColor: colors.raised, ...(shadowSoft as object) },
   tabText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.cocoaSoft },
   tabTextActive: { color: colors.amberDark },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.pill,
     marginHorizontal: spacing.lg,
     marginBottom: spacing.xs,
@@ -379,4 +382,4 @@ const styles = StyleSheet.create({
     fontSize: 19,
     color: colors.cocoa,
   },
-});
+}));

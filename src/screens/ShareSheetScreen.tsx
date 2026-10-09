@@ -5,7 +5,6 @@ import {
   FlatList,
   Platform,
   Pressable,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
@@ -16,7 +15,7 @@ import { conversationDisplayName } from '../lib/conversationName';
 import { postUrl } from '../lib/links';
 import { sharePost } from '../lib/share';
 import { getDataService } from '../services';
-import { colors, fonts, radius, spacing } from '../theme';
+import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
 import { Conversation, Post, User } from '../types';
 
 type Row = { kind: 'group'; conv: Conversation } | { kind: 'person'; user: User };
@@ -31,6 +30,8 @@ type Row = { kind: 'group'; conv: Conversation } | { kind: 'person'; user: User 
  * in-app only for now: the website doesn't have a profile page to land on.
  */
 export function ShareSheetScreen({ navigation, route }: any) {
+  const styles = useStyles();
+  const colors = useColors();
   const { postId, userId: profileId } = route.params as { postId?: string; userId?: string };
   const isProfile = !!profileId && !postId;
   const svc = getDataService();
@@ -271,7 +272,7 @@ export function ShareSheetScreen({ navigation, route }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   root: { flex: 1, backgroundColor: colors.cream },
   center: { alignItems: 'center', justifyContent: 'center' },
   tick: {
@@ -297,7 +298,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.lg,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
@@ -322,7 +323,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     borderTopWidth: 1,
     borderColor: colors.hairline,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
   },
   groupToggle: {
     flexDirection: 'row',
@@ -351,4 +352,4 @@ const styles = StyleSheet.create({
     color: colors.cocoaSoft,
     textAlign: 'center',
   },
-});
+}));

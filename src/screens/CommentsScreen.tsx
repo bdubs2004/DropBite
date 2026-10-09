@@ -9,7 +9,6 @@ import {
   PanResponder,
   Platform,
   Pressable,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -25,7 +24,7 @@ import { relativeTime } from '../lib/time';
 import { useKeyboardVisible } from '../lib/useKeyboardVisible';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
-import { colors, fonts, radius, spacing } from '../theme';
+import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
 import { Comment } from '../types';
 
 /** Top-level comments loaded per page; more load as you scroll. */
@@ -37,6 +36,8 @@ const PAGE = 15;
  * so a post with hundreds of comments doesn't fetch them all at once.
  */
 export function CommentsScreen({ navigation, route }: any) {
+  const styles = useStyles();
+  const colors = useColors();
   const postId: string = route.params.postId;
   const svc = getDataService();
   const { user, refreshFeed } = useApp();
@@ -463,6 +464,7 @@ export function CommentsScreen({ navigation, route }: any) {
               <Ionicons name="image-outline" size={22} color={colors.amberDark} />
             </Pressable>
             <TextInput
+              keyboardAppearance={colors.dark ? 'dark' : 'light'}
               ref={inputRef}
               testID="comment-input"
               value={text}
@@ -481,7 +483,7 @@ export function CommentsScreen({ navigation, route }: any) {
               disabled={!canSend}
               style={[styles.send, !canSend && { opacity: 0.4 }]}
             >
-              <Ionicons name="arrow-up" size={20} color={colors.white} />
+              <Ionicons name="arrow-up" size={20} color={colors.onAmber} />
             </Pressable>
           </View>
         </Animated.View>
@@ -558,7 +560,7 @@ export function CommentsScreen({ navigation, route }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   root: { flex: 1 },
   kav: { flex: 1 },
   // No dim — the sheet just overlays the feed. Still tappable to close.
@@ -658,7 +660,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderTopWidth: 1,
     borderColor: colors.hairline,
   },
@@ -697,7 +699,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     borderTopWidth: 1,
     borderColor: colors.hairline,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
   },
   kbFill: {
     position: 'absolute',
@@ -705,7 +707,7 @@ const styles = StyleSheet.create({
     right: 0,
     top: '100%',
     height: 900,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
   },
   input: {
     flex: 1,
@@ -726,4 +728,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-});
+}));

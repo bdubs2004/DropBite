@@ -4,13 +4,12 @@ import {
   Modal,
   Pressable,
   ScrollView,
-  StyleSheet,
   Switch,
   Text,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, fonts, radius, shadow, spacing } from '../theme';
+import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
 import { User } from '../types';
 import { Avatar } from './Avatar';
 import { Muted } from './ui';
@@ -42,6 +41,8 @@ export function ConversationDetailsSheet({
   onOpenProfile: (userId: string) => void;
   onClose: () => void;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   const insets = useSafeAreaInsets();
   // Leaving asks once, right here in the sheet (no pop-up).
   const [confirmLeave, setConfirmLeave] = useState(false);
@@ -166,7 +167,7 @@ export function ConversationDetailsSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, { shadow }) => ({
   // No dim: tapping above the sheet still closes it.
   backdrop: { flex: 1, justifyContent: 'flex-end' },
   sheet: {
@@ -197,7 +198,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.lg,
     padding: spacing.md,
     marginBottom: spacing.lg,
@@ -222,7 +223,7 @@ const styles = StyleSheet.create({
   memberRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.lg,
     padding: spacing.sm,
     marginBottom: spacing.sm,
@@ -232,7 +233,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.lg,
     padding: spacing.md,
     marginTop: spacing.sm,
@@ -240,7 +241,7 @@ const styles = StyleSheet.create({
   leaveIcon: { backgroundColor: 'rgba(201, 79, 46, 0.12)' },
   leaveLabel: { fontFamily: fonts.bold, fontSize: 15, color: colors.danger },
   leaveConfirm: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.lg,
     padding: spacing.md,
     marginTop: spacing.sm,
@@ -257,4 +258,4 @@ const styles = StyleSheet.create({
   leaveCancelText: { fontFamily: fonts.bold, fontSize: 14, color: colors.cocoa },
   leaveYes: { backgroundColor: colors.danger },
   leaveYesText: { fontFamily: fonts.bold, fontSize: 14, color: colors.white },
-});
+}));

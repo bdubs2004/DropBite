@@ -5,7 +5,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
@@ -13,7 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Input, Muted } from '../components/ui';
 import { appVersion, platformName } from '../lib/appInfo';
 import { getDataService } from '../services';
-import { colors, fonts, radius, spacing } from '../theme';
+import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
 import { FeedbackKind } from '../types';
 
 /**
@@ -25,6 +24,8 @@ import { FeedbackKind } from '../types';
  * lifecycle. Both reachable from Help at the bottom of the profile drawer.
  */
 export function FeedbackScreen({ navigation, route }: any) {
+  const styles = useStyles();
+  const colors = useColors();
   const svc = getDataService();
   const insets = useSafeAreaInsets();
   const initialKind: FeedbackKind = route?.params?.kind === 'bug' ? 'bug' : 'feedback';
@@ -55,7 +56,7 @@ export function FeedbackScreen({ navigation, route }: any) {
     return (
       <View style={[styles.root, styles.doneRoot, { paddingTop: insets.top + spacing.xl }]}>
         <View style={styles.doneIcon}>
-          <Ionicons name="checkmark" size={34} color={colors.white} />
+          <Ionicons name="checkmark" size={34} color={colors.onAmber} />
         </View>
         <Text style={styles.doneTitle}>Thank you</Text>
         <Muted style={{ textAlign: 'center', paddingHorizontal: spacing.xl }}>
@@ -115,7 +116,7 @@ export function FeedbackScreen({ navigation, route }: any) {
           placeholder={
             kind === 'bug'
               ? 'What were you doing, and what happened instead?'
-              : 'Tell us anything — what you want, what is confusing, what you love'
+              : 'Tell us anything: what you want, what is confusing, what you love'
           }
           value={message}
           onChangeText={setMessage}
@@ -159,6 +160,8 @@ function Tab({
   onPress: () => void;
   testID: string;
 }) {
+  const styles = useStyles();
+  const colors = useColors();
   return (
     <Pressable testID={testID} onPress={onPress} style={[styles.tab, active && styles.tabActive]}>
       <Text style={[styles.tabLabel, active && { color: colors.amberDark }]}>{label}</Text>
@@ -167,7 +170,7 @@ function Tab({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors) => ({
   root: { flex: 1, backgroundColor: colors.cream },
   scroll: { paddingHorizontal: spacing.lg },
   headerRow: {
@@ -181,7 +184,7 @@ const styles = StyleSheet.create({
   tabs: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
   tab: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.lg,
     padding: spacing.md,
     borderWidth: 2,
@@ -213,4 +216,4 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   doneTitle: { fontFamily: fonts.display, fontSize: 22, color: colors.cocoa, marginBottom: spacing.sm },
-});
+}));

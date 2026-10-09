@@ -5,7 +5,6 @@ import {
   FlatList,
   Pressable,
   RefreshControl,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
@@ -13,7 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '../components/Avatar';
 import { Muted } from '../components/ui';
 import { getDataService } from '../services';
-import { colors, fonts, radius, shadowSoft, spacing } from '../theme';
+import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
 import { LeaderboardEntry, LeaderboardScope } from '../types';
 
 /** Medal tints for the top three; everyone else gets a plain number. */
@@ -24,6 +23,8 @@ const MEDALS: Record<number, string> = {
 };
 
 export function LeaderboardScreen({ navigation }: any) {
+  const styles = useStyles();
+  const colors = useColors();
   const svc = getDataService();
   const insets = useSafeAreaInsets();
 
@@ -136,6 +137,7 @@ function TabButton({
   active: boolean;
   onPress: () => void;
 }) {
+  const styles = useStyles();
   return (
     <Pressable
       testID={`leaderboard-tab-${label.toLowerCase()}`}
@@ -148,6 +150,8 @@ function TabButton({
 }
 
 function Row({ entry, onPress }: { entry: LeaderboardEntry; onPress: () => void }) {
+  const styles = useStyles();
+  const colors = useColors();
   const { user, current_streak, longest_streak, rank, is_me } = entry;
   const medal = current_streak > 0 ? MEDALS[rank] : undefined;
 
@@ -189,7 +193,7 @@ function Row({ entry, onPress }: { entry: LeaderboardEntry; onPress: () => void 
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((colors, { shadowSoft }) => ({
   // Cancels the list's side padding: the pill and tabs carry their own.
   listHeader: { marginHorizontal: -spacing.lg, marginBottom: spacing.sm },
   root: {
@@ -224,7 +228,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.lg,
     marginHorizontal: spacing.lg,
     paddingHorizontal: spacing.lg,
@@ -252,7 +256,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tabActive: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.raised,
     ...(shadowSoft as object),
   },
   tabText: {
@@ -266,7 +270,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
+    backgroundColor: colors.card,
     borderRadius: radius.lg,
     padding: spacing.md,
     marginBottom: spacing.sm,
@@ -323,4 +327,4 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
     paddingHorizontal: spacing.xl,
   },
-});
+}));
