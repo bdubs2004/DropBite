@@ -8,7 +8,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '../components/Avatar';
 import { PostThumb } from '../components/PostThumb';
@@ -61,33 +60,21 @@ export function SearchScreen({ navigation }: any) {
   const [recents, setRecents] = useState<Awaited<ReturnType<typeof getRecentSearches>>>([]);
   const [recentTerms, setRecentTerms] = useState<string[]>([]);
 
-  // Tapping the Search tab drops you straight into the search bar with the
-  // keyboard up. Only a tab tap does it: coming Back here from a post or a
-  // profile leaves the keyboard down. The first visit always comes from the
-  // tab (the screen mounts on that tap, after the event), so it starts true.
+  // Arriving on Search leaves the keyboard down, like Instagram: it comes up
+  // when you tap the search bar, or tap the Search tab again while you're
+  // already here.
   const inputRef = useRef<TextInput>(null);
   const listRef = useRef<FlatList<any>>(null);
-  const focusOnArrive = useRef(true);
   const focusSearch = useCallback(() => {
     listRef.current?.scrollToOffset({ offset: 0, animated: false });
-    // A beat after the tab switch, so the keyboard comes up on the new screen.
-    setTimeout(() => inputRef.current?.focus(), 80);
+    inputRef.current?.focus();
   }, []);
   useEffect(() => {
     const unsub = navigation.addListener('tabPress', () => {
       if (navigation.isFocused()) focusSearch();
-      else focusOnArrive.current = true;
     });
     return unsub;
   }, [navigation, focusSearch]);
-  useFocusEffect(
-    useCallback(() => {
-      if (focusOnArrive.current) {
-        focusOnArrive.current = false;
-        focusSearch();
-      }
-    }, [focusSearch]),
-  );
 
   const query = tab === 'dishes' ? dishQuery : peopleQuery;
   const setQuery = (t: string) => (tab === 'dishes' ? setDishQuery(t) : setPeopleQuery(t));
