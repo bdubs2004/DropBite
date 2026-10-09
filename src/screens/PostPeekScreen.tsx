@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -97,6 +98,15 @@ export function PostPeekScreen({ navigation, route }: any) {
 
   return (
     <View style={styles.root}>
+      {/* The screen behind goes soft, like Instagram's preview, so the post
+          stands out. Frosted, not darkened: light mode stays light. */}
+      <BlurView
+        testID="peek-blur"
+        intensity={45}
+        tint={colors.dark ? 'dark' : 'light'}
+        style={styles.backdrop}
+        pointerEvents="none"
+      />
       <Pressable testID="peek-backdrop" style={styles.backdrop} onPress={close} />
       <View style={styles.card} pointerEvents="box-none">
         {!post ? (
@@ -194,7 +204,7 @@ const useStyles = makeStyles((colors, { shadow }) => ({
     left: 0,
     right: 0,
     bottom: 0,
-    // No dim: tapping outside the preview still closes it.
+    // Tapping outside the preview closes it.
   },
   card: { width: '100%', maxWidth: 420, alignItems: 'stretch' },
   loading: { padding: spacing.xxl, alignItems: 'center' },
