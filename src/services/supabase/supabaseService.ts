@@ -678,11 +678,16 @@ export class SupabaseService implements DataService {
 
   async getDiscoverPeople(): Promise<DiscoverPerson[]> {
     const meId = await this.myId();
-    const [{ data: users }, followingIds] = await Promise.all([
-      this.sb.from('users').select('*').neq('id', meId).limit(30),
-      this.getFollowingIds(),
-    ]);
-    const people = (users ?? []) as User[];
+    // People you already follow aren't "discoveries": leave them out in the
+    // query itself so all 30 places go to people you don't follow yet.
+    const following = new Set(await this.getFollowingIds());
+    const skip = [meId, ...following].slice(0, 300);
+    const { data: users } = await this.sb
+      .from('users')
+      .select('*')
+      .not('id', 'in', `(${skip.join(',')})`)
+      .limit(30);
+    const people = ((users ?? []) as User[]).filter((u) => u.id !== meId && !following.has(u.id));
     if (people.length === 0) return [];
 
     // One query for everyone's posts rather than one per person, then group
@@ -703,22 +708,12 @@ export class SupabaseService implements DataService {
       list.push(this.hydrateRow(row, meId));
       byUser.set(row.user_id, list);
     }
-    const following = new Set(followingIds);
     return people
       .map((u) => {
         const mine = byUser.get(u.id) ?? [];
-        return {
-          user: u,
-          posts: mine.slice(0, 3),
-          post_count: mine.length,
-          is_following: following.has(u.id),
-        };
+        return { user: u, posts: mine.slice(0, 3), post_count: mine.length, is_following: false };
       })
-      .sort((a, b) =>
-        a.is_following === b.is_following
-          ? b.post_count - a.post_count
-          : Number(a.is_following) - Number(b.is_following),
-      );
+      .sort((a, b) => b.post_count - a.post_count);
   }
 
   async getUserPosts(userId: string): Promise<Post[]> {

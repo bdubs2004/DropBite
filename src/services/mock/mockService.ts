@@ -506,25 +506,24 @@ export class MockService implements DataService {
       db.follows.filter((f) => f.follower_id === me.id).map((f) => f.followee_id),
     );
     const blockedIds = this.blockedIds(db, me.id);
-    return db.users
-      .filter((u) => u.id !== me.id && !blockedIds.has(u.id))
-      .map((u) => {
-        const posts = db.posts
-          .filter((p) => p.user_id === u.id)
-          .sort((a, b) => b.created_at.localeCompare(a.created_at));
-        return {
-          user: u,
-          posts: posts.slice(0, 3).map((p) => this.hydrate(db, p, me.id)),
-          post_count: posts.length,
-          is_following: following.has(u.id),
-        };
-      })
-      // People you don't already follow first, then the most active.
-      .sort((a, b) =>
-        a.is_following === b.is_following
-          ? b.post_count - a.post_count
-          : Number(a.is_following) - Number(b.is_following),
-      );
+    return (
+      db.users
+        // People you already follow aren't discoveries, so they're left out.
+        .filter((u) => u.id !== me.id && !blockedIds.has(u.id) && !following.has(u.id))
+        .map((u) => {
+          const posts = db.posts
+            .filter((p) => p.user_id === u.id)
+            .sort((a, b) => b.created_at.localeCompare(a.created_at));
+          return {
+            user: u,
+            posts: posts.slice(0, 3).map((p) => this.hydrate(db, p, me.id)),
+            post_count: posts.length,
+            is_following: false,
+          };
+        })
+        // The most active first.
+        .sort((a, b) => b.post_count - a.post_count)
+    );
   }
 
   async getUserPosts(userId: string): Promise<Post[]> {
