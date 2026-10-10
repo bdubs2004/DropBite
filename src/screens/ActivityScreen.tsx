@@ -19,8 +19,10 @@ export type ActivityTab = 'liked' | 'saved' | 'commented' | 'tagged';
 type Layout = 'grid' | 'list';
 
 const GRID_COLUMNS = photoGrid.columns;
-/** Space between photos: a little more air than the profile grid. */
+/** Space between photos, the same in every grid. */
 const GRID_GAP = photoGrid.gap;
+/** Space between the tab track's edge and the selected tab. */
+const TAB_TRACK_PAD = 4;
 /** Remembers the viewer's grid/list preference across visits. */
 const LAYOUT_KEY = 'niblgo.activityLayout';
 
@@ -348,7 +350,7 @@ const useStyles = makeStyles((colors, { shadowSoft }) => ({
     flexDirection: 'row',
     backgroundColor: colors.creamDark,
     borderRadius: radius.xl,
-    padding: 4,
+    padding: TAB_TRACK_PAD,
     marginHorizontal: spacing.lg,
     marginTop: spacing.xs,
     marginBottom: spacing.lg,
@@ -361,7 +363,9 @@ const useStyles = makeStyles((colors, { shadowSoft }) => ({
     gap: 3,
     paddingVertical: 8,
     paddingHorizontal: 2,
-    borderRadius: radius.lg,
+    // Same curve as the track, just inside it, so Liked and Tagged fill right
+    // out to the rounded ends instead of leaving a wedge in the corners.
+    borderRadius: radius.xl - TAB_TRACK_PAD,
   },
   tabActive: { backgroundColor: colors.raised, ...(shadowSoft as object) },
   tabText: { fontFamily: fonts.bold, fontSize: 12, color: colors.cocoaSoft },
