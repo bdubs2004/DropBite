@@ -1563,3 +1563,19 @@ revoke all on function public.consume_ai_quota(uuid, integer) from public, anon,
 -- nothing and removes two more entry points.
 revoke all on function public.notify_post_interaction() from public, anon, authenticated;
 revoke all on function public.notify_comment() from public, anon, authenticated;
+
+-- Live Activity for the in-app banner (migration 0029): send new notifications
+-- rows to the app as they happen. RLS still decides who receives what.
+do $$
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+     and not exists (
+       select 1 from pg_publication_tables
+       where pubname = 'supabase_realtime'
+         and schemaname = 'public'
+         and tablename = 'notifications'
+     ) then
+    alter publication supabase_realtime add table public.notifications;
+  end if;
+end
+$$;

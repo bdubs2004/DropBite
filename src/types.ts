@@ -342,6 +342,12 @@ export interface NotificationPrefs {
    * missing falls back to DEFAULT_MEAL_TIMES via timeFor().
    */
   times?: Partial<Record<MealReminderSlot, string>>;
+  /**
+   * Show a banner at the top of the app when new Activity arrives while you're
+   * using it. On unless turned off (undefined counts as on, so prefs saved
+   * before this existed keep it on).
+   */
+  inAppBanners?: boolean;
 }
 
 export interface NewPostInput {

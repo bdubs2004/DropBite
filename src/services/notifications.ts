@@ -41,6 +41,35 @@ const SLOT_COPY: Record<MealReminderSlot, { title: string; body: string }> = {
  * meal. Queueing means the second run always sees the first one's finished
  * state. See src/lib/serialQueue.ts.
  */
+let activityBannersInApp = true;
+
+/** Whether Activity pushes are shown in-app by ActivityBanner right now. */
+export function setActivityBannersInApp(on: boolean) {
+  activityBannersInApp = on;
+}
+
+/**
+ * Calls `cb` when an Activity push arrives while the app is open. Returns a
+ * function that stops listening. Web: no pushes, so it never fires.
+ */
+export function onActivityPushWhileOpen(cb: () => void): () => void {
+  if (Platform.OS === 'web') return () => {};
+  let sub: { remove: () => void } | null = null;
+  let stopped = false;
+  import('expo-notifications')
+    .then((Notifications) => {
+      if (stopped) return;
+      sub = Notifications.addNotificationReceivedListener((n) => {
+        if (n.request.content.data?.kind === 'activity') cb();
+      });
+    })
+    .catch(() => {});
+  return () => {
+    stopped = true;
+    sub?.remove();
+  };
+}
+
 export const syncMealtimeNotifications = serialQueue(applyMealtimeNotifications, false);
 
 async function applyMealtimeNotifications(prefs: NotificationPrefs): Promise<boolean> {
@@ -51,12 +80,18 @@ async function applyMealtimeNotifications(prefs: NotificationPrefs): Promise<boo
     if (status !== 'granted') return false;
 
     Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowBanner: true,
-        shouldShowList: true,
-        shouldPlaySound: false,
-        shouldSetBadge: false,
-      }),
+      handleNotification: async (n) => {
+        // Activity that lands while you're in the app shows as NiblGo's own
+        // banner instead (see ActivityBanner), so don't stack the phone's on
+        // top of it. With in-app banners off, the phone's banner shows.
+        const inApp = activityBannersInApp && n.request.content.data?.kind === 'activity';
+        return {
+          shouldShowBanner: !inApp,
+          shouldShowList: true,
+          shouldPlaySound: false,
+          shouldSetBadge: false,
+        };
+      },
     });
 
     // Read what is actually pending on the device rather than assuming, so

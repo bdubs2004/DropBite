@@ -1328,6 +1328,36 @@ export class MockService implements DataService {
       }));
   }
 
+  watchActivity(onNew: () => void): () => void {
+    // Demo mode has nobody else acting live, but its database can still change
+    // underneath us (another tab of the web demo, or a test). Every couple of
+    // seconds, look at what's stored: if it holds Activity for me that this
+    // copy hasn't got, take the stored copy and say so.
+    let stopped = false;
+    const mine = (db: Db | null, me: string | null | undefined) =>
+      new Set((db?.notifications ?? []).filter((n) => n.user_id === me).map((n) => n.id));
+    const timer = setInterval(async () => {
+      try {
+        const raw = await AsyncStorage.getItem(KEY);
+        if (stopped || !raw) return;
+        const stored = JSON.parse(raw) as Db;
+        const me = stored.sessionUserId;
+        if (!me || me !== this.db?.sessionUserId) return;
+        const known = mine(this.db, me);
+        if ([...mine(stored, me)].some((id) => !known.has(id))) {
+          this.db = stored;
+          onNew();
+        }
+      } catch {
+        // A half-written store; next tick.
+      }
+    }, 2000);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+    };
+  }
+
   async getUnreadNotificationCount(): Promise<number> {
     const db = await this.load();
     const me = await this.me();

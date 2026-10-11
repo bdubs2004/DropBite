@@ -147,6 +147,7 @@ from `supabase/migrations/`:
 | `0026_photo_size.sql` | Photos keep their whole shape (stores each post photo's size) |
 | `0027_handle_capitals.sql` | Handles keep their capitals (JoeMama), still unique ignoring case |
 | `0028_activity.sql` | Follows, comment likes and replies in Activity; push for them; no liking your own post |
+| `0029_activity_live.sql` | Live Activity, so the in-app banner drops down the moment it happens |
 
 They are all safe to run twice, and so is `schema.sql` itself. What re-running
 `schema.sql` will **not** do is add a column to a table that already exists —
@@ -315,6 +316,11 @@ supabase functions deploy notify-activity   # likes, comments, replies, comment 
 
 Shares, reposts, tags and saves show in Activity but don't push. Each Activity
 item is pushed at most once, and only right after it happens.
+
+While someone has the app open, the same kinds drop down as an in-app banner
+instead of the phone's own (Settings > In-app banners turns it off). Run
+migration 0029 so it drops down the moment it happens; without it the app still
+notices, but only on a 30 second check.
 
 ---
 

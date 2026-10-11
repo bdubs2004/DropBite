@@ -1863,6 +1863,48 @@ export class SupabaseService implements DataService {
     return count ?? 0;
   }
 
+  watchActivity(onNew: () => void): () => void {
+    let stopped = false;
+    let channel: ReturnType<typeof this.sb.channel> | null = null;
+    let last = -1;
+    // Safety net: if live updates aren't switched on for the table (migration
+    // 0029), a cheap unread count every 30s still notices new rows.
+    const poll = async () => {
+      try {
+        const n = await this.getUnreadNotificationCount();
+        if (!stopped && last >= 0 && n > last) onNew();
+        last = n;
+      } catch {
+        // Offline for a moment; try again next tick.
+      }
+    };
+    const timer = setInterval(poll, 30_000);
+    (async () => {
+      const meId = await this.myId().catch(() => null);
+      if (stopped || !meId) return;
+      poll();
+      // Live: a row inserted for me (RLS scopes what the socket can see).
+      channel = this.sb
+        .channel(`activity-${meId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${meId}`,
+          },
+          () => !stopped && onNew(),
+        )
+        .subscribe();
+    })();
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+      if (channel) this.sb.removeChannel(channel);
+    };
+  }
+
   async markNotificationsRead(): Promise<void> {
     const meId = await this.myId();
     await this.sb
