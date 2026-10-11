@@ -24,6 +24,7 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ActivityBanner } from './src/components/ActivityBanner';
 import { LogoMark } from './src/components/Logo';
 import { ZoomHost } from './src/components/PinchZoom';
 import { AddToCollectionScreen } from './src/screens/AddToCollectionScreen';
@@ -466,6 +467,8 @@ function ThemedApp() {
           <NavigationContainer ref={navigationRef} linking={linking} theme={navTheme}>
             <StatusBar style={colors.dark ? 'light' : 'dark'} />
             <Root />
+            {/* New Activity while you're in the app drops down from the top. */}
+            <ActivityBanner navigationRef={navigationRef} />
           </NavigationContainer>
         </ZoomHost>
       </AppProvider>

@@ -13,30 +13,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '../components/Avatar';
 import { PostThumb } from '../components/PostThumb';
 import { Muted } from '../components/ui';
+import { ACTIVITY_KIND, IS_FOLLOW, SHOWS_COMMENT } from '../lib/activityKinds';
 import { relativeTime } from '../lib/time';
 import { getDataService } from '../services';
 import { fonts, makeStyles, radius, spacing, useColors } from '../theme';
-import { AppNotification, NotificationType } from '../types';
+import { AppNotification } from '../types';
 
-/** Icon and verb for each kind of interaction. */
-const KIND: Record<
-  NotificationType,
-  { icon: any; tone: 'danger' | 'amber' | 'amberDark'; verb: string }
-> = {
-  like: { icon: 'heart', tone: 'danger', verb: 'liked your post' },
-  comment: { icon: 'chatbubble', tone: 'amberDark', verb: 'commented on your post' },
-  repost: { icon: 'repeat', tone: 'amberDark', verb: 'reposted your post' },
-  share: { icon: 'paper-plane', tone: 'amberDark', verb: 'shared your post' },
-  tag: { icon: 'pricetag', tone: 'amberDark', verb: 'tagged you in a post' },
-  follow: { icon: 'person-add', tone: 'amber', verb: 'started following you' },
-  follow_back: { icon: 'people', tone: 'amber', verb: 'followed you back' },
-  comment_like: { icon: 'heart', tone: 'danger', verb: 'liked your comment' },
-  reply: { icon: 'arrow-undo', tone: 'amberDark', verb: 'replied to your comment' },
-};
-
-/** Kinds that carry a comment's words (shown after the verb). */
-const SHOWS_COMMENT = new Set<NotificationType>(['comment', 'reply', 'comment_like']);
-const IS_FOLLOW = new Set<NotificationType>(['follow', 'follow_back']);
+const KIND = ACTIVITY_KIND;
 
 /**
  * Everything that happened to your posts and comments, and who followed you,

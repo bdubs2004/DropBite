@@ -97,6 +97,7 @@ export function SettingsScreen({ navigation, route }: any) {
   const togglePref = (key: MealReminderSlot) => {
     setPrefs({ ...prefs, [key]: !prefs[key] });
   };
+  const toggleBanners = () => setPrefs({ ...prefs, inAppBanners: prefs.inAppBanners === false });
 
   /**
    * Save a new reminder time. Turning a reminder's time on implies wanting the
@@ -156,7 +157,7 @@ export function SettingsScreen({ navigation, route }: any) {
       </Card>
 
       <Text style={styles.section} onLayout={rememberOffset('notifications')}>
-        Mealtime notifications
+        Notifications
       </Text>
       <Card>
         {MEAL_REMINDER_SLOTS.map((slot, i) => (
@@ -175,6 +176,20 @@ export function SettingsScreen({ navigation, route }: any) {
           Tap a time to change it. Reminders follow your phone's timezone, so
           they stay right when you travel. Snacks never send reminders.
           {Platform.OS === 'web' ? ' Notifications are mobile-only.' : ''}
+        </Muted>
+      </Card>
+
+      <Card style={{ marginTop: spacing.md }}>
+        <PrefRow
+          label="In-app banners"
+          value={prefs.inAppBanners !== false}
+          onChange={toggleBanners}
+          testID="pref-in-app-banners"
+          last
+        />
+        <Muted style={{ marginTop: spacing.md }}>
+          When someone likes, comments, replies or follows you while you're using NiblGo, it
+          slides down from the top. Swipe it up to dismiss it
         </Muted>
       </Card>
 
@@ -285,11 +300,13 @@ function PrefRow({
   slot,
   time,
   onPressTime,
+  testID,
 }: {
   label: string;
   value: boolean;
   onChange: () => void;
   last?: boolean;
+  testID?: string;
   /** Present only on the mealtime rows, which carry an editable time. */
   slot?: MealReminderSlot;
   time?: string;
@@ -315,6 +332,7 @@ function PrefRow({
           </Pressable>
         ) : null}
         <Switch
+          testID={testID ?? (slot ? `pref-${slot}` : undefined)}
           value={value}
           onValueChange={onChange}
           trackColor={{ false: colors.creamDark, true: colors.amber }}

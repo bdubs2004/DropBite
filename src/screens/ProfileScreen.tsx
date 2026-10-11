@@ -672,7 +672,7 @@ export function ProfileScreen({ navigation, route }: any) {
               {
                 key: 'notifications',
                 label: 'Notifications',
-                hint: 'Mealtime reminder times',
+                hint: 'Reminders and in-app banners',
                 icon: 'notifications-outline',
                 onPress: () => navigation.navigate('Settings', { section: 'notifications' }),
               },

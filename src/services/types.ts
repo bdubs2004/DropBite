@@ -259,6 +259,12 @@ export interface DataService {
   getNotifications(): Promise<AppNotification[]>;
   /** How many you haven't seen. Drives the badge on the bell. */
   getUnreadNotificationCount(): Promise<number>;
+  /**
+   * Calls `onNew` whenever new Activity may have arrived for you while the app
+   * is open (it doesn't say what: read getNotifications() for that). Returns a
+   * function that stops watching.
+   */
+  watchActivity(onNew: () => void): () => void;
   /** Mark everything read. Called when you open the list. */
   markNotificationsRead(): Promise<void>;
   /** Clear the list. */
