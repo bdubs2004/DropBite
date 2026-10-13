@@ -218,10 +218,43 @@ their author *or* the post owner, so users can moderate their own posts.
 (`schema.sql`), mirrored in `src/lib/limits.ts` for the UI. Recipe JSON is
 capped by array length *and* byte size.
 
-**AI cost control.** `format-recipe` verifies the caller's JWT (the public anon
-key is not authentication) and meters each user against a daily cap via
-`consume_ai_quota()`. Tune with `AI_DAILY_LIMIT`; default 40/user/day. The
-quota ledger is unreadable and unwritable from the client.
+**AI recipe cards and nutrition** (`format-recipe`, `lookup-nutrition`).
+- *Signed in only*: both check the caller's session with Supabase Auth; the
+  publishable key is not authentication (`npm run test:functions`).
+- *Cost*: three meters in `consume_ai_quota()` (0034), all server-only: per
+  person per day (`AI_DAILY_LIMIT`, default 40), per person per minute
+  (`AI_PER_MINUTE`, default 6), and the whole app per day
+  (`AI_GLOBAL_DAILY_LIMIT`, default 2000), which caps what any number of
+  accounts can spend together. Refused calls don't use up the allowance. Set a
+  monthly spend limit in the Anthropic console as the last backstop.
+- *Size and time*: request bodies are capped before they're read (16 KB for a
+  recipe, 64 KB for nutrition), a blurb is at most 2,000 characters and an
+  ingredient list 50 lines, the reply at most 1,024 tokens, the model call
+  times out after 25 seconds and each USDA lookup after 8 (four at a time).
+- *What people type is data, not instructions*: it goes in its own delimited
+  block, the system prompt says to ignore directions inside it, and the model
+  has no tools, so there is nothing for an injected instruction to trigger.
+  Whatever comes back is rebuilt field by field into a fixed schema (text
+  only, capped, control and direction-flipping characters removed, numbers
+  range-checked; unknown fields dropped), and a reply that repeats the
+  server's instructions is thrown away. Tested with hostile replies in
+  `npm run test:ai`.
+- *Errors* are codes only (`rate_limited`, `timeout`, `upstream_error`, ...);
+  the provider's response, the prompt and stack traces stay in the logs, and
+  the key never appears in either.
+- *Nutrition numbers* come from USDA, never the model. The model only
+  estimates weights, and a weight that isn't a positive number up to 20 kg is
+  "unknown": that ingredient is listed as not counted rather than counted as
+  zero. Servings below 1 (or not a number) count as 1, so there's no dividing
+  by zero, and the label can't show NaN or Infinity (`npm run test:recipedata`).
+
+**Recipe cards can't break the app** (0034). Everyone who opens a post draws
+its card, and an object where text belongs crashes the screen drawing it, so
+one scripted card could have broken the app for everyone who scrolled past.
+The database now requires ingredients, steps and nutrition to be the documented
+shape, and the app reads every card through `cleanRecipe`, which makes even a
+card saved before 0034 safe to draw. The editor's fields are capped to the same
+lengths, so a long entry can't make a card quietly fail to save.
 
 **Injection.** Search terms are stripped of PostgREST filter syntax before
 interpolation into `.or()`/`.ilike()` (`sanitizeSearchTerm`) — raw input there
@@ -337,13 +370,16 @@ than `Math.random`.
 - [ ] Raise the Supabase minimum password length to **8** to match the app.
 - [ ] Set `ALLOWED_ORIGINS` on the edge functions if you ship a web build;
       otherwise CORS stays `*`.
-- [ ] Set `AI_DAILY_LIMIT` to whatever you're willing to pay for.
+- [ ] Set `AI_DAILY_LIMIT`, `AI_PER_MINUTE` and `AI_GLOBAL_DAILY_LIMIT` to
+      what you're willing to pay for, and a monthly spend limit in the
+      Anthropic console (Settings → Limits).
 - [ ] Confirm leaked-password protection is on (Authentication → Policies).
 - [ ] Turn on Supabase auth rate limiting.
 - [ ] Confirm the `service_role` key exists **only** in function secrets.
       `supabase secrets list` should show only `ANTHROPIC_API_KEY`,
       `ANTHROPIC_WORKSPACE_ID` (if used), `USDA_API_KEY`, `SWEEP_SECRET` and
-      the optional `AI_DAILY_LIMIT`, `UPLOAD_HOURLY_LIMIT`, `ALLOWED_ORIGINS`
+      the optional `AI_DAILY_LIMIT`, `AI_PER_MINUTE`, `AI_GLOBAL_DAILY_LIMIT`,
+      `UPLOAD_HOURLY_LIMIT`, `ALLOWED_ORIGINS`
       (plus the `SUPABASE_*` ones Supabase adds itself).
 - [ ] The daily `sweep-storage` Cron job sends `x-sweep-secret`, not the
       service-role key (GO_LIVE.md, "Photo uploads and cleanup").

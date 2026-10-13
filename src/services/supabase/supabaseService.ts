@@ -20,6 +20,7 @@ import { EMAIL_CONFIRM_URL, PASSWORD_RESET_URL } from '../../config';
 import { appVersion, platformName } from '../../lib/appInfo';
 import { cleanHandle } from '../../lib/handle';
 import { clamp, clampOrNull, LIMITS } from '../../lib/limits';
+import { cleanRecipe } from '../../lib/recipeData';
 import { collectionNameProblem, tidyCollectionName } from '../../lib/collectionName';
 import { sanitizeSearchTerm } from '../../lib/searchTerm';
 import { daysBetween, localDateString } from '../../lib/time';
@@ -536,7 +537,8 @@ export class SupabaseService implements DataService {
     return {
       ...(row as Post),
       user: row.users as User,
-      recipe: Array.isArray(row.recipes) ? row.recipes[0] ?? null : row.recipes ?? null,
+      // Drawn by everyone who sees the post: never trust its shape.
+      recipe: cleanRecipe(Array.isArray(row.recipes) ? row.recipes[0] ?? null : row.recipes ?? null),
       reaction_count: (row.reactions ?? []).length,
       reacted_by_me: (row.reactions ?? []).some((r: any) => r.user_id === meId),
       comment_count: (row.comments ?? []).length,

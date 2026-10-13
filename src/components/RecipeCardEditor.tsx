@@ -1,5 +1,6 @@
 import React from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
+import { LIMITS } from '../lib/limits';
 import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
 import { Ingredient } from '../types';
 import { FormattedRecipe } from '../services/ai';
@@ -47,6 +48,7 @@ export function RecipeCardEditor({
         onChangeText={(t) => onChange({ ...value, title: t })}
         style={styles.titleInput}
         placeholder="Recipe title"
+        maxLength={LIMITS.recipeTitle}
         placeholderTextColor={colors.cocoaFaint}
       />
 
@@ -57,8 +59,10 @@ export function RecipeCardEditor({
           value={value.cook_time_minutes != null ? String(value.cook_time_minutes) : ''}
           onChangeText={(t) => {
             const n = parseInt(t.replace(/[^0-9]/g, ''), 10);
-            onChange({ ...value, cook_time_minutes: Number.isFinite(n) ? n : null });
+            // The database allows up to 6,000 minutes (100 hours).
+            onChange({ ...value, cook_time_minutes: Number.isFinite(n) ? Math.min(n, 6000) : null });
           }}
+          maxLength={4}
           keyboardType="number-pad"
           style={styles.timeInput}
           placeholder="0"
@@ -76,6 +80,7 @@ export function RecipeCardEditor({
             onChangeText={(t) => setIngredient(i, { quantity: t })}
             style={[styles.cell, styles.qty]}
             placeholder="qty"
+            maxLength={LIMITS.ingredientQuantity}
             placeholderTextColor={colors.cocoaFaint}
           />
           <TextInput
@@ -84,6 +89,7 @@ export function RecipeCardEditor({
             onChangeText={(t) => setIngredient(i, { unit: t })}
             style={[styles.cell, styles.unit]}
             placeholder="unit"
+            maxLength={LIMITS.ingredientQuantity}
             placeholderTextColor={colors.cocoaFaint}
           />
           <TextInput
@@ -92,6 +98,7 @@ export function RecipeCardEditor({
             onChangeText={(t) => setIngredient(i, { item: t })}
             style={[styles.cell, styles.item]}
             placeholder="ingredient"
+            maxLength={LIMITS.ingredientItem}
             placeholderTextColor={colors.cocoaFaint}
           />
           <Pressable
@@ -132,6 +139,7 @@ export function RecipeCardEditor({
             // on a step still scrolls the post screen.
             scrollEnabled={false}
             placeholder="step"
+            maxLength={LIMITS.recipeStep}
             placeholderTextColor={colors.cocoaFaint}
           />
           <Pressable

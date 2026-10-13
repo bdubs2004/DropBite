@@ -158,6 +158,7 @@ from `supabase/migrations/`:
 | `0031_storage_hardening.sql` | **Security fix** — photos only upload through `upload-photo` (real JPEGs, metadata stripped), private DM photos, photo links must be real uploads, orphan cleanup. Deploy `upload-photo` and `sweep-storage` and ship the matching app build at the same time |
 | `0032_chat_hardening.sql` | **Security fix** — DM pushes go out once per message and only into the chat it was sent in; a phone gets one account's notifications; groups hold at most 32. Redeploy `notify-message` right after it |
 | `0033_session_checks.sql` | **Security fix** — signing out, deleting the account or a ban locks the old token out of the API at once instead of after an hour. Nothing to deploy with it; if anything ever goes wrong, the file's header has a two-line switch-off |
+| `0034_ai_limits.sql` | **Security fix** — AI spend gets a per-minute and an app-wide daily limit; recipe cards must be well-formed, so one malformed card can't crash the app for everyone. Redeploy `format-recipe` and `lookup-nutrition` after it |
 
 They are all safe to run twice, and so is `schema.sql` itself. What re-running
 `schema.sql` will **not** do is add a column to a table that already exists —
@@ -260,12 +261,17 @@ is better than a made-up one. Lookups are cached in `nutrition_cache`, so
 
 ```bash
 supabase secrets set AI_DAILY_LIMIT=40                      # AI calls per user per day
+supabase secrets set AI_PER_MINUTE=6                        # ...and per user per minute
+supabase secrets set AI_GLOBAL_DAILY_LIMIT=2000             # ...and for the whole app per day
 supabase secrets set ALLOWED_ORIGINS=https://yourdomain.com  # who may call the function
 ```
 
-Neither is required to work, but both are cheap insurance. The function already
-requires a signed-in user and meters per-user usage through `consume_ai_quota`;
-`AI_DAILY_LIMIT` sets where that meter trips (default 40). `ALLOWED_ORIGINS`
+None is required to work (those are the defaults), but they're cheap insurance.
+The functions require a signed-in user and meter usage through
+`consume_ai_quota` (migration 0034): per person per day, per person per minute,
+and the whole app per day, which is the most a crowd of accounts can spend.
+Also set a monthly spend limit in the Anthropic console (Settings → Limits) as
+the last backstop. `ALLOWED_ORIGINS`
 restricts the browser origins allowed to call it — native builds send no Origin
 header and are unaffected.
 
@@ -282,11 +288,13 @@ Edge Functions → format-recipe → Logs:
 | Log / response | Meaning |
 | --- | --- |
 | `ANTHROPIC_API_KEY not configured` | The secret is not set on this project — check the Secrets page. Setting it takes effect immediately; no redeploy needed |
-| `anthropic error 401` | Bad or revoked key |
-| `anthropic error 400` … `not scoped to a workspace` | Unscoped key — set `ANTHROPIC_WORKSPACE_ID`, or make a workspace-scoped key |
-| `anthropic error 400` with a model message | Model id not available to your account |
-| `anthropic error 429` | Out of credit, or rate limited |
-| `rate_limited` (429 from the function) | Your own `AI_DAILY_LIMIT` tripped, not Anthropic |
+| `anthropic call failed http 401` | Bad or revoked key |
+| `anthropic call failed http 400` … `not scoped to a workspace` | Unscoped key — set `ANTHROPIC_WORKSPACE_ID`, or make a workspace-scoped key |
+| `anthropic call failed http 400` with a model message | Model id not available to your account |
+| `anthropic call failed http 429` | Out of credit, or rate limited |
+| `rate_limited` (429 from the function) | One of your own limits tripped (per person per day or minute, or the app-wide day), not Anthropic |
+| `anthropic call failed timeout` | The model took longer than 25 seconds; the app offers a retry |
+| `reply repeated the instructions; dropped` | Someone's blurb tried to get the prompt out; nothing was shown |
 | No log line at all | The call never reached the function — check it deployed, and that you are signed in |
 
 The model and prompt live in `src/config.ts` (`AI_CONFIG`) and are mirrored in
