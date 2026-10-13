@@ -18,7 +18,7 @@ import {
 } from '../../types';
 import { EMAIL_CONFIRM_URL, PASSWORD_RESET_URL } from '../../config';
 import { appVersion, platformName } from '../../lib/appInfo';
-import { cleanHandle } from '../../lib/handle';
+import { cleanHandle, unreservedBase } from '../../lib/handle';
 import { clamp, clampOrNull, LIMITS } from '../../lib/limits';
 import { cleanRecipe } from '../../lib/recipeData';
 import { collectionNameProblem, tidyCollectionName } from '../../lib/collectionName';
@@ -276,10 +276,11 @@ export class SupabaseService implements DataService {
     // A handle is required and must be unique. If metadata is missing — an
     // account made outside this app, say — derive one rather than fail, and
     // add a suffix so a collision doesn't lock the account out entirely.
-    let base =
+    let base = unreservedBase(
       cleanHandle(rawHandle) ||
-      (auth.user.email ?? 'user').split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20) ||
-      'user';
+        (auth.user.email ?? 'user').split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20) ||
+        'user',
+    );
 
     for (let attempt = 0; attempt < 6; attempt++) {
       const handle = attempt === 0 ? base : `${base.slice(0, 24)}${Math.floor(Math.random() * 10000)}`;

@@ -256,6 +256,51 @@ shape, and the app reads every card through `cleanRecipe`, which makes even a
 card saved before 0034 safe to draw. The editor's fields are capped to the same
 lengths, so a long entry can't make a card quietly fail to save.
 
+**Spam and duplicates** (0035). Everything people create is rate limited per
+person, counting only app requests (the server and dashboard never are):
+
+| What | Limit |
+| --- | --- |
+| Posts | 30 an hour (and photo uploads 60 an hour) |
+| Comments | 20 every 5 minutes |
+| DMs | 30 a minute; new chats 30 an hour |
+| Follows | 60 an hour |
+| Likes, comment likes, message reactions | 300 an hour each |
+| Reposts, shares, tags | 100 an hour each |
+| Collections | 50 an hour |
+| Reports | 20 a day |
+| Feedback | 10 a day |
+
+The same photo can't be posted twice and the same comment can't land twice in
+a minute, so a double tap or a retried request doesn't double up.
+
+**Impersonation.** Names, bios, posts, comments, messages and titles can't
+contain control characters or the direction-flipping marks that make text read
+backwards ("Alice" + U+202E ...), and a display name can't have a line break
+(which could fake a second line like a badge). Emoji are fine. Handles that
+look like staff (`admin`, `support`, anything containing `niblgo`) can't be
+taken from the app; the team can still make an official account by hand.
+Ownership can't be spoofed: every row's owner must be the signed-in user, and
+protected profile fields (handle, timezone after sign-up, anything not in the
+column grants) can't be changed from the app.
+
+**Rendering.** All user text is drawn as plain text (React Native `Text`); the
+app never renders HTML, never uses a WebView, and never turns user text into a
+link it opens. The website's post page escapes everything it prints, and the
+confirm page prints only its own words.
+
+**Dependencies.** `npm audit fix` (non-breaking) cleared the critical
+`shell-quote` advisory and the ones in code that ships, such as
+`decode-uri-component`, which React Navigation uses to read deep links. What's
+left is in Expo's build tooling (CLI, Metro, code signing), which runs on the
+build machine, not in the app; the only fixes on offer are years-old Expo
+versions. Re-check on each SDK upgrade. `expo-haptics` was unused and is gone.
+
+**App permissions.** Camera and photo library only. The photo picker added a
+microphone permission by default (iOS asked with a generic "Allow NiblGo to
+access your microphone"; Android declared RECORD_AUDIO); both are turned off,
+as are Android's unused SYSTEM_ALERT_WINDOW and WRITE_EXTERNAL_STORAGE.
+
 **Injection.** Search terms are stripped of PostgREST filter syntax before
 interpolation into `.or()`/`.ilike()` (`sanitizeSearchTerm`) — raw input there
 lets a caller inject extra filter conditions. No raw SQL is built anywhere.
@@ -344,10 +389,10 @@ than `Math.random`.
   columns still exist and are still constrained.
 - **Feed reads are broad.** Any signed-in user can read any non-blocked post —
   correct for MVP, where all posts are public. Revisit if private accounts ship.
-- **`npm audit` reports advisories in Expo's build tooling** (postcss,
-  brace-expansion, uuid) reached only through the CLI/bundler, not shipped in
-  the app. They can't be resolved without breaking the SDK 54 pin that keeps
-  Expo Go working. Re-check on the next SDK upgrade.
+- **`npm audit` still lists advisories in Expo's build tooling** (CLI, Metro,
+  node-forge, micromatch, xcode) reached only on the build machine, not
+  shipped in the app. The only fixes on offer are years-old Expo versions.
+  Re-check on each SDK upgrade.
 
 ## Pre-launch checklist
 

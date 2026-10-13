@@ -207,16 +207,26 @@ where post_id is null and reported_user_id = '<user-id>' and status in ('open','
 
 Close **every** open report on that post, not just the one you opened.
 
-**3. Repeat or severe offender → remove the account.** This cascades their
-posts, comments, and follows:
+**3. Repeat or severe offender → ban, then remove the account.**
 
-```sql
--- Profile row and all their content.
-delete from public.users where id = '<user-id>';
+Ban first. A ban locks them out everywhere at once: since migration 0033 the
+API refuses a banned account's existing token immediately, not when it
+expires, and they can't sign back in. Authentication → Users → the user →
+**Ban user**, or with the service-role key from a terminal:
+
+```bash
+curl -X PUT "https://<ref>.supabase.co/auth/v1/admin/users/<user-id>" \
+  -H "apikey: <service role key>" -H "Authorization: Bearer <service role key>" \
+  -H "content-type: application/json" -d '{"ban_duration": "876000h"}'
 ```
 
-Their `auth.users` row is separate. Delete it in **Authentication → Users**, or
-they can still sign in to an empty account.
+Then, if the account should go entirely, delete it in **Authentication →
+Users**. That cascades to their profile, posts, comments, follows and
+messages. Their photos go with the next daily `sweep-storage` run.
+
+> Don't just `delete from public.users`. The account itself survives that,
+> and the app rebuilds a missing profile the next time they sign in, so they
+> would simply be back.
 
 > Reports they *filed* are removed with them (`reporter_id` cascades). Reports
 > *against* them survive with `reported_user_id` set to null — the audit trail
@@ -236,7 +246,8 @@ convention:
   Only the dashboard/service role can.
 - Reporting your own post is blocked (delete it instead).
 - One report per person per post; a second attempt is silently ignored so the
-  queue can't be flooded by one user.
+  queue can't be flooded by one user. On top of that, each person can file at
+  most 20 reports a day (migration 0035).
 
 All of the above is covered by tests in `supabase/tests/` — run them after any
 schema change.
@@ -263,8 +274,9 @@ rows via a Database Webhook (Database → Webhooks → on `INSERT` to `reports`)
 
 Reporting alone doesn't satisfy the UGC requirements. Also needed:
 
-- [ ] **Block a user.** Apple explicitly requires the ability to block abusive
-      users, not just report content. This is the biggest gap.
+- [x] **Block a user.** Shipped: blocking hides each other's posts, comments,
+      likes, reposts and shares, and stops follows, DMs and replies both ways
+      (`supabase/tests/rls_attack_test.sql`, "blocks").
 - [ ] **Published contact method** for moderation appeals (support email in the
       app and on the store listing).
 - [ ] **Terms / community guidelines** the user accepts at sign-up, so

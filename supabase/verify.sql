@@ -294,6 +294,28 @@ checks(grp, item, status) as (
 
   union all
 
+  -- And the ones 0035 closed.
+  select 14, 'locked: ' || item,
+    case when open then problem || ' — run 0035_abuse_limits.sql' else 'OK' end
+  from (values
+    ('spam is rate limited (posts, comments, DMs, follows, likes, reports, ...)',
+     to_regprocedure('public.limit_rate()') is null
+     or (select count(*) from pg_trigger where tgfoid = to_regprocedure('public.limit_rate()') and not tgisinternal) < 14,
+     'A SCRIPT CAN FLOOD DMS, COMMENTS AND THE REPORT QUEUE'),
+    ('a double tap can''t post the same photo or comment twice',
+     not exists (select 1 from pg_trigger where tgname = 'posts_refuse_duplicate')
+     or not exists (select 1 from pg_trigger where tgname = 'comments_refuse_duplicate'),
+     'DOUBLE POSTS AND COMMENTS GO THROUGH'),
+    ('names and text can''t hide direction-flipping or control characters',
+     (select count(*) from pg_constraint where conname like '%\_plain' escape '\') < 8,
+     'A NAME CAN BE DISGUISED AS SOMEONE ELSE''S'),
+    ('staff-looking handles can''t be taken from the app',
+     not exists (select 1 from pg_trigger where tgname = 'users_refuse_reserved_handle'),
+     'ANYONE CAN SIGN UP AS @admin OR @niblgo_support')
+  ) v(item, open, problem)
+
+  union all
+
   -- Cards saved before 0034 aren't rewritten; the app draws malformed ones
   -- safely (cleanRecipe). Not a hole, just worth knowing.
   select 13, 'data: older recipe cards',

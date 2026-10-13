@@ -159,6 +159,7 @@ from `supabase/migrations/`:
 | `0032_chat_hardening.sql` | **Security fix** — DM pushes go out once per message and only into the chat it was sent in; a phone gets one account's notifications; groups hold at most 32. Redeploy `notify-message` right after it |
 | `0033_session_checks.sql` | **Security fix** — signing out, deleting the account or a ban locks the old token out of the API at once instead of after an hour. Nothing to deploy with it; if anything ever goes wrong, the file's header has a two-line switch-off |
 | `0034_ai_limits.sql` | **Security fix** — AI spend gets a per-minute and an app-wide daily limit; recipe cards must be well-formed, so one malformed card can't crash the app for everyone. Redeploy `format-recipe` and `lookup-nutrition` after it |
+| `0035_abuse_limits.sql` | **Security fix** — rate limits on everything people create, no double posts or comments, no disguised names, no staff-looking handles. Nothing to deploy with it |
 
 They are all safe to run twice, and so is `schema.sql` itself. What re-running
 `schema.sql` will **not** do is add a column to a table that already exists —

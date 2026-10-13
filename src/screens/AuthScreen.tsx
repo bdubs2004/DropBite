@@ -13,6 +13,7 @@ import { LogoMark } from '../components/Logo';
 import { PasswordChecklist } from '../components/PasswordChecklist';
 import { Button, Input, Muted } from '../components/ui';
 import { LIMITS } from '../lib/limits';
+import { isReservedHandle } from '../lib/handle';
 import { passwordMeetsAll } from '../lib/passwordRules';
 import { clearPendingAuth, rememberPendingAuth } from '../lib/pendingAuth';
 import { getDataService } from '../services';
@@ -143,6 +144,10 @@ export function AuthScreen() {
     setBusy(true);
     try {
       if (mode === 'signup') {
+        if (isReservedHandle(handle.trim().replace(/^@+/, ''))) {
+          setError('That handle is reserved. Pick another one.');
+          return;
+        }
         const result = await svc.signUp({
           email,
           password,

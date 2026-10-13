@@ -135,6 +135,21 @@ begin
   return out;
 exception when others then return 'error:' || sqlerrm;
 end $$;
+-- Run a statement up to n times in a row (each with its number, as %s), and
+-- say how many went through before the first refusal.
+create function qa.repeat(template text, n int) returns int language plpgsql as $$
+declare done int := 0;
+begin
+  for i in 1..n loop
+    begin
+      execute format(template, i);
+      done := done + 1;
+    exception when others then
+      return done;
+    end;
+  end loop;
+  return done;
+end $$;
 create function qa.post_and_read_streak() returns bigint language plpgsql as $$
 begin
   insert into public.posts (user_id, meal_slot, photo_url)
@@ -163,6 +178,10 @@ end $$;
 insert into auth.users (id) select id from qa.people;
 insert into public.users (id, handle, display_name, follows_private, timezone)
 select id, name, initcap(name), name = 'dave', 'America/Chicago' from qa.people;
+
+-- Someone who has just signed up and has no profile yet.
+insert into qa.people values ('newbie', '12121212-0000-4000-8000-000000000012');
+insert into auth.users (id) values ('12121212-0000-4000-8000-000000000012');
 
 insert into public.follows (follower_id, followee_id) values
   ('aaaaaaaa-0000-4000-8000-000000000001', 'bbbbbbbb-0000-4000-8000-000000000002'),
@@ -330,7 +349,8 @@ select qa.fact('schema', 'every SECURITY DEFINER function pins its search_path',
        and not exists (select 1 from unnest(coalesce(p.proconfig, '{}')) c where c like 'search_path=%')$q$, '0');
 -- check_request is the per-request session check PostgREST runs as the
 -- caller (0033); it reads nothing back and only ever refuses. The recipe_*_ok
--- shape checks (0034) are pure functions the recipe CHECKs call as the writer.
+-- shape checks (0034) and plain_text_ok (0035) are pure functions that CHECK
+-- constraints call as the writer.
 select qa.fact('schema', 'signed out, only the share-link preview (and the session check) are callable',
   $q$select coalesce(string_agg(p.proname, ',' order by p.proname), '') from pg_proc p
      join pg_namespace n on n.oid = p.pronamespace
@@ -341,7 +361,7 @@ select qa.fact('schema', 'signed in, only the functions the app needs are callab
      join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'public' and p.prokind = 'f' and p.prorettype <> 'trigger'::regtype
        and has_function_privilege('authenticated', p.oid, 'execute')$q$,
-  'can_reply_under,check_request,conversation_has_block,follow_counts,get_post_preview,is_blocked_pair,is_conversation_member,leave_conversation,recipe_ingredients_ok,recipe_nutrition_ok,recipe_steps_ok,start_conversation,start_group_conversation');
+  'can_reply_under,check_request,conversation_has_block,follow_counts,get_post_preview,is_blocked_pair,is_conversation_member,leave_conversation,plain_text_ok,recipe_ingredients_ok,recipe_nutrition_ok,recipe_steps_ok,start_conversation,start_group_conversation');
 
 -- =======================================================================
 -- 2. Profiles
@@ -867,6 +887,49 @@ select qa.check('recipe data', 'a well-formed card still saves', 'mallory',
   $q$update public.recipes set ingredients = '[{"item":"potatoes","quantity":"2","unit":""},{"item":"salt","quantity":"","unit":"","grams":1.5,"fdc_id":123,"nutrition":{"calories":0,"sodium_mg":580}}]',
        steps = '["Slice.","Fry."]', nutrition = '{"calories":320.5,"protein_g":4,"carbs_g":40,"fat_g":17,"fiber_g":3,"sugar_g":0,"sodium_mg":580}', servings = 2
      where id = '60000000-0000-4000-8000-000000000004'$q$, 'rows:1');
+
+-- =======================================================================
+-- 20. Spam, duplicates, impersonation
+-- =======================================================================
+-- Rate limits apply to app requests (a signed-in token), per person.
+select qa.check('spam', 'flood a DM: 30 a minute go through, then it stops', 'mallory',
+  $q$select qa.repeat($r$insert into public.messages (conversation_id, sender_id, text) values ('20000000-0000-4000-8000-000000000003', 'dddddddd-0000-4000-8000-000000000004', 'spam %s')$r$, 40)$q$, 'rows:30');
+select qa.check('spam', 'flood a post with comments: 20 in five minutes, then it stops', 'mallory',
+  $q$select qa.repeat($r$insert into public.comments (post_id, user_id, text) values ('10000000-0000-4000-8000-0000000000a1', 'dddddddd-0000-4000-8000-000000000004', 'spam %s')$r$, 30)$q$, 'rows:20');
+select qa.check('spam', 'flood the feedback inbox: 10 a day, then it stops', 'mallory',
+  $q$select qa.repeat($r$insert into public.feedback (user_id, kind, message) values ('dddddddd-0000-4000-8000-000000000004', 'bug', 'spam %s')$r$, 15)$q$, 'rows:10');
+select qa.check('spam', 'one person''s limit doesn''t touch anyone else''s', 'alice',
+  $q$select qa.repeat($r$insert into public.messages (conversation_id, sender_id, text) values ('20000000-0000-4000-8000-000000000003', 'aaaaaaaa-0000-4000-8000-000000000001', 'hi %s')$r$, 5)$q$, 'rows:5');
+select qa.fact('spam', 'everything people can create is rate limited',
+  $q$select string_agg(c.relname || ':' || t.tgname, ',' order by c.relname) from pg_trigger t join pg_class c on c.oid = t.tgrelid
+     where t.tgfoid = 'public.limit_rate()'::regprocedure and not t.tgisinternal$q$,
+  'collections:collections_limit_rate,comment_reactions:comment_reactions_limit_rate,comments:comments_limit_rate,conversations:conversations_limit_rate,feedback:feedback_limit_rate,follows:follows_limit_rate,message_reactions:message_reactions_limit_rate,messages:messages_limit_rate,post_tags:post_tags_limit_rate,posts:posts_limit_rate,reactions:reactions_limit_rate,reports:reports_limit_rate,reposts:reposts_limit_rate,shares:shares_limit_rate');
+select qa.check('spam', 'read or reset anyone''s rate-limit counters', 'mallory',
+  $q$select count(*) from public.action_usage$q$, 'denied');
+
+select qa.check('duplicates', 'post the same photo twice (a double tap)', 'mallory',
+  $q$select qa.repeat($r$insert into public.posts (user_id, meal_slot, photo_url) values ('dddddddd-0000-4000-8000-000000000004', 'dinner', 'https://x.supabase.co/storage/v1/object/public/photos/dddddddd-0000-4000-8000-000000000004/d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4.jpg')$r$, 2)$q$, 'rows:1');
+select qa.check('duplicates', 'the same comment twice in a row', 'mallory',
+  $q$select qa.repeat($r$insert into public.comments (post_id, user_id, text) values ('10000000-0000-4000-8000-0000000000a1', 'dddddddd-0000-4000-8000-000000000004', 'yum')$r$, 2)$q$, 'rows:1');
+
+select qa.check('impersonation', 'a display name with direction-flipping characters (disguises the name)', 'mallory',
+  format($q$update public.users set display_name = E'Alice‮ecila' where id = %L$q$, :mallory), 'denied');
+select qa.check('impersonation', 'a display name on two lines (fakes a second line, like a badge)', 'mallory',
+  format($q$update public.users set display_name = E'Alice\nOfficial' where id = %L$q$, :mallory), 'denied');
+select qa.check('impersonation', 'hidden control characters in a comment', 'mallory',
+  $q$insert into public.comments (post_id, user_id, text) values ('10000000-0000-4000-8000-0000000000a1', 'dddddddd-0000-4000-8000-000000000004', E'hi\u0007‮there')$q$, 'denied');
+select qa.check('impersonation', 'emoji (joined ones too) still fine in a name, and a bio can have lines', 'mallory',
+  format($q$update public.users set display_name = E'Mallory \U0001F468‍\U0001F373', bio = E'line one\nline two' where id = %L$q$, :mallory), 'rows:1');
+select qa.check('impersonation', 'sign up with a staff-looking handle', 'newbie',
+  $q$insert into public.users (id, handle, display_name) values ('12121212-0000-4000-8000-000000000012', 'NiblGo_Support', 'Support')$q$, 'error:That handle is taken');
+select qa.check('impersonation', 'sign up as admin', 'newbie',
+  $q$insert into public.users (id, handle, display_name) values ('12121212-0000-4000-8000-000000000012', 'admin', 'Admin')$q$, 'error:That handle is taken');
+select qa.check('impersonation', 'sign up with an ordinary handle still works', 'newbie',
+  $q$insert into public.users (id, handle, display_name) values ('12121212-0000-4000-8000-000000000012', 'newbie', 'Newbie')$q$, 'rows:1');
+select qa.check('impersonation', 'make a profile for someone else''s account', 'newbie',
+  $q$insert into public.users (id, handle, display_name) values ('eeeeeeee-0000-4000-8000-000000000099', 'ghost', 'Ghost')$q$, 'denied');
+select qa.check('push', 'a push token with a huge platform name', 'mallory',
+  format($q$insert into public.push_tokens (user_id, token, platform) values (%L, 'ExponentPushToken[m2]', repeat('x', 5000))$q$, :mallory), 'denied');
 
 -- ------------------------------------------------------------- report
 \echo
