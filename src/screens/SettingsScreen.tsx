@@ -39,7 +39,7 @@ export function SettingsScreen({ navigation, route }: any) {
   const styles = useStyles();
   const colors = useColors();
   const { mode, setMode } = useTheme();
-  const { user, setUser, prefs, setPrefs, refreshMe } = useApp();
+  const { user, forgetAccount, prefs, setPrefs, refreshMe } = useApp();
   const svc = getDataService();
   const insets = useSafeAreaInsets();
 
@@ -113,7 +113,7 @@ export function SettingsScreen({ navigation, route }: any) {
 
   const deleteAccount = async () => {
     await svc.deleteAccount();
-    setUser(null);
+    await forgetAccount();
   };
 
   const askDelete = () => {
@@ -284,7 +284,7 @@ export function SettingsScreen({ navigation, route }: any) {
         variant="ghost"
         onPress={async () => {
           await svc.signOut();
-          setUser(null);
+          await forgetAccount();
         }}
       />
       <View style={{ height: 80 }} />

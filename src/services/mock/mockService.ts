@@ -271,6 +271,15 @@ export class MockService implements DataService {
     await this.save();
   }
 
+  async sessionEnded(): Promise<boolean> {
+    // Demo sessions live on the device; nothing can end them from elsewhere.
+    return false;
+  }
+
+  onSignedOut(_cb: () => void): () => void {
+    return () => {};
+  }
+
   // Demo mode has no email delivery, so these password/confirmation flows are
   // no-ops here — the live backend (Supabase) does the real work.
   async requestPasswordReset(_email: string): Promise<void> {

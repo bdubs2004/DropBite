@@ -370,7 +370,7 @@ function writeAuthConfirm() {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Email confirmed — NiblGo</title>
+<title>Email confirmed | NiblGo</title>
 <meta name="description" content="Your NiblGo email address is confirmed.">
 <meta name="robots" content="noindex">
 <link rel="icon" href="/icon.png">
@@ -398,7 +398,7 @@ text-decoration:none;font-weight:700;font-size:16px;padding:13px 26px;border-rad
   <img class="logo" src="/icon.png" alt="NiblGo">
   <div id="ok">
     <h1>You're all set 🎉</h1>
-    <p>Your email is confirmed. Tap below to hop back into NiblGo — you'll be signed in automatically.</p>
+    <p>Your email is confirmed. Tap below to hop back into NiblGo.</p>
     <a id="openBtn" class="btn" href="niblgo://auth/confirm">Open NiblGo</a>
     <p class="muted">You can close this page.</p>
   </div>
@@ -424,9 +424,9 @@ text-decoration:none;font-weight:700;font-size:16px;padding:13px 26px;border-rad
       document.getElementById('ok').hidden = true;
       var e = document.getElementById('err');
       e.hidden = false;
-      var d = h.get('error_description');
-      if (d) document.getElementById('errmsg').textContent =
-        decodeURIComponent(d.replace(/\\+/g, ' '));
+      // The message stays ours. The link's own error_description is not shown:
+      // anyone can build a link to this page, and its text would then appear
+      // on niblgo.com saying whatever they liked.
     } else {
       // Forward the session into the app's deep link so tapping "Open NiblGo"
       // signs the user in and lands them on the home feed, not the sign-in

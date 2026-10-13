@@ -47,6 +47,14 @@ export interface DataService {
   signOut(): Promise<void>;
   deleteAccount(): Promise<void>;
   /**
+   * True once the server says this session is over (signed out elsewhere,
+   * account deleted or banned). False when it's fine or when it can't tell,
+   * e.g. offline: being offline must never sign anyone out.
+   */
+  sessionEnded(): Promise<boolean>;
+  /** Called when the auth client drops the session (a refresh was refused). */
+  onSignedOut(cb: () => void): () => void;
+  /**
    * Send a password-reset email. The link deep-links back into the app so the
    * app receives the recovery session and can set a new password.
    */

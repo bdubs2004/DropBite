@@ -10,7 +10,8 @@
 --     the way PostgREST hands it to Postgres. test.uid still works too, so the
 --     older tests keep running.
 --   * service_role bypasses RLS, like the real one.
---   * The storage tables, and the realtime publication.
+--   * The storage tables, the realtime publication, auth.sessions and the
+--     authenticator role.
 --
 -- Run it first, on an empty database, then schema.sql (or the migrations).
 
@@ -35,8 +36,25 @@ create schema if not exists storage;
 create table if not exists auth.users (
   id uuid primary key default gen_random_uuid(),
   email text,
-  raw_user_meta_data jsonb not null default '{}'::jsonb
+  raw_user_meta_data jsonb not null default '{}'::jsonb,
+  banned_until timestamptz,
+  deleted_at timestamptz
 );
+-- One row per signed-in device. Signing out deletes it; deleting the account
+-- deletes them all. Each token names its session (the session_id claim).
+create table if not exists auth.sessions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  not_after timestamptz
+);
+
+-- The role PostgREST logs in as; per-request settings such as
+-- pgrst.db_pre_request are set on it.
+do $$ begin
+  create role authenticator noinherit nologin;
+exception when duplicate_object then null; end $$;
 
 -- The signed-in user's token, as PostgREST passes it.
 create or replace function auth.jwt() returns jsonb language sql stable as $$

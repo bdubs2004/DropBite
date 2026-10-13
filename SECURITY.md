@@ -179,6 +179,53 @@ lets a caller inject extra filter conditions. No raw SQL is built anywhere.
 codes. Sign-in failures return one generic message so the form isn't an
 account-existence oracle.
 
+**Sign-in, sessions and sign-out.**
+- *One answer for every failed sign-in* ("Wrong email or password"), and being
+  rate limited says only "too many attempts", so neither tells you whether an
+  account exists. Supabase's password reset and resend-confirmation also answer
+  the same either way. After 5 wrong passwords in a row the app waits 30
+  seconds, doubling each miss up to 5 minutes; Supabase's per-IP rate limits
+  (checklist below) are what actually stop guessing.
+- *Email confirmation*: with **Confirm email** on, a new account gets no session
+  until the link is opened, and sign-in refuses an unconfirmed account (only
+  after the right password, so that isn't an oracle either).
+- *A token dies with its session* (0033). Supabase tokens are signed JWTs valid
+  for an hour, and the API used to honour one for that whole hour after
+  sign-out, account deletion or a ban. Now PostgREST runs `check_request()`
+  before every request and answers 401 unless the session the token names
+  still exists, belongs to it, is within its time limit, and the account isn't
+  deleted or banned. Tested against a real PostgREST 12 server: the same token
+  gets 200 while signed in and 401 the moment the session is gone. Edge
+  functions already asked Supabase Auth, which knows the same thing.
+- *Signing out* ends this phone's session on the server (others stay signed
+  in, like Instagram), removes its push token (0032) and clears its recent
+  searches, so the next person on the phone sees none of it. If a session ends
+  somewhere else (deleted, banned, signed out from another phone), the app goes
+  back to the sign-in screen when it next comes to the front. Being offline
+  never signs anyone out.
+
+**Deep links and redirects.**
+- The app opens `niblgo://` (and `https://niblgo.com/`) links only to its own
+  screens: a post, a profile, a few tabs, and the two auth links. Route values
+  are ids, fetched under RLS like anything else. No link makes the app open an
+  outside address; the only outside pages it opens are the fixed Terms and
+  Privacy links.
+- *Session injection.* A confirm or reset link carries a session, and anyone
+  can build one from their own account and send it to someone, which would
+  quietly sign the victim into the attacker's account (and whatever they then
+  posted or messaged would land there). The app now uses a link's session
+  only if this phone asked for that kind of link, for that email, in the last
+  48 hours, nobody is signed in, and the token hasn't expired
+  (`linkSessionAllowed`). Anything else is ignored; they can sign in by hand.
+- *The confirm page* (`niblgo.com/auth/confirm`) only ever forwards to
+  `niblgo://auth/confirm`, and no longer prints the link's error text, so a
+  crafted link can't put its own words on niblgo.com.
+- *Where Supabase sends email links* is the `redirect_to` the request names,
+  but only if it's on the **Redirect URLs** allowlist; anything else falls back
+  to the Site URL. Keep that list to the two exact entries in the checklist: a
+  wildcard there would let anyone have a confirmation or reset link carry its
+  session to a site of their choosing.
+
 **Demo mode** hashes passwords with a per-user salt rather than storing them in
 the clear in AsyncStorage, and generates ids from the platform CSPRNG rather
 than `Math.random`.
@@ -192,6 +239,19 @@ than `Math.random`.
   how signed links work; it's short, and only a chat member can make one.
 - **Profiles expose `timezone`** to every signed-in user (an approximate
   location). Nothing reads it server-side except the streak trigger.
+- **Storage and Realtime trust a token until it expires** (an hour), because
+  they don't go through PostgREST's per-request check. After signing out, that
+  token can still read only its own chats' photos and its own Activity; after
+  deleting the account, nothing (the memberships and rows are gone).
+- **Sign-up reveals whether an email is registered.** Supabase's own sign-up
+  API answers an existing address with a placeholder user that has no
+  identities, so anyone calling it directly can tell; the app showing "that
+  email already has an account" adds nothing. It's limited by the per-IP
+  sign-up rate limit. Turning on CAPTCHA (Authentication → Bot protection)
+  would slow it further, but needs a CAPTCHA step in the app.
+- **Sessions don't time out on their own** (like Instagram). Supabase's session
+  time-box and inactivity timeout are paid-plan settings; the app works with
+  them if they're turned on (expired sessions are refused).
 - **Recipe labels are client-set**: `nutrition_source`, `ai_generated` and
   `user_edited` are whatever the app sends, so a scripted client could label
   its own numbers as USDA.
@@ -209,7 +269,19 @@ than `Math.random`.
 - [ ] Run the migrations in `supabase/migrations/` in order if the database
       predates them (a fresh `schema.sql` already includes everything).
 - [ ] Re-enable **Confirm email** (Authentication → Providers → Email) if it
-      was turned off for testing.
+      was turned off for testing. In the same place, keep **Secure email
+      change** on.
+- [ ] Authentication → URL Configuration: **Site URL** `https://niblgo.com`;
+      **Redirect URLs** exactly `niblgo://reset` and
+      `https://niblgo.com/auth/confirm`. No wildcards, and remove any
+      `localhost` or `exp://` entries left from testing.
+- [ ] Authentication → Rate Limits: keep sign-ups and sign-ins at 30 per 5
+      minutes per IP and token verifications at 30 per 5 minutes (the
+      defaults); emails per hour 100 once custom SMTP is on.
+- [ ] Authentication → Sessions: leave **Detect and revoke potentially
+      compromised refresh tokens** on. Leave the JWT expiry at 3600 seconds.
+- [ ] After migration 0033, `verify.sql` shows "signed-out and deleted accounts
+      are locked out at once: OK".
 - [ ] Raise the Supabase minimum password length to **8** to match the app.
 - [ ] Set `ALLOWED_ORIGINS` on the edge functions if you ship a web build;
       otherwise CORS stays `*`.
@@ -222,8 +294,8 @@ than `Math.random`.
 - [ ] Run `supabase/tests/` against a scratch Postgres after any schema change,
       above all `rls_attack_test.sql` (see `supabase/tests/README.md`).
 - [ ] Paste `supabase/verify.sql` into the SQL Editor after migrating: its
-      "locked:" rows confirm the 0030, 0031 and 0032 holes are closed on the
-      real project.
+      "locked:" rows confirm the 0030 to 0033 holes are closed on the real
+      project.
 - [ ] Never add the chat tables to Realtime (Database → Publications); verify.sql
       flags it if someone does.
 
