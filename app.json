@@ -26,6 +26,11 @@
         "foregroundImage": "./assets/adaptive-icon.png"
       },
       "predictiveBackGestureEnabled": false,
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ],
       "intentFilters": [
         {
           "action": "VIEW",
@@ -63,7 +68,8 @@
         "expo-image-picker",
         {
           "photosPermission": "NiblGo lets you pick a meal photo from your library.",
-          "cameraPermission": "NiblGo uses your camera so you can snap a photo of your meal."
+          "cameraPermission": "NiblGo uses your camera so you can snap a photo of your meal.",
+          "microphonePermission": false
         }
       ],
       "expo-image",

@@ -6,7 +6,7 @@ them.
 
 ## rls_attack_test.sql: start here
 
-The main suite: 212 checks, self-asserting (it ends with an error if any fail).
+The main suite: 229 checks, self-asserting (it ends with an error if any fail).
 Six separate accounts sign in the way the API does it, with their own tokens,
 and an attacker with a normal account (Mallory, who follows the victim and has
 her own posts and a DM with her) tries to read, change or delete other people's
@@ -59,6 +59,12 @@ Section 19 covers AI allowance and recipe data (migration 0034): the daily,
 per-minute and app-wide limits trip where they should and only the server can
 spend allowance; a recipe card whose ingredients, steps or nutrition aren't
 the documented shape is refused, and a well-formed one still saves.
+
+Section 20 covers spam and impersonation (migration 0035): DMs, comments and
+feedback stop at their limits while someone else's are untouched, every table
+people create rows in carries the limit, a double-tapped photo or comment
+lands once, names and text can't hide direction-flipping or control
+characters, and staff-looking handles are refused.
 
 The upload and cleanup functions have their own tests, run with `npm test`:
 `test:jpeg` (real JPEGs pass and come out without EXIF/GPS; PNG, HTML, SVG,
