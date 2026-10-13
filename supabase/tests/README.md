@@ -6,7 +6,7 @@ them.
 
 ## rls_attack_test.sql: start here
 
-The main suite: 229 checks, self-asserting (it ends with an error if any fail).
+The main suite: 239 checks, self-asserting (it ends with an error if any fail).
 Six separate accounts sign in the way the API does it, with their own tokens,
 and an attacker with a normal account (Mallory, who follows the victim and has
 her own posts and a DM with her) tries to read, change or delete other people's
@@ -65,6 +65,12 @@ feedback stop at their limits while someone else's are untouched, every table
 people create rows in carries the limit, a double-tapped photo or comment
 lands once, names and text can't hide direction-flipping or control
 characters, and staff-looking handles are refused.
+
+Section 21 deletes an account that has a bit of everything and checks nothing
+anywhere still points at it (every foreign key to users), its posts, comments
+and DMs are gone, its feedback is kept without its name, reports it filed or
+that were filed about it survive without the account, and closed reports clear
+their copy of the content once old enough (migration 0036).
 
 The upload and cleanup functions have their own tests, run with `npm test`:
 `test:jpeg` (real JPEGs pass and come out without EXIF/GPS; PNG, HTML, SVG,

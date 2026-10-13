@@ -45,3 +45,6 @@ yarn-error.*
 .env.*
 !.env.example
 .test-build/
+
+# Off-site backups (scripts/backup.sh): everyone's data, never commit
+backups/

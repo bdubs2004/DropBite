@@ -1,6 +1,6 @@
 # NiblGo Privacy Policy
 
-**Last updated: 6 September 2026** · **Effective: 6 September 2026**
+**Last updated: 13 October 2026** · **Effective: 13 October 2026**
 
 NiblGo is a photo-first app for sharing meals with friends. This policy explains
 what we collect, why, who we share it with, and what you can make us do about it.
@@ -159,9 +159,11 @@ When you report a post, comment or message, we store the report along with a
 **copy of the reported content**. That copy is kept even if the author later
 deletes the original — otherwise deleting the evidence would defeat the report.
 
-Reports and feedback survive the reporter's or the author's account deletion,
-with the account handle retained, so that a record of a safety issue is not lost
-when someone leaves. This is our legitimate interest in running a safe service.
+Reports survive the reporter's or the author's account deletion, no longer
+linked to the deleted account, so that a record of a safety issue is not lost
+when someone leaves. Feedback and bug reports you sent are kept too, but no
+longer linked to you or your handle once your account is deleted. This is our
+legitimate interest in running a safe service.
 
 We aim to review reports **within 24 hours**.
 
@@ -207,8 +209,8 @@ longer.
 | Data | Kept |
 | --- | --- |
 | Account, posts, photos, messages | Until you delete them or delete your account |
-| Reports and reported-content copies | While relevant to safety — normally at least 2 years, so repeat behaviour is visible |
-| Feedback and bug reports | While relevant to the problem reported |
+| Reports and reported-content copies | While relevant to safety: the copy of the reported content is kept for 2 years after the report is closed, so repeat behaviour is visible, and then deleted. The record that a report was made, and its outcome, stays |
+| Feedback and bug reports | While relevant to the problem reported (no longer linked to you once your account is deleted) |
 | Server logs | As retained by our hosting provider |
 | Backups | Deleted content disappears as our provider's backups rotate |
 

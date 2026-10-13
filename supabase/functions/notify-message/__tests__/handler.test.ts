@@ -56,6 +56,7 @@ function world(over: Partial<NotifyDeps> = {}) {
     send: async (batch) => {
       sent.push(...batch);
     },
+    showPreviews: true,
     ...over,
   };
   return { deps, sent, messages, members };
@@ -147,6 +148,11 @@ const check = (name: string, ok: boolean, detail = '') => {
   console.error = logError;
   const text = await res.text();
   check('an internal error says only "server_error"', res.status === 500 && !text.includes('db-internal') && text.includes('server_error'));
+
+  // Previews off: the words never leave the server.
+  w = world({ showPreviews: false });
+  await handleNotify(req({ conversationId: DM, messageId: MSG }, 'alice-token'), w.deps);
+  check('with previews off, the push says only "New message"', w.sent.length === 1 && w.sent[0].body === 'New message' && !JSON.stringify(w.sent).includes('private to bob'));
 
   // Lock-screen text.
   check('photo preview', previewText({ text: '', image_path: 'x/y.jpg' }) === 'Sent a photo');

@@ -150,6 +150,23 @@ begin
   end loop;
   return done;
 end $$;
+-- Every row anywhere in public that still points at this account, by the
+-- foreign keys to users, as 'table.column:count', or '(none)'.
+create function qa.rows_pointing_at(who uuid) returns text language plpgsql as $$
+declare r record; n bigint; out text := '';
+begin
+  for r in
+    select c.conrelid::regclass as tbl, a.attname as col
+    from pg_constraint c
+    join pg_attribute a on a.attrelid = c.conrelid and a.attnum = any(c.conkey)
+    where c.contype = 'f' and c.confrelid in ('public.users'::regclass, 'auth.users'::regclass)
+    order by 1, 2
+  loop
+    execute format('select count(*) from %s where %I = $1', r.tbl, r.col) into n using who;
+    if n > 0 then out := out || r.tbl || '.' || r.col || ':' || n || ' '; end if;
+  end loop;
+  return coalesce(nullif(trim(out), ''), '(none)');
+end $$;
 create function qa.post_and_read_streak() returns bigint language plpgsql as $$
 begin
   insert into public.posts (user_id, meal_slot, photo_url)
@@ -930,6 +947,74 @@ select qa.check('impersonation', 'make a profile for someone else''s account', '
   $q$insert into public.users (id, handle, display_name) values ('eeeeeeee-0000-4000-8000-000000000099', 'ghost', 'Ghost')$q$, 'denied');
 select qa.check('push', 'a push token with a huge platform name', 'mallory',
   format($q$insert into public.push_tokens (user_id, token, platform) values (%L, 'ExponentPushToken[m2]', repeat('x', 5000))$q$, :mallory), 'denied');
+
+-- =======================================================================
+-- 21. Deleting an account
+-- =======================================================================
+-- Zed has a bit of everything: a post, a comment on Alice's post, a like, a
+-- follow both ways, a DM, a push token, feedback, a report he filed, and a
+-- report Alice filed about his comment. Then the account is deleted the way
+-- delete-account does it (the auth user goes, everything cascades).
+insert into auth.users (id) values ('2e2e2e2e-0000-4000-8000-000000000021');
+insert into public.users (id, handle, display_name) values ('2e2e2e2e-0000-4000-8000-000000000021', 'zed', 'Zed');
+insert into public.posts (id, user_id, meal_slot, photo_url, blurb) values
+  ('10000000-0000-4000-8000-0000000000e1', '2e2e2e2e-0000-4000-8000-000000000021', 'lunch', 'https://x.supabase.co/z.jpg', 'zed lunch');
+insert into public.comments (id, post_id, user_id, text) values
+  ('40000000-0000-4000-8000-0000000000e1', '10000000-0000-4000-8000-0000000000a1', '2e2e2e2e-0000-4000-8000-000000000021', 'zed was here');
+insert into public.reactions (post_id, user_id) values ('10000000-0000-4000-8000-0000000000a1', '2e2e2e2e-0000-4000-8000-000000000021');
+insert into public.follows (follower_id, followee_id) values
+  ('2e2e2e2e-0000-4000-8000-000000000021', 'aaaaaaaa-0000-4000-8000-000000000001'),
+  ('aaaaaaaa-0000-4000-8000-000000000001', '2e2e2e2e-0000-4000-8000-000000000021');
+insert into public.conversations (id, is_group) values ('20000000-0000-4000-8000-0000000000e1', false);
+insert into public.conversation_members (conversation_id, user_id) values
+  ('20000000-0000-4000-8000-0000000000e1', '2e2e2e2e-0000-4000-8000-000000000021'),
+  ('20000000-0000-4000-8000-0000000000e1', 'aaaaaaaa-0000-4000-8000-000000000001');
+insert into public.messages (conversation_id, sender_id, text) values
+  ('20000000-0000-4000-8000-0000000000e1', '2e2e2e2e-0000-4000-8000-000000000021', 'private zed text');
+insert into public.push_tokens (user_id, token) values ('2e2e2e2e-0000-4000-8000-000000000021', 'ExponentPushToken[zed]');
+insert into public.feedback (user_id, kind, message, handle_snapshot) values
+  ('2e2e2e2e-0000-4000-8000-000000000021', 'bug', 'zed feedback', 'zed');
+insert into public.reports (reporter_id, post_id, reported_user_id, reason) values
+  ('2e2e2e2e-0000-4000-8000-000000000021', '10000000-0000-4000-8000-0000000000b2', 'bbbbbbbb-0000-4000-8000-000000000002', 'spam');
+insert into public.reports (id, reporter_id, comment_id, reported_user_id, reason, comment_text_snapshot) values
+  ('70000000-0000-4000-8000-0000000000e1', 'aaaaaaaa-0000-4000-8000-000000000001', '40000000-0000-4000-8000-0000000000e1',
+   '2e2e2e2e-0000-4000-8000-000000000021', 'harassment', 'zed was here'),
+  ('70000000-0000-4000-8000-0000000000e2', 'aaaaaaaa-0000-4000-8000-000000000001', '40000000-0000-4000-8000-0000000000e1',
+   '2e2e2e2e-0000-4000-8000-000000000021', 'spam', 'zed was here');
+select qa.fact('deletion', 'before: the account has data all over',
+  $q$select (qa.rows_pointing_at('2e2e2e2e-0000-4000-8000-000000000021') <> '(none)')::text$q$, 'true');
+delete from auth.users where id = '2e2e2e2e-0000-4000-8000-000000000021';
+
+select qa.fact('deletion', 'after: nothing anywhere still points at the account',
+  $q$select qa.rows_pointing_at('2e2e2e2e-0000-4000-8000-000000000021')$q$, '(none)');
+select qa.fact('deletion', 'their posts, comments and DMs are gone',
+  $q$select (select count(*) from public.posts where blurb = 'zed lunch') + (select count(*) from public.comments where text = 'zed was here')
+          + (select count(*) from public.messages where text = 'private zed text')$q$, '0');
+select qa.fact('deletion', 'feedback they sent is kept for the team, but no longer names them',
+  $q$select coalesce(handle_snapshot, '(no name)') || ', ' || coalesce(user_id::text, '(no account)') from public.feedback where message = 'zed feedback'$q$,
+  '(no name), (no account)');
+select qa.fact('deletion', 'a report they filed stays for moderators, without them',
+  $q$select count(*)::text || ', ' || coalesce(max(reporter_id::text), '(no reporter)') from public.reports where post_id = '10000000-0000-4000-8000-0000000000b2' and reason = 'spam' and reporter_id is null$q$,
+  '1, (no reporter)');
+select qa.fact('deletion', 'a report about them stays open for moderators, without the account',
+  $q$select coalesce(reported_user_id::text, '(no account)') || ', ' || coalesce(comment_text_snapshot, '(nothing)') from public.reports where id = '70000000-0000-4000-8000-0000000000e1'$q$,
+  '(no account), zed was here');
+
+-- Report copies aren't kept for ever: once a report is closed and old enough
+-- (two years by default; 90 days here), what it copied is cleared (the daily
+-- sweep runs this).
+update public.reports set status = 'dismissed', reviewed_at = now() - interval '100 days'
+where id = '70000000-0000-4000-8000-0000000000e1';
+update public.reports set created_at = now() - interval '100 days' where id = '70000000-0000-4000-8000-0000000000e2';
+select qa.fact('retention', 'the sweep clears closed reports older than 90 days (one here)',
+  $q$select public.redact_closed_reports(interval '90 days')::text$q$, '1');
+select qa.fact('retention', 'that report no longer holds what they wrote, but is still there',
+  $q$select coalesce(comment_text_snapshot, '(cleared)') || ', ' || status from public.reports where id = '70000000-0000-4000-8000-0000000000e1'$q$,
+  '(cleared), dismissed');
+select qa.fact('retention', 'an open report keeps its copy however old',
+  $q$select coalesce(comment_text_snapshot, '(cleared)') from public.reports where id = '70000000-0000-4000-8000-0000000000e2'$q$, 'zed was here');
+select qa.check('retention', 'only the server can clear reports', 'mallory',
+  $q$select count(*) from (select public.redact_closed_reports(interval '0')) s$q$, 'error');
 
 -- ------------------------------------------------------------- report
 \echo

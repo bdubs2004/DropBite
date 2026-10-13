@@ -160,6 +160,7 @@ from `supabase/migrations/`:
 | `0033_session_checks.sql` | **Security fix** — signing out, deleting the account or a ban locks the old token out of the API at once instead of after an hour. Nothing to deploy with it; if anything ever goes wrong, the file's header has a two-line switch-off |
 | `0034_ai_limits.sql` | **Security fix** — AI spend gets a per-minute and an app-wide daily limit; recipe cards must be well-formed, so one malformed card can't crash the app for everyone. Redeploy `format-recipe` and `lookup-nutrition` after it |
 | `0035_abuse_limits.sql` | **Security fix** — rate limits on everything people create, no double posts or comments, no disguised names, no staff-looking handles. Nothing to deploy with it |
+| `0036_retention.sql` | **Privacy fix** — reports outlive the reporter's account; feedback forgets a deleted account's handle; closed reports clear their copy of the reported content after 2 years. Redeploy `sweep-storage` (it runs the clean-up daily) |
 
 They are all safe to run twice, and so is `schema.sql` itself. What re-running
 `schema.sql` will **not** do is add a column to a table that already exists —
@@ -359,6 +360,10 @@ straight to storage, which is now refused.
    service-role key in the job: Cron stores the request, headers included, in
    the database, and that key unlocks everything. If an existing job has it,
    edit the job to use the sweep secret instead.
+
+Each daily run also clears what closed moderation reports copied, two years
+after they closed (migration 0036; `REPORT_RETENTION_DAYS` to change it, never
+under 30).
 
 `UPLOAD_HOURLY_LIMIT` (default 60) caps uploads per user per hour:
 `supabase secrets set UPLOAD_HOURLY_LIMIT=60`.

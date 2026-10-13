@@ -45,6 +45,12 @@ export type NotifyDeps = {
   recipients(conversationId: string, senderId: string): Promise<{ others: number; pushTo: string[] }>;
   tokensFor(userIds: string[]): Promise<string[]>;
   send(batch: PushMessage[]): Promise<void>;
+  /**
+   * Put the message's words in the notification (on by default, like
+   * Instagram). Off, it says only "New message": the text then never passes
+   * through Expo's and Apple's push services or shows on a lock screen.
+   */
+  showPreviews: boolean;
   corsHeaders: Record<string, string>;
 };
 
@@ -110,7 +116,7 @@ export async function handleNotify(req: Request, deps: NotifyDeps): Promise<Resp
     // Header title if the recipient taps through: the group's name, else the
     // sender (who, in a 1:1, is exactly who they're talking to).
     const openTitle = conv.title || name;
-    const body_ = previewText(msg);
+    const body_ = deps.showPreviews ? previewText(msg) : 'New message';
 
     const pushes: PushMessage[] = tokens.map((to) => ({
       to,

@@ -15,6 +15,9 @@
 //
 //   ... -d '{"migrate_legacy_dm_photos": true}'
 //
+// Each run also clears what closed moderation reports copied, once they're
+// REPORT_RETENTION_DAYS old (default 730, never under 30; migration 0036).
+//
 // Deploy: supabase functions deploy sweep-storage --no-verify-jwt
 // (needs migration 0031). --no-verify-jwt because the secret above is not a
 // JWT; this function checks the caller itself.
@@ -42,6 +45,16 @@ Deno.serve((req) =>
   handleSweep(req, {
     isServerSecret: (token) =>
       sameSecret(token, SERVICE) || (SWEEP_SECRET.length >= 32 && sameSecret(token, SWEEP_SECRET)),
+    // Two years by default, as the privacy policy says.
+    reportRetentionDays: Number(Deno.env.get('REPORT_RETENTION_DAYS') ?? '730'),
+    async redactClosedReports(days) {
+      const { data, error } = await admin.rpc('redact_closed_reports', { older_than: `${Math.round(days)} days` });
+      if (error) {
+        console.error('report retention failed (is migration 0036 in?)', error);
+        throw error;
+      }
+      return typeof data === 'number' ? data : 0;
+    },
     async findOrphans(graceHours, onlyBucket) {
       const { data, error } = await admin.rpc('storage_orphans', {
         grace: `${Math.round(graceHours * 60)} minutes`,

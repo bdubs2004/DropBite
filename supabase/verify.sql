@@ -316,6 +316,24 @@ checks(grp, item, status) as (
 
   union all
 
+  -- And the ones 0036 closed.
+  select 15, 'locked: ' || item,
+    case when open then problem || ' — run 0036_retention.sql' else 'OK' end
+  from (values
+    ('feedback forgets who sent it when the account is deleted',
+     not exists (select 1 from pg_trigger where tgname = 'feedback_forget_sender'),
+     'DELETED ACCOUNTS STAY NAMED ON THEIR FEEDBACK'),
+    ('reports outlive the reporter''s account',
+     not exists (select 1 from pg_constraint where conname = 'reports_reporter_id_fkey' and confdeltype = 'n'),
+     'DELETING AN ACCOUNT ERASES THE REPORTS IT FILED'),
+    ('closed reports let go of what they copied (server only)',
+     to_regprocedure('public.redact_closed_reports(interval)') is null
+     or has_function_privilege('authenticated', to_regprocedure('public.redact_closed_reports(interval)'), 'EXECUTE'),
+     'REPORT COPIES OF PEOPLE''S POSTS AND MESSAGES ARE KEPT FOR EVER')
+  ) v(item, open, problem)
+
+  union all
+
   -- Cards saved before 0034 aren't rewritten; the app draws malformed ones
   -- safely (cleanRecipe). Not a hole, just worth knowing.
   select 13, 'data: older recipe cards',
