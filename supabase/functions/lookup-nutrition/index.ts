@@ -24,6 +24,10 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
+/** The service-role client (untyped tables, so the cache rows type-check). */
+// deno-lint-ignore no-explicit-any
+type Admin = { from: (table: string) => any };
+
 const MODEL = 'claude-haiku-4-5';
 const MAX_TOKENS = 1024;
 const MAX_INGREDIENTS = 50;
@@ -260,7 +264,7 @@ async function normaliseIngredients(
 
 /** USDA lookup, through the cache table. */
 async function lookupWithCache(
-  admin: ReturnType<typeof createClient>,
+  admin: Admin,
   term: string,
   usdaKey: string,
 ): Promise<{ per_100g: Record<string, number>; fdc_id: number | null } | null> {
@@ -273,13 +277,15 @@ async function lookupWithCache(
     return { per_100g: (cached as any).per_100g, fdc_id: (cached as any).fdc_id };
   }
 
+  // The key goes in a header, never the URL: a failed fetch's error message
+  // includes the whole URL, and that message ends up in the function logs.
   const url =
-    `https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${encodeURIComponent(usdaKey)}` +
-    `&query=${encodeURIComponent(term)}&pageSize=1&dataType=${encodeURIComponent('Foundation,SR Legacy')}`;
+    `https://api.nal.usda.gov/fdc/v1/foods/search` +
+    `?query=${encodeURIComponent(term)}&pageSize=1&dataType=${encodeURIComponent('Foundation,SR Legacy')}`;
 
   let food: any;
   try {
-    const resp = await fetch(url);
+    const resp = await fetch(url, { headers: { 'X-Api-Key': usdaKey } });
     if (!resp.ok) {
       console.error('usda error', resp.status, (await resp.text()).slice(0, 200));
       return null;

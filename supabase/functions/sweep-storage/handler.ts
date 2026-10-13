@@ -7,12 +7,14 @@
 // this deletes through the Storage API, because deleting the rows in SQL would
 // leave the actual files behind.
 //
-// Only the server may run it: the caller must present the service-role key
-// (Supabase Cron does, see GO_LIVE.md). Anyone else gets 401.
+// Only the server may run it. The caller presents SWEEP_SECRET in an
+// x-sweep-secret header (what Supabase Cron should send: a key that can only
+// start a sweep), or the service-role key as a bearer token (older cron jobs,
+// and by hand). Anyone else gets 401.
 
 export type SweepDeps = {
-  /** True only for the service-role key (compared in constant time). */
-  isServiceKey(token: string): boolean;
+  /** True only for SWEEP_SECRET or the service-role key (compared in constant time). */
+  isServerSecret(token: string): boolean;
   /** 'bucket/path' for every orphan older than `graceHours`. */
   findOrphans(graceHours: number, onlyBucket: string | null): Promise<string[]>;
   remove(bucket: string, paths: string[]): Promise<{ error?: string }>;
@@ -35,8 +37,10 @@ export async function handleSweep(req: Request, deps: SweepDeps): Promise<Respon
     new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
-  const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
-  if (!token || !deps.isServiceKey(token)) return json({ error: 'unauthorized' }, 401);
+  const token =
+    (req.headers.get('x-sweep-secret') ?? '').trim() ||
+    (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
+  if (!token || !deps.isServerSecret(token)) return json({ error: 'unauthorized' }, 401);
 
   let graceHours = 24;
   let onlyBucket: string | null = null;

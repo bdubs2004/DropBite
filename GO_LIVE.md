@@ -317,10 +317,17 @@ the next sync cleans up the leftovers.
 ### Photo uploads and cleanup (after migration 0031)
 
 ```bash
+SWEEP_SECRET=$(openssl rand -hex 32); echo "$SWEEP_SECRET"   # copy this for the Cron job below
+supabase secrets set SWEEP_SECRET="$SWEEP_SECRET"           # it can only start a sweep
 supabase functions deploy upload-photo    # the only way photos get into storage
-supabase functions deploy sweep-storage   # deletes photos nothing uses any more
+supabase functions deploy sweep-storage --no-verify-jwt   # deletes photos nothing uses any more
 supabase functions deploy delete-account  # now also removes the person's DM photos
 ```
+
+`--no-verify-jwt` is because the sweep's secret isn't a login token; the
+function checks it itself, and refuses everyone else. Supabase only ever shows
+a fingerprint of a secret afterwards, so keep the copy until the Cron job has
+it (or set a new one the same way).
 
 Ship them together with the app build that uses them: older builds upload
 straight to storage, which is now refused.
@@ -333,13 +340,16 @@ straight to storage, which is now refused.
    until it says `"moved": 0`:
    ```bash
    curl -X POST https://<ref>.supabase.co/functions/v1/sweep-storage \
-     -H "Authorization: Bearer <service role key>" \
+     -H "x-sweep-secret: <SWEEP_SECRET>" \
      -d '{"migrate_legacy_dm_photos": true}'
    ```
 3. **Schedule the daily sweep.** Dashboard → Integrations → Cron → create a
    job that calls the `sweep-storage` Edge Function once a day (e.g.
-   `17 4 * * *`), method POST, header `Authorization: Bearer <service role
-   key>`, body `{"grace_hours": 24}`. It deletes at most 2,000 files a run.
+   `17 4 * * *`), method POST, header `x-sweep-secret: <SWEEP_SECRET>`, body
+   `{"grace_hours": 24}`. It deletes at most 2,000 files a run. Don't put the
+   service-role key in the job: Cron stores the request, headers included, in
+   the database, and that key unlocks everything. If an existing job has it,
+   edit the job to use the sweep secret instead.
 
 `UPLOAD_HOURLY_LIMIT` (default 60) caps uploads per user per hour:
 `supabase secrets set UPLOAD_HOURLY_LIMIT=60`.

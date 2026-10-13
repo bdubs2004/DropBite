@@ -4,19 +4,27 @@
 // (GO_LIVE.md has the steps); it can also be called by hand:
 //
 //   curl -X POST https://<ref>.supabase.co/functions/v1/sweep-storage \
-//     -H "Authorization: Bearer <service role key>" -d '{"grace_hours": 24}'
+//     -H "x-sweep-secret: <SWEEP_SECRET>" -d '{"grace_hours": 24}'
+//
+// SWEEP_SECRET (supabase secrets set SWEEP_SECRET=$(openssl rand -hex 32)) can
+// only start a sweep, so that's what the cron job keeps, not the service-role
+// key. The service-role key as a bearer token still works.
 //
 // Once, after migration 0031, move DM photos sent before it into the private
 // bucket (repeat until it reports moved: 0):
 //
 //   ... -d '{"migrate_legacy_dm_photos": true}'
 //
-// Deploy: supabase functions deploy sweep-storage   (needs migration 0031)
+// Deploy: supabase functions deploy sweep-storage --no-verify-jwt
+// (needs migration 0031). --no-verify-jwt because the secret above is not a
+// JWT; this function checks the caller itself.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { handleSweep } from './handler.ts';
 
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+// Ignored unless it's long enough to be unguessable.
+const SWEEP_SECRET = Deno.env.get('SWEEP_SECRET') ?? '';
 const admin = createClient(Deno.env.get('SUPABASE_URL')!, SERVICE, {
   auth: { persistSession: false },
 });
@@ -32,7 +40,8 @@ function sameSecret(a: string, b: string): boolean {
 
 Deno.serve((req) =>
   handleSweep(req, {
-    isServiceKey: (token) => sameSecret(token, SERVICE),
+    isServerSecret: (token) =>
+      sameSecret(token, SERVICE) || (SWEEP_SECRET.length >= 32 && sameSecret(token, SWEEP_SECRET)),
     async findOrphans(graceHours, onlyBucket) {
       const { data, error } = await admin.rpc('storage_orphans', {
         grace: `${Math.round(graceHours * 60)} minutes`,

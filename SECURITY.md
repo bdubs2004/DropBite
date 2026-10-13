@@ -24,6 +24,58 @@ the enforcement point.
 | Anthropic API key | Server-only secret | `supabase secrets set`, never `.env`, never the bundle. |
 | Model output | **Untrusted input** | Steered by user text; bounded and re-shaped before use. |
 
+## Keys and secrets
+
+Every key the project uses, and where it lives:
+
+| Key | Where it lives | Secret? |
+| --- | --- | --- |
+| Supabase URL + publishable key (`sb_publishable_…`) | App bundle (`eas.json`, `EXPO_PUBLIC_*`), the website's post-preview worker | No. Meant to be public; RLS decides what it can do |
+| Supabase service-role key | Edge Function environment only (Supabase injects it) | **Yes.** Bypasses RLS |
+| `ANTHROPIC_API_KEY` (+ `ANTHROPIC_WORKSPACE_ID`) | Edge Function secrets (`format-recipe`, `lookup-nutrition`) | **Yes** |
+| `USDA_API_KEY` | Edge Function secrets (`lookup-nutrition`), sent as a header | Yes (free, low value) |
+| `SWEEP_SECRET` | Edge Function secrets + the daily Cron job | Yes, but it can only start a photo sweep |
+| `EXPO_PUBLIC_GOOGLE_PLACES_KEY` | App bundle, once Phase 2 tagging is on | No (can't be): restrict it, see the checklist |
+| Expo / Apple signing credentials | EAS servers (`eas credentials`), never the repo | Yes |
+
+**Checked before outside testing:**
+- `gitleaks` over every commit on every branch (111) and the working tree,
+  plus a direct search of every commit for service-role JWTs, `sb_secret_`,
+  `sk-ant-`, Google, Expo, GitHub and Resend tokens and private keys. The only
+  key ever committed is the publishable key in `eas.json`, which is meant to
+  ship. No `.env`, signing key or `.p8/.p12` was ever committed (`.gitignore`
+  covers them). Re-run any time with `gitleaks git --log-opts="--all" .` and
+  `gitleaks dir .` (settings in `.gitleaks.toml`): a clean run says "no leaks
+  found".
+- The production iOS JavaScript bundle, built with the real `eas.json`
+  settings: the only key in it is the publishable key. (`sb_secret_` appears
+  once, as supabase-js's own check that refuses secret keys in an app.)
+- Logs: no function logs a token, key or request header. `lookup-nutrition`
+  used to put the USDA key in the request URL, and a failed request's error
+  message (which is logged) includes the URL; the key now goes in a header.
+- No secret has been exposed, so nothing needs rotating, with one possible
+  exception: if the `lookup-nutrition` logs ever show `usda fetch failed`,
+  that line held the USDA key, so make a new one (api.data.gov, a minute).
+  If a secret ever does leak, rotate it at the source. Deleting it from the
+  code or history doesn't help: copies of a pushed commit can't be recalled.
+
+**Edge functions** (`npm run test:functions` runs each one for real under Deno
+against a stand-in Supabase that records every call):
+- Every function except the sweep needs a signed-in user, and checks the token
+  with Supabase Auth (`auth.getUser`), which also knows if the session has
+  ended. No token, the publishable key, or a forged token naming someone else
+  gets 401 before the function touches anything.
+- Identity only ever comes from that verified session. A user id in the
+  request body is ignored: asked to delete "someone else", `delete-account`
+  deletes the caller.
+- What each one is allowed to do is checked too: `upload-photo` only into your
+  own folder or a chat you're in; `notify-message` only your own fresh message
+  (0032); `notify-activity` only Activity you caused; the AI functions are
+  metered per user per day.
+- `sweep-storage` is for the server only: `SWEEP_SECRET` (or the service-role
+  key), compared in constant time. A signed-in user gets 401.
+- All of them take POST only, and answer errors with a code, never internals.
+
 ## What's enforced
 
 **Authentication & ownership.** Supabase Auth issues the JWT; `auth.uid()` is
@@ -289,6 +341,18 @@ than `Math.random`.
 - [ ] Confirm leaked-password protection is on (Authentication → Policies).
 - [ ] Turn on Supabase auth rate limiting.
 - [ ] Confirm the `service_role` key exists **only** in function secrets.
+      `supabase secrets list` should show only `ANTHROPIC_API_KEY`,
+      `ANTHROPIC_WORKSPACE_ID` (if used), `USDA_API_KEY`, `SWEEP_SECRET` and
+      the optional `AI_DAILY_LIMIT`, `UPLOAD_HOURLY_LIMIT`, `ALLOWED_ORIGINS`
+      (plus the `SUPABASE_*` ones Supabase adds itself).
+- [ ] The daily `sweep-storage` Cron job sends `x-sweep-secret`, not the
+      service-role key (GO_LIVE.md, "Photo uploads and cleanup").
+- [ ] Before turning Phase 2 tagging on: in Google Cloud, restrict the Places
+      key to the iOS bundle id `com.niblgo.app` (and the Android package) and
+      to the Places API only, and set a daily quota. It ships in the app, so
+      the restrictions are the only thing stopping someone else spending it.
+- [ ] Turn on GitHub secret scanning and push protection for the repo
+      (Settings → Code security), so a pasted key is stopped at `git push`.
 - [ ] Publish a moderation contact and community guidelines (see
       MODERATION.md for the remaining UGC gaps).
 - [ ] Run `supabase/tests/` against a scratch Postgres after any schema change,

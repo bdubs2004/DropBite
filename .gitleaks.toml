@@ -1,0 +1,10 @@
+# Secret scanning: gitleaks git --log-opts="--all" .   (and: gitleaks dir .)
+# A clean run finds nothing. The one key allowed through is the Supabase
+# publishable key, which is meant to ship in the app (eas.json); anything else
+# it finds is a real problem: rotate it at the source (SECURITY.md).
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Supabase publishable key (public by design)"
+regexes = ['''sb_publishable_[A-Za-z0-9_-]+''']
