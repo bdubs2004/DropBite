@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
     // The message, for the preview text.
     const { data: msg } = await admin
       .from('messages')
-      .select('text, shared_post_id, shared_user_id, image_url, sender_id')
+      .select('*') // image_path (0031) included where it exists
       .eq('id', messageId)
       .maybeSingle();
     if (!msg || msg.sender_id !== senderId) return json({ error: 'no such message' }, 404);
@@ -103,7 +103,7 @@ Deno.serve(async (req) => {
         ? 'Shared a post'
         : msg.shared_user_id
           ? 'Shared a profile'
-          : msg.image_url
+          : msg.image_url || msg.image_path
             ? 'Sent a photo'
             : 'New message';
     // Remembered on the thread (migration 0025): a group that's down to two

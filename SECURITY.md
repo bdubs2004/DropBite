@@ -106,15 +106,35 @@ time.
 **Saved posts** are owner-only. **Comments** are immutable and deletable by
 their author *or* the post owner, so users can moderate their own posts.
 
-**Photo uploads.** Users can only write under `photos/<their-uid>/`, and can
-only list or read through the API their own folder (before 0030 anyone, signed
-in or not, could list every file in the bucket, DM photos included). Files get
-128-bit random names, so a link to one photo doesn't lead to the next. The
-bucket caps files at 10 MB and allows only `image/jpeg|png|webp|heic` — without
-that, any signed-in user could put an HTML or SVG file on a public CDN origin
-(stored XSS) or upload unbounded data. `posts.photo_url` must be an `https:`
-URL, which blocks `javascript:`/`data:`/`file:` (but see the open items below:
-it can still be any https host).
+**Photo storage.** Two buckets, by design:
+
+| Bucket | Public? | Holds | Why |
+| --- | --- | --- | --- |
+| `photos` | Public | Post photos, avatars, comment photos | Posts are public: share links on niblgo.com show them to signed-out visitors |
+| `dm-photos` | **Private** | DM photos, one folder per chat | Only people in that chat can read them, through signed links that last an hour |
+
+- **Uploads only go through the `upload-photo` edge function.** Clients can't
+  write to storage at all. The function reads the bytes (never the
+  Content-Type or file name) and accepts only a real JPEG: it walks the file's
+  structure, checks the pixel size, strips EXIF (GPS location, camera serial),
+  XMP and comments, and cuts off anything appended after the image. It picks
+  the bucket, the folder (your own; for DM photos, a chat you're in and not
+  blocked in) and a 128-bit random name, never overwrites, and caps uploads at
+  60 per user per hour (`UPLOAD_HOURLY_LIMIT`). Both buckets also cap files at
+  10 MB and accept only `image/jpeg`.
+- **Photo links must be real uploads.** A post, avatar, comment or message can
+  only point at a file that exists in this project's storage, in the poster's
+  own folder (or that chat's folder). Before 0031 a link could be any `https`
+  host, which could log the IP of everyone who viewed it, or someone else's
+  photo.
+- **Nobody can list, replace or delete someone else's files**, signed in or
+  not. Listing is limited to your own folder (and chats you're in).
+- **Nothing is left behind.** `storage_orphans()` finds files nothing uses any
+  more (deleted posts, comments, messages, old avatars, deleted accounts) and
+  the `sweep-storage` function deletes them daily, through the Storage API.
+  Photos that are evidence in an open report are kept until it's closed.
+  Deleting an account removes the person's whole folder and the DM photos their
+  deleted messages leave behind, straight away.
 
 **Input bounds.** Every user-writable column is length- or range-bounded
 (`schema.sql`), mirrored in `src/lib/limits.ts` for the UI. Recipe JSON is
@@ -139,13 +159,11 @@ than `Math.random`.
 
 ## Deliberately deferred
 
-- **Photo URLs can be any https host.** A scripted client can set a post,
-  comment, message or avatar image to a server it controls and log the IP of
-  everyone who views it. Fix: only accept URLs in this project's `photos`
-  bucket, under the poster's own folder.
-- **DM and comment photos are public by URL.** They share the public bucket
-  with posts; the random names make them unguessable, but anyone holding a
-  link can open it. Fix: a private bucket with signed URLs for DM photos.
+- **Post, avatar and comment photos are public by URL**, by design (posts
+  are public and shared links show them signed out). The 128-bit random names
+  mean a photo can only be found through a link to it.
+- **A signed DM photo link works for an hour for whoever holds it.** That's
+  how signed links work; it's short, and only a chat member can make one.
 - **Profiles expose `timezone`** to every signed-in user (an approximate
   location). Nothing reads it server-side except the streak trigger.
 - **Recipe labels are client-set**: `nutrition_source`, `ai_generated` and

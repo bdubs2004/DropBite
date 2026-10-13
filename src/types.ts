@@ -280,8 +280,13 @@ export interface Message {
   shared_post_id: string | null;
   /** Set when this message is a profile someone sent you (Share profile). */
   shared_user_id?: string | null;
-  /** An attached photo. */
+  /**
+   * An attached photo, as a link the app can show. For DM photos (private)
+   * this is a signed link that works for an hour, made from image_path.
+   */
   image_url?: string | null;
+  /** A DM photo's path in the private dm-photos bucket (sent since 0031). */
+  image_path?: string | null;
   /**
    * 'left' is the centred "Dan left the chat" line a group shows when someone
    * leaves (the sender is the person who left). Missing means a normal message.

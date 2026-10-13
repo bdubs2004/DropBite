@@ -13,6 +13,13 @@ insert into public.users (id, handle, display_name) values
   ('22222222-2222-2222-2222-222222222222','bob','Bob'),
   ('33333333-3333-3333-3333-333333333333','snoop','Snoop');
 
+-- Photos as upload-photo would have stored them: since 0031 a posted photo
+-- link has to be a real upload in the poster's own folder.
+insert into public.app_config (key, value) values ('storage_origin', 'https://x.supabase.co')
+  on conflict (key) do nothing;
+insert into storage.objects (bucket_id, name) values
+  ('photos', '11111111-1111-1111-1111-111111111111/b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0.jpg');
+
 insert into public.posts (id, user_id, meal_slot, photo_url, blurb) values
   ('aaaaaaaa-0000-0000-0000-000000000001','11111111-1111-1111-1111-111111111111',
    'dinner','https://example.com/a.jpg','alice dinner');
@@ -113,7 +120,7 @@ select count(*) as left_behind from public.notifications;
 \echo '--- 12. Alice can clear her own notifications ---'
 insert into public.posts (id, user_id, meal_slot, photo_url, blurb) values
   ('aaaaaaaa-0000-0000-0000-000000000002','11111111-1111-1111-1111-111111111111',
-   'lunch','https://example.com/b.jpg','another');
+   'lunch','https://x.supabase.co/storage/v1/object/public/photos/11111111-1111-1111-1111-111111111111/b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0.jpg','another');
 set test.uid = '22222222-2222-2222-2222-222222222222';
 insert into public.reactions (post_id, user_id)
   values ('aaaaaaaa-0000-0000-0000-000000000002','22222222-2222-2222-2222-222222222222');

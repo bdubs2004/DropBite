@@ -87,7 +87,9 @@ export function InboxScreen({ navigation }: any) {
     if (c.last_message.kind === 'left') return leftLine(c.last_message);
     if (c.last_message.shared_post_id && !c.last_message.text) return 'Shared a post';
     if (c.last_message.shared_user_id && !c.last_message.text) return 'Shared a profile';
-    if (c.last_message.image_url && !c.last_message.text) return 'Sent a photo';
+    if ((c.last_message.image_url || c.last_message.image_path) && !c.last_message.text) {
+      return 'Sent a photo';
+    }
     return c.last_message.text;
   };
 

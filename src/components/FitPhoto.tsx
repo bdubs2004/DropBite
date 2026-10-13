@@ -13,18 +13,24 @@ export function FitPhoto({
   width,
   style,
   testID,
+  cacheKey,
 }: {
   uri: string;
   width: number;
   style?: StyleProp<ImageStyle>;
   testID?: string;
+  /**
+   * What to cache it under, when the link itself changes: a private DM
+   * photo's signed link is new every time the chat loads, its path isn't.
+   */
+  cacheKey?: string | null;
 }) {
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
   const frame = photoFrame(size?.w, size?.h);
   return (
     <Image
       testID={testID}
-      source={{ uri }}
+      source={cacheKey ? { uri, cacheKey } : { uri }}
       style={[style, { width, height: Math.round(width * frame.ratio) }]}
       contentFit={frame.fit}
       cachePolicy="memory-disk"

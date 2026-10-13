@@ -19,7 +19,6 @@ import {
 import { EMAIL_CONFIRM_URL, PASSWORD_RESET_URL } from '../../config';
 import { appVersion, platformName } from '../../lib/appInfo';
 import { cleanHandle } from '../../lib/handle';
-import { unguessableName } from '../../lib/id';
 import { clamp, clampOrNull, LIMITS } from '../../lib/limits';
 import { collectionNameProblem, tidyCollectionName } from '../../lib/collectionName';
 import { sanitizeSearchTerm } from '../../lib/searchTerm';
@@ -421,17 +420,9 @@ export class SupabaseService implements DataService {
   }
 
   async setAvatar(localUri: string): Promise<User> {
-    const meId = await this.myId();
-    // Same bucket and per-user folder as post photos, so the existing storage
-    // policy ("write only under your own uid") already covers it.
-    const resp = await fetch(localUri);
-    const bytes = await resp.arrayBuffer();
-    const path = `${meId}/avatar-${unguessableName()}.jpg`;
-    const { error } = await this.sb.storage
-      .from('photos')
-      .upload(path, bytes, { contentType: 'image/jpeg' });
-    if (error) throw error;
-    const url = this.sb.storage.from('photos').getPublicUrl(path).data.publicUrl;
+    // Through upload-photo like every photo; it lands in your own folder.
+    const { url } = await this.uploadPhoto(localUri, 'avatar');
+    if (!url) throw new Error('The photo could not be uploaded.');
     // Clearing avatar_emoji keeps one source of truth for what to render.
     return this.updateProfile({ avatar_url: url, avatar_emoji: null });
   }
@@ -753,16 +744,66 @@ export class SupabaseService implements DataService {
       .filter((p: Post | undefined): p is Post => Boolean(p));
   }
 
-  /** Upload a local photo URI to the "photos" bucket, return its public URL. */
-  private async uploadPhoto(localUri: string, meId: string): Promise<string> {
-    const path = `${meId}/${unguessableName()}.jpg`;
+  /**
+   * Upload a local photo through the upload-photo edge function, the only way
+   * into storage (migration 0031). The server checks it's a real JPEG, strips
+   * its metadata (EXIF location and the like), and picks where it goes and its
+   * name: post, avatar and comment photos to the public `photos` bucket, DM
+   * photos to the private `dm-photos` bucket under the chat.
+   */
+  private async uploadPhoto(
+    localUri: string,
+    kind: 'post' | 'avatar' | 'comment' | 'dm',
+    conversationId?: string,
+  ): Promise<{ url: string | null; path: string }> {
     const bytes = await this.readJpegBytes(localUri);
     if (bytes.length === 0) throw new Error('The selected photo could not be read.');
-    const { error } = await this.sb.storage.from('photos').upload(path, bytes, {
-      contentType: 'image/jpeg',
+    // An ArrayBuffer (not the Uint8Array view), so it's sent as raw bytes.
+    const body = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+    const { data, error } = await this.sb.functions.invoke('upload-photo', {
+      body: body as ArrayBuffer,
+      headers: {
+        'Content-Type': 'image/jpeg',
+        'x-photo-kind': kind,
+        ...(conversationId ? { 'x-conversation-id': conversationId } : {}),
+      },
     });
-    if (error) throw error;
-    return this.sb.storage.from('photos').getPublicUrl(path).data.publicUrl;
+    if (error) {
+      const status = (error as { context?: { status?: number } }).context?.status;
+      throw new Error(
+        status === 413
+          ? 'That photo is too big. Try a smaller one.'
+          : status === 415
+            ? 'That photo could not be used. Try another one.'
+            : status === 429
+              ? 'You have uploaded a lot of photos. Try again in a little while.'
+              : status === 403
+                ? 'You can not send photos in this chat.'
+                : 'The photo could not be uploaded. Check your connection and try again.',
+      );
+    }
+    const result = data as { url: string | null; path: string };
+    if (!result?.path) throw new Error('The photo could not be uploaded.');
+    return result;
+  }
+
+  /**
+   * DM photos are private: swap each one's storage path for a signed link
+   * that works for an hour. Storage only signs paths the caller can read, so
+   * only people in the chat get a link. Older photos (sent before DM photos
+   * went private) keep their public link.
+   */
+  private async signDmPhotos(messages: Message[]): Promise<Message[]> {
+    const paths = [...new Set(messages.map((m) => m.image_path).filter(Boolean) as string[])];
+    if (!paths.length) return messages;
+    const { data } = await this.sb.storage.from('dm-photos').createSignedUrls(paths, 60 * 60);
+    const signed = new Map<string, string>();
+    for (const row of data ?? []) {
+      if (row.path && row.signedUrl) signed.set(row.path, row.signedUrl);
+    }
+    return messages.map((m) =>
+      m.image_path ? { ...m, image_url: signed.get(m.image_path) ?? null } : m,
+    );
   }
 
   /**
@@ -791,7 +832,7 @@ export class SupabaseService implements DataService {
     const meId = await this.myId();
     let photoUrl = input.photo_url;
     if (photoUrl && !photoUrl.startsWith('http')) {
-      photoUrl = await this.uploadPhoto(photoUrl, meId);
+      photoUrl = (await this.uploadPhoto(photoUrl, 'post')).url ?? photoUrl;
     }
     const { data, error } = await this.sb
       .from('posts')
@@ -992,7 +1033,7 @@ export class SupabaseService implements DataService {
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: true });
     if (error) throw error;
-    return (data ?? []).map((row: any) => this.hydrateMessageRow(row));
+    return this.signDmPhotos((data ?? []).map((row: any) => this.hydrateMessageRow(row)));
   }
 
   async reactToMessage(messageId: string, emoji: string | null): Promise<void> {
@@ -1025,13 +1066,11 @@ export class SupabaseService implements DataService {
       throw new Error('Nothing to send.');
     }
 
-    // Attachments go in the same per-user folder as post photos, so the
-    // existing storage policy and its size/MIME limits already cover them.
-    let imageUrl: string | null = null;
+    // DM photos are private: uploaded into this chat's folder of the private
+    // dm-photos bucket, and sent by path. Only people in the chat can open it.
+    let imagePath: string | null = null;
     if (input.imageUri) {
-      imageUrl = input.imageUri.startsWith('http')
-        ? input.imageUri
-        : await this.uploadPhoto(input.imageUri, meId);
+      imagePath = (await this.uploadPhoto(input.imageUri, 'dm', conversationId)).path;
     }
 
     const { data, error } = await this.sb
@@ -1044,7 +1083,7 @@ export class SupabaseService implements DataService {
         // Only sent when set, so an older database without the column still
         // takes ordinary messages.
         ...(input.sharedUserId ? { shared_user_id: input.sharedUserId } : {}),
-        image_url: imageUrl,
+        ...(imagePath ? { image_path: imagePath } : {}),
       })
       .select(this.MESSAGE_SELECT)
       .single();
@@ -1062,7 +1101,7 @@ export class SupabaseService implements DataService {
       .invoke('notify-message', { body: { conversationId, messageId: (data as any).id } })
       .catch(() => {});
 
-    return this.hydrateMessageRow(data);
+    return (await this.signDmPhotos([this.hydrateMessageRow(data)]))[0];
   }
 
   async savePushToken(token: string, platform: string): Promise<void> {
@@ -1532,11 +1571,10 @@ export class SupabaseService implements DataService {
     const body = clamp(text, LIMITS.comment);
     if (!body && !imageUri) throw new Error('Nothing to post.');
 
-    // Photos go in the same per-user folder as post/message photos, so the
-    // existing storage policy and its size/MIME limits already cover them.
+    // Comment photos go in your own folder of the public bucket, like posts.
     let imageUrl: string | null = null;
     if (imageUri) {
-      imageUrl = imageUri.startsWith('http') ? imageUri : await this.uploadPhoto(imageUri, meId);
+      imageUrl = (await this.uploadPhoto(imageUri, 'comment')).url;
     }
 
     const { data, error } = await this.sb

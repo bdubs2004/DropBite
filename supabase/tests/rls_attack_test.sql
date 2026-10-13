@@ -94,7 +94,8 @@ $$;
 create function qa.post_and_read_streak() returns bigint language plpgsql as $$
 begin
   insert into public.posts (user_id, meal_slot, photo_url)
-  values (auth.uid(), 'dinner', 'https://x.supabase.co/streak.jpg');
+  values (auth.uid(), 'dinner',
+          'https://x.supabase.co/storage/v1/object/public/photos/' || auth.uid() || '/f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0.jpg');
   return (select current_streak from public.streaks where user_id = auth.uid());
 end $$;
 grant usage on schema qa to anon, authenticated;
@@ -199,6 +200,46 @@ insert into storage.objects (bucket_id, name, owner) values
   ('photos', 'aaaaaaaa-0000-4000-8000-000000000001/1700000000000.jpg', 'aaaaaaaa-0000-4000-8000-000000000001'),
   ('photos', 'bbbbbbbb-0000-4000-8000-000000000002/dm-photo.jpg', 'bbbbbbbb-0000-4000-8000-000000000002');
 
+-- Files the server-side upload function would have written: 32-hex random
+-- names. Some are in use, some are orphans (old and unreferenced), one is too
+-- new to call an orphan, one is evidence in an open report.
+insert into storage.objects (bucket_id, name, owner, created_at) values
+  ('photos', 'aaaaaaaa-0000-4000-8000-000000000001/a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1.jpg', 'aaaaaaaa-0000-4000-8000-000000000001', now() - interval '2 days'),
+  ('photos', 'aaaaaaaa-0000-4000-8000-000000000001/a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2.jpg', 'aaaaaaaa-0000-4000-8000-000000000001', now() - interval '2 days'),
+  ('photos', 'aaaaaaaa-0000-4000-8000-000000000001/a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3.jpg', 'aaaaaaaa-0000-4000-8000-000000000001', now()),
+  ('photos', 'dddddddd-0000-4000-8000-000000000004/d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4.jpg', 'dddddddd-0000-4000-8000-000000000004', now()),
+  ('photos', 'bbbbbbbb-0000-4000-8000-000000000002/b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5.jpg', 'bbbbbbbb-0000-4000-8000-000000000002', now() - interval '2 days'),
+  -- Fresh uploads Alice and Bob post with in the streak checks.
+  ('photos', 'aaaaaaaa-0000-4000-8000-000000000001/f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0.jpg', 'aaaaaaaa-0000-4000-8000-000000000001', now()),
+  ('photos', 'bbbbbbbb-0000-4000-8000-000000000002/f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0.jpg', 'bbbbbbbb-0000-4000-8000-000000000002', now());
+insert into public.posts (id, user_id, meal_slot, photo_url, blurb) values
+  ('10000000-0000-4000-8000-0000000000a9', 'aaaaaaaa-0000-4000-8000-000000000001', 'lunch',
+   'https://x.supabase.co/storage/v1/object/public/photos/aaaaaaaa-0000-4000-8000-000000000001/a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1.jpg', 'alice lunch');
+insert into public.reports (reporter_id, reported_user_id, reason, post_photo_url_snapshot) values
+  ('aaaaaaaa-0000-4000-8000-000000000001', 'bbbbbbbb-0000-4000-8000-000000000002', 'sexual',
+   'https://x.supabase.co/storage/v1/object/public/photos/bbbbbbbb-0000-4000-8000-000000000002/b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5.jpg');
+-- DM photos and the storage origin only exist once storage is hardened, so
+-- they're added only where the database has them (the checks then fail on an
+-- older schema, as they should).
+do $$
+begin
+  if exists (select 1 from storage.buckets where id = 'dm-photos') then
+    insert into storage.objects (bucket_id, name, owner, created_at) values
+      ('dm-photos', '20000000-0000-4000-8000-000000000001/c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6.jpg', 'aaaaaaaa-0000-4000-8000-000000000001', now() - interval '2 days'),
+      ('dm-photos', '20000000-0000-4000-8000-000000000001/c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7.jpg', 'aaaaaaaa-0000-4000-8000-000000000001', now() - interval '2 days'),
+      ('dm-photos', '20000000-0000-4000-8000-000000000003/d8d8d8d8d8d8d8d8d8d8d8d8d8d8d8d8.jpg', 'dddddddd-0000-4000-8000-000000000004', now());
+  end if;
+  if exists (select 1 from information_schema.columns where table_name = 'messages' and column_name = 'image_path') then
+    execute $x$insert into public.messages (conversation_id, sender_id, image_path) values
+      ('20000000-0000-4000-8000-000000000001', 'aaaaaaaa-0000-4000-8000-000000000001',
+       '20000000-0000-4000-8000-000000000001/c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6.jpg')$x$;
+  end if;
+  if to_regclass('public.app_config') is not null then
+    execute $x$insert into public.app_config (key, value) values ('storage_origin', 'https://x.supabase.co')
+      on conflict (key) do update set value = excluded.value$x$;
+  end if;
+end $$;
+
 -- Short names for the ids, used in the checks below.
 \set alice    '''aaaaaaaa-0000-4000-8000-000000000001'''
 \set bob      '''bbbbbbbb-0000-4000-8000-000000000002'''
@@ -265,13 +306,13 @@ select qa.check('posts', 'post as someone else', 'mallory',
 select qa.check('posts', 'hand your post to someone else', 'mallory',
   format($q$update public.posts set user_id = %L where id = '10000000-0000-4000-8000-0000000000d4'$q$, :alice), 'denied');
 select qa.check('posts', 'pin a post to the top of everyone''s feed with a future date', 'mallory',
-  format($q$with x as (insert into public.posts (user_id, meal_slot, photo_url, created_at) values (%L, 'dinner', 'https://x.supabase.co/z.jpg', '2099-01-01') returning created_at)
+  format($q$with x as (insert into public.posts (user_id, meal_slot, photo_url, created_at) values (%L, 'dinner', 'https://x.supabase.co/storage/v1/object/public/photos/dddddddd-0000-4000-8000-000000000004/d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4.jpg', '2099-01-01') returning created_at)
            select count(*) from x where created_at > now() + interval '1 minute'$q$, :mallory), 'rows:0');
 select qa.check('posts', 'move your old post to the top later (update created_at)', 'mallory',
   $q$with x as (update public.posts set created_at = '2099-01-01' where id = '10000000-0000-4000-8000-0000000000d4' returning created_at)
      select count(*) from x where created_at > now() + interval '1 minute'$q$, 'rows:0');
 select qa.check('posts', 'posting your own still works', 'mallory',
-  format($q$insert into public.posts (user_id, meal_slot, photo_url, blurb) values (%L, 'dinner', 'https://x.supabase.co/z.jpg', 'mine')$q$, :mallory), 'rows:1');
+  format($q$insert into public.posts (user_id, meal_slot, photo_url, blurb) values (%L, 'dinner', 'https://x.supabase.co/storage/v1/object/public/photos/dddddddd-0000-4000-8000-000000000004/d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4.jpg', 'mine')$q$, :mallory), 'rows:1');
 select qa.check('posts', 'a blocked person cannot see the blocker''s posts', 'eve',
   $q$select count(*) from public.posts where id = '10000000-0000-4000-8000-0000000000a1'$q$, 'rows:0');
 
@@ -416,8 +457,8 @@ select qa.check('dms', 'a blocked person starts a chat with the blocker', 'eve',
 select qa.check('dms', 'leave_conversation can''t remove anyone from a thread you are not in', 'mallory',
   $q$select qa.members('20000000-0000-4000-8000-000000000001') from (select public.leave_conversation('20000000-0000-4000-8000-000000000001')) s$q$, 'rows:2');
 -- What must keep working.
-select qa.check('dms', 'members read their thread', 'bob',
-  $q$select count(*) from public.messages where conversation_id = '20000000-0000-4000-8000-000000000001'$q$, 'rows:1');
+select qa.check('dms', 'members read their thread (a message and a photo)', 'bob',
+  $q$select count(*) from public.messages where conversation_id = '20000000-0000-4000-8000-000000000001'$q$, 'rows:2');
 select qa.check('dms', 'group members read the group', 'carol',
   $q$select count(*) from public.messages where conversation_id = '20000000-0000-4000-8000-000000000002'$q$, 'rows:1');
 select qa.check('dms', 'someone who left a group can''t read it any more', 'mallory',
@@ -552,18 +593,81 @@ select qa.check('signed out', 'a shared post link still previews', 'anon',
 -- =======================================================================
 select qa.check('storage', 'list everyone''s photos signed out', 'anon',
   $q$select count(*) from storage.objects where bucket_id = 'photos'$q$, 'rows:0');
-select qa.check('storage', 'list other people''s photos (DM photos included)', 'mallory',
-  $q$select count(*) from storage.objects where bucket_id = 'photos'$q$, 'rows:0');
+select qa.check('storage', 'list other people''s photos', 'mallory',
+  $q$select count(*) from storage.objects where bucket_id = 'photos' and name not like 'dddddddd-0000-4000-8000-000000000004/%'$q$, 'rows:0');
 select qa.check('storage', 'upload into someone else''s folder', 'mallory',
   format($q$insert into storage.objects (bucket_id, name) values ('photos', %L || '/evil.jpg')$q$, :alice), 'denied');
 select qa.check('storage', 'overwrite someone else''s photo', 'mallory',
   $q$update storage.objects set name = name where bucket_id = 'photos'$q$, 'denied');
 select qa.check('storage', 'delete someone else''s photo', 'mallory',
-  $q$delete from storage.objects where bucket_id = 'photos'$q$, 'denied');
-select qa.check('storage', 'uploading to your own folder still works', 'mallory',
-  format($q$insert into storage.objects (bucket_id, name) values ('photos', %L || '/mine.jpg')$q$, :mallory), 'rows:1');
+  $q$delete from storage.objects where bucket_id = 'photos' and name not like 'dddddddd-0000-4000-8000-000000000004/%'$q$, 'denied');
+select qa.check('storage', 'upload straight into storage, skipping the server''s checks', 'mallory',
+  format($q$insert into storage.objects (bucket_id, name) values ('photos', %L || '/mine.jpg')$q$, :mallory), 'denied');
+select qa.check('storage', 'upload straight into a DM folder', 'mallory',
+  $q$insert into storage.objects (bucket_id, name) values ('dm-photos', '20000000-0000-4000-8000-000000000003/x.jpg')$q$, 'denied');
 select qa.check('storage', 'you can still see (and so delete) your own photos', 'alice',
-  $q$select count(*) from storage.objects where bucket_id = 'photos'$q$, 'rows:1');
+  $q$select count(*) from storage.objects where bucket_id = 'photos'$q$, 'rows:5');
+
+-- =======================================================================
+-- 14. Private DM photos
+-- =======================================================================
+select qa.fact('dm photos', 'DM photos have their own bucket, and it is private',
+  $q$select coalesce((select (not public)::text from storage.buckets where id = 'dm-photos'), 'missing')$q$, 'true');
+select qa.fact('dm photos', 'both buckets take only JPEG, at most 10 MB',
+  $q$select string_agg(id || ':' || array_to_string(allowed_mime_types, ',') || ':' || file_size_limit, ' ' order by id)
+     from storage.buckets where id in ('photos', 'dm-photos')$q$,
+  'dm-photos:image/jpeg:10485760 photos:image/jpeg:10485760');
+select qa.check('dm photos', 'people in the chat can open its photos', 'bob',
+  $q$select count(*) from storage.objects where bucket_id = 'dm-photos' and name like '20000000-0000-4000-8000-000000000001/%'$q$, 'rows:2');
+select qa.check('dm photos', 'someone outside the chat can''t, even with the path', 'mallory',
+  $q$select count(*) from storage.objects where bucket_id = 'dm-photos' and name = '20000000-0000-4000-8000-000000000001/c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6.jpg'$q$, 'rows:0');
+select qa.check('dm photos', 'a friend in a different chat can''t either', 'carol',
+  $q$select count(*) from storage.objects where bucket_id = 'dm-photos'$q$, 'rows:0');
+select qa.check('dm photos', 'signed out, nothing', 'anon',
+  $q$select count(*) from storage.objects where bucket_id = 'dm-photos'$q$, 'rows:0');
+select qa.check('dm photos', 'delete a photo from someone else''s chat', 'mallory',
+  $q$delete from storage.objects where bucket_id = 'dm-photos'$q$, 'denied');
+select qa.check('dm photos', 'replace a photo in someone else''s chat', 'mallory',
+  $q$update storage.objects set name = name where bucket_id = 'dm-photos'$q$, 'denied');
+
+-- =======================================================================
+-- 15. Photo links must be real uploads, in your own space
+-- =======================================================================
+select qa.check('photo links', 'post a photo hosted on an outside server (logs viewers'' IPs)', 'mallory',
+  format($q$insert into public.posts (user_id, meal_slot, photo_url) values (%L, 'dinner', 'https://evil.example/storage/v1/object/public/photos/dddddddd-0000-4000-8000-000000000004/d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4.jpg')$q$, :mallory), 'denied');
+select qa.check('photo links', 'post someone else''s photo by copying its link', 'mallory',
+  format($q$insert into public.posts (user_id, meal_slot, photo_url) values (%L, 'dinner', 'https://x.supabase.co/storage/v1/object/public/photos/aaaaaaaa-0000-4000-8000-000000000001/a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1.jpg')$q$, :mallory), 'denied');
+select qa.check('photo links', 'post a photo that was never uploaded', 'mallory',
+  format($q$insert into public.posts (user_id, meal_slot, photo_url) values (%L, 'dinner', 'https://x.supabase.co/storage/v1/object/public/photos/dddddddd-0000-4000-8000-000000000004/eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee.jpg')$q$, :mallory), 'denied');
+select qa.check('photo links', 'posting your own uploaded photo still works', 'mallory',
+  format($q$insert into public.posts (user_id, meal_slot, photo_url) values (%L, 'dinner', 'https://x.supabase.co/storage/v1/object/public/photos/dddddddd-0000-4000-8000-000000000004/d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4.jpg')$q$, :mallory), 'rows:1');
+select qa.check('photo links', 'editing an older post (photo from before this) still works', 'alice',
+  $q$update public.posts set blurb = 'edited' where id = '10000000-0000-4000-8000-0000000000a1'$q$, 'rows:1');
+select qa.check('photo links', 'use someone else''s photo as your avatar', 'mallory',
+  format($q$update public.users set avatar_url = 'https://x.supabase.co/storage/v1/object/public/photos/aaaaaaaa-0000-4000-8000-000000000001/a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1.jpg' where id = %L$q$, :mallory), 'denied');
+select qa.check('photo links', 'use an outside server for your avatar', 'mallory',
+  format($q$update public.users set avatar_url = 'https://evil.example/me.jpg' where id = %L$q$, :mallory), 'denied');
+select qa.check('photo links', 'setting your own uploaded avatar still works', 'mallory',
+  format($q$update public.users set avatar_url = 'https://x.supabase.co/storage/v1/object/public/photos/dddddddd-0000-4000-8000-000000000004/d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4.jpg' where id = %L$q$, :mallory), 'rows:1');
+select qa.check('photo links', 'comment with a photo from an outside server', 'mallory',
+  format($q$insert into public.comments (post_id, user_id, image_url) values ('10000000-0000-4000-8000-0000000000a1', %L, 'https://evil.example/x.jpg')$q$, :mallory), 'denied');
+select qa.check('photo links', 'send a DM photo as a public link (DM photos must be private)', 'mallory',
+  format($q$insert into public.messages (conversation_id, sender_id, image_url) values ('20000000-0000-4000-8000-000000000003', %L, 'https://x.supabase.co/storage/v1/object/public/photos/dddddddd-0000-4000-8000-000000000004/d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4.jpg')$q$, :mallory), 'denied');
+select qa.check('photo links', 'send a photo that belongs to a different chat', 'mallory',
+  format($q$insert into public.messages (conversation_id, sender_id, image_path) values ('20000000-0000-4000-8000-000000000003', %L, '20000000-0000-4000-8000-000000000001/c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6.jpg')$q$, :mallory), 'denied');
+select qa.check('photo links', 'send a photo that was never uploaded', 'mallory',
+  format($q$insert into public.messages (conversation_id, sender_id, image_path) values ('20000000-0000-4000-8000-000000000003', %L, '20000000-0000-4000-8000-000000000003/eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee.jpg')$q$, :mallory), 'denied');
+select qa.check('photo links', 'sending your own uploaded DM photo still works', 'mallory',
+  format($q$insert into public.messages (conversation_id, sender_id, image_path) values ('20000000-0000-4000-8000-000000000003', %L, '20000000-0000-4000-8000-000000000003/d8d8d8d8d8d8d8d8d8d8d8d8d8d8d8d8.jpg')$q$, :mallory), 'rows:1');
+
+-- =======================================================================
+-- 16. Orphaned files
+-- =======================================================================
+select qa.fact('orphans', 'finds files nothing uses any more (older than a day), and only those',
+  $q$select string_agg(o, ',' order by o) from public.storage_orphans(interval '1 day') o$q$,
+  'dm-photos/20000000-0000-4000-8000-000000000001/c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7.jpg,photos/aaaaaaaa-0000-4000-8000-000000000001/a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2.jpg');
+select qa.check('orphans', 'only the server can run the orphan search', 'mallory',
+  $q$select count(*) from public.storage_orphans(interval '0')$q$, 'error');
 
 -- ------------------------------------------------------------- report
 \echo

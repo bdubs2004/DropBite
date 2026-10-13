@@ -3,8 +3,9 @@
 // only exists server-side). Row cascades wipe profile/posts/recipes/etc.
 //
 // Photos are NOT covered by those cascades and must be removed explicitly —
-// see below. Missing that left every deleted user's images sitting in a
-// public-read bucket, still reachable at their original URLs.
+// see below: their own folder in `photos`, then the DM photos their deleted
+// messages leave behind in `dm-photos`. Missing that once left every deleted
+// user's images in a public-read bucket, still reachable at their URLs.
 //
 // Deploy: supabase functions deploy delete-account
 // (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are provided automatically.)
@@ -91,6 +92,28 @@ Deno.serve(async (req: Request) => {
     if (error) {
       console.error('deleteUser failed', error);
       return json({ error: 'delete_failed' }, 500, cors);
+    }
+
+    // DM photos live under each conversation, not under the user, so the
+    // folder sweep above can't see them. Deleting the account just deleted
+    // their messages, which leaves those photos pointing nowhere: remove every
+    // DM photo nothing uses any more (older than 10 minutes, so another
+    // person's upload in flight isn't caught). The daily sweep-storage run is
+    // the backstop if this fails.
+    try {
+      const { data: orphans, error: findErr } = await admin.rpc('storage_orphans', {
+        grace: '10 minutes',
+        only_bucket: 'dm-photos',
+      });
+      if (findErr) throw findErr;
+      const paths = ((orphans ?? []) as string[]).map((p) => p.replace(/^dm-photos\//, ''));
+      for (let i = 0; i < paths.length; i += 100) {
+        const { error: rmErr } = await admin.storage.from('dm-photos').remove(paths.slice(i, i + 100));
+        if (rmErr) throw rmErr;
+        photosRemoved += Math.min(100, paths.length - i);
+      }
+    } catch (e) {
+      console.error(`DM photo cleanup after deleting ${userId} failed; sweep-storage will catch it`, e);
     }
 
     console.log(`deleted account ${userId}, photos removed: ${photosRemoved}`);

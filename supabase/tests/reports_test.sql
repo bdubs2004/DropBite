@@ -10,6 +10,13 @@ insert into public.users (id, handle, display_name) values
   ('22222222-2222-2222-2222-222222222222', 'badguy', 'Bad Guy'),
   ('33333333-3333-3333-3333-333333333333', 'carol', 'Carol');
 
+-- Photos as upload-photo would have stored them: since 0031 a posted photo
+-- link has to be a real upload in the poster's own folder.
+insert into public.app_config (key, value) values ('storage_origin', 'https://x.supabase.co')
+  on conflict (key) do nothing;
+insert into storage.objects (bucket_id, name) values
+  ('photos', '22222222-2222-2222-2222-222222222222/b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2.jpg');
+
 -- Bad Guy posts something.
 insert into public.posts (id, user_id, meal_slot, photo_url, blurb) values
   ('aaaaaaaa-0000-0000-0000-000000000001',
@@ -67,7 +74,7 @@ set test.uid = '22222222-2222-2222-2222-222222222222';
 insert into public.posts (id, user_id, meal_slot, photo_url, blurb) values
   ('aaaaaaaa-0000-0000-0000-000000000002',
    '22222222-2222-2222-2222-222222222222', 'lunch',
-   'https://x.supabase.co/storage/v1/object/public/photos/22222222-2222-2222-2222-222222222222/2.jpg', 'mine');
+   'https://x.supabase.co/storage/v1/object/public/photos/22222222-2222-2222-2222-222222222222/b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2.jpg', 'mine');
 insert into public.reports (post_id, reporter_id, reported_user_id, reason)
   values ('aaaaaaaa-0000-0000-0000-000000000002',
           '22222222-2222-2222-2222-222222222222',
