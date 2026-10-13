@@ -19,6 +19,7 @@ import {
 import { EMAIL_CONFIRM_URL, PASSWORD_RESET_URL } from '../../config';
 import { appVersion, platformName } from '../../lib/appInfo';
 import { cleanHandle } from '../../lib/handle';
+import { unguessableName } from '../../lib/id';
 import { clamp, clampOrNull, LIMITS } from '../../lib/limits';
 import { collectionNameProblem, tidyCollectionName } from '../../lib/collectionName';
 import { sanitizeSearchTerm } from '../../lib/searchTerm';
@@ -425,7 +426,7 @@ export class SupabaseService implements DataService {
     // policy ("write only under your own uid") already covers it.
     const resp = await fetch(localUri);
     const bytes = await resp.arrayBuffer();
-    const path = `${meId}/avatar-${Date.now()}.jpg`;
+    const path = `${meId}/avatar-${unguessableName()}.jpg`;
     const { error } = await this.sb.storage
       .from('photos')
       .upload(path, bytes, { contentType: 'image/jpeg' });
@@ -754,7 +755,7 @@ export class SupabaseService implements DataService {
 
   /** Upload a local photo URI to the "photos" bucket, return its public URL. */
   private async uploadPhoto(localUri: string, meId: string): Promise<string> {
-    const path = `${meId}/${Date.now()}.jpg`;
+    const path = `${meId}/${unguessableName()}.jpg`;
     const bytes = await this.readJpegBytes(localUri);
     if (bytes.length === 0) throw new Error('The selected photo could not be read.');
     const { error } = await this.sb.storage.from('photos').upload(path, bytes, {
@@ -845,22 +846,8 @@ export class SupabaseService implements DataService {
         console.warn('tagging failed (post still saved):', e?.message);
       }
     }
-    // streak upsert
-    const today = localDateString();
-    const { data: s } = await this.sb.from('streaks').select('*').eq('user_id', meId).maybeSingle();
-    const prev = s as Streak | null;
-    let current = 1;
-    if (prev?.last_post_date) {
-      const gap = daysBetween(prev.last_post_date, today);
-      if (gap === 0) current = prev.current_streak;
-      else if (gap === 1) current = prev.current_streak + 1;
-    }
-    await this.sb.from('streaks').upsert({
-      user_id: meId,
-      current_streak: current,
-      longest_streak: Math.max(prev?.longest_streak ?? 0, current),
-      last_post_date: today,
-    });
+    // The streak is kept by the database: a trigger on posts moves it
+    // (migration 0030). The app can't write it, so nobody can fake one.
     return post;
   }
 

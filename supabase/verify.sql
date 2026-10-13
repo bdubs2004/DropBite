@@ -17,10 +17,10 @@ with
 -- would sail straight past. Update these if you change schema.sql.
 expected_tables(name, policies) as (
   values ('blocks', 3), ('comment_reactions', 3), ('comments', 3),
-         ('conversation_members', 4), ('conversations', 3), ('follows', 3),
+         ('conversation_members', 3), ('conversations', 2), ('follows', 3),
          ('messages', 3), ('notifications', 3), ('posts', 4), ('reactions', 3),
          ('recipes', 4), ('reports', 2), ('reposts', 3), ('saved_posts', 3),
-         ('shares', 3), ('streaks', 3), ('users', 4)
+         ('shares', 3), ('streaks', 1), ('users', 4)
   -- ai_usage is checked separately: it deliberately has NO policies, because
   -- only the SECURITY DEFINER quota function is allowed to touch it.
 ),
@@ -48,21 +48,33 @@ expected_columns(tbl, col, fixed_by) as (
 expected_functions(name) as (
   values ('is_blocked_pair'), ('is_conversation_member'), ('conversation_is_empty'),
          ('conversation_has_block'), ('is_following'), ('follow_counts'),
-         ('consume_ai_quota'), ('notify_post_interaction'), ('notify_comment')
+         ('consume_ai_quota'), ('notify_post_interaction'), ('notify_comment'),
+         ('can_reply_under'), ('stamp_created_at'), ('bump_streak'),
+         ('prepare_report'), ('prepare_feedback')
 ),
 
 -- The triggers are the only thing that writes notifications. Without them the
 -- Activity screen stays empty forever and nothing tells you why.
-expected_triggers(name, tbl) as (
-  values ('reactions_notify', 'reactions'), ('reposts_notify', 'reposts'),
-         ('shares_notify', 'shares'), ('comments_notify', 'comments')
+expected_triggers(name, tbl, fixed_by) as (
+  values ('reactions_notify', 'reactions', '0009_notifications.sql'),
+         ('reposts_notify', 'reposts', '0009_notifications.sql'),
+         ('shares_notify', 'shares', '0009_notifications.sql'),
+         ('comments_notify', 'comments', '0009_notifications.sql'),
+         -- Server-owned dates, streaks and report facts (0030).
+         ('posts_stamp_created_at', 'posts', '0030_rls_hardening.sql'),
+         ('messages_stamp_created_at', 'messages', '0030_rls_hardening.sql'),
+         ('conversations_stamp_activity', 'conversations', '0030_rls_hardening.sql'),
+         ('posts_bump_streak', 'posts', '0030_rls_hardening.sql'),
+         ('reports_prepare', 'reports', '0030_rls_hardening.sql'),
+         ('feedback_prepare', 'feedback', '0030_rls_hardening.sql')
 ),
 
 -- Three storage policies by design. There is deliberately no UPDATE policy:
 -- uploads always use a fresh path, so nobody needs to overwrite an existing
--- object — and without the policy, nobody can.
+-- object — and without the policy, nobody can. Reading is your own folder
+-- only: photos load by their public URL without any policy.
 expected_storage_policies(name) as (
-  values ('photos public read'), ('upload own photos'), ('delete own photos')
+  values ('read own photos'), ('upload own photos'), ('delete own photos')
 ),
 
 tables as (
@@ -138,7 +150,7 @@ checks(grp, item, status) as (
       select 1 from pg_trigger t
       join pg_class c on c.oid = t.tgrelid and c.relnamespace = 'public'::regnamespace
       where t.tgname = name and c.relname = tbl and not t.tgisinternal
-    ) then 'OK' else 'MISSING — run 0009_notifications.sql' end
+    ) then 'OK' else 'MISSING — run ' || fixed_by end
   from expected_triggers
 
   union all
@@ -167,6 +179,33 @@ checks(grp, item, status) as (
       where n.nspname = 'storage' and c.relname = 'objects' and p.polname = e.name
     ) then 'OK' else 'MISSING — run schema.sql' end
   from expected_storage_policies e
+
+  union all
+
+  -- The holes 0030 closed. Each is a single privilege, so each is checked
+  -- directly: a database can have every policy above and still be open here.
+  select 8, 'locked: ' || item,
+    case when open then problem || ' — run 0030_rls_hardening.sql' else 'OK' end
+  from (values
+    ('DM membership can''t be moved',
+     has_column_privilege('authenticated', 'public.conversation_members', 'conversation_id', 'UPDATE'),
+     'A MEMBER CAN MOVE INTO ANY THREAD AND READ IT'),
+    ('streaks are written by the database only',
+     has_table_privilege('authenticated', 'public.streaks', 'INSERT')
+       or has_table_privilege('authenticated', 'public.streaks', 'UPDATE'),
+     'ANYONE CAN SET THEIR OWN STREAK'),
+    ('photos can''t be listed by everyone',
+     exists (select 1 from pg_policy p join pg_class c on c.oid = p.polrelid
+             where c.relname = 'objects' and c.relnamespace = 'storage'::regnamespace
+               and p.polname = 'photos public read'),
+     'ANYONE CAN LIST EVERY PHOTO, DM PHOTOS INCLUDED'),
+    ('follow graph helper is private',
+     has_function_privilege('authenticated', 'public.is_following(uuid, uuid)', 'EXECUTE'),
+     'ANYONE CAN READ PRIVATE FOLLOW LISTS'),
+    ('profiles: only editable fields change',
+     has_column_privilege('authenticated', 'public.users', 'created_at', 'UPDATE'),
+     'USERS CAN CHANGE PROTECTED PROFILE FIELDS')
+  ) v(item, open, problem)
 )
 
 -- Summary row first, then any failures, then the rest.

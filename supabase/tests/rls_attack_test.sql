@@ -1,0 +1,582 @@
+-- Security test: can one signed-in user read, change or delete another's data?
+--
+-- Six separate accounts, each "signed in" with its own token the way the API
+-- does it (see supabase_sim.sql). Mallory is the attacker throughout: she has a
+-- normal account, follows Alice, and has her own posts and a DM with Alice, so
+-- every attack runs from a realistic foothold rather than as a stranger.
+--
+--   alice    the victim: posts, a recipe, saves, a collection, DMs, a group
+--   bob      Alice's friend: in her DM and group chat
+--   carol    in the group chat
+--   mallory  the attacker
+--   eve      blocked by Alice
+--   dave     keeps his follower list private
+--
+-- Every attempt runs in its own subtransaction and is rolled back, so tests
+-- can't lean on each other. Each one says what must happen:
+--   rows:N   the statement ran and touched/returned exactly N rows
+--   denied   an error, or nothing touched (RLS hides rows rather than erroring)
+--   error    the database refused outright
+--
+-- Run: supabase_sim.sql, then schema.sql, then this file, on an empty database.
+-- It prints every check and ends with an error if any failed.
+
+\set ON_ERROR_STOP 1
+\pset pager off
+
+-- ------------------------------------------------------------- framework
+drop schema if exists qa cascade;
+create schema qa;
+create table qa.people (name text primary key, id uuid not null);
+create table qa.results (
+  n serial primary key, area text, name text, who text, want text, got text, passed boolean
+);
+
+insert into qa.people values
+  ('alice',   'aaaaaaaa-0000-4000-8000-000000000001'),
+  ('bob',     'bbbbbbbb-0000-4000-8000-000000000002'),
+  ('carol',   'cccccccc-0000-4000-8000-000000000003'),
+  ('mallory', 'dddddddd-0000-4000-8000-000000000004'),
+  ('eve',     'eeeeeeee-0000-4000-8000-000000000005'),
+  ('dave',    'ffffffff-0000-4000-8000-000000000006');
+
+-- Run `sql` as `who` ('anon' for signed out) and roll it back. A select must
+-- produce one number (a count); an insert/update/delete is counted by the rows
+-- it changed. Returns 'rows:N' or 'error:<message>'.
+create function qa.attempt(who text, sql text) returns text language plpgsql as $$
+declare
+  n bigint;
+  uid uuid := (select id from qa.people p where p.name = who);
+begin
+  begin
+    perform set_config('request.jwt.claims',
+      case when uid is null then '{"role":"anon"}'
+           else json_build_object('sub', uid, 'role', 'authenticated')::text end, true);
+    execute format('set local role %I', case when uid is null then 'anon' else 'authenticated' end);
+    -- A plain insert/update/delete reports how many rows it really changed,
+    -- with no RETURNING: that's how an attacker sends it (Prefer:
+    -- return=minimal), and RETURNING would add a read check that can make a
+    -- write that succeeds look refused.
+    if sql ~* '^\s*(insert|update|delete)\M' then
+      execute sql;
+      get diagnostics n = row_count;
+    else
+      execute sql into n;
+    end if;
+    raise exception using errcode = 'QA001', message = 'rows:' || coalesce(n, 0);
+  exception
+    when sqlstate 'QA001' then return sqlerrm;
+    when others then return 'error:' || sqlerrm;
+  end;
+end $$;
+
+create function qa.check(area text, name text, who text, sql text, want text) returns void
+language plpgsql as $$
+declare
+  got text := qa.attempt(who, sql);
+  ok boolean := case
+    when want = 'denied' then got like 'error:%' or got = 'rows:0'
+    when want = 'error' then got like 'error:%'
+    else got = want
+  end;
+begin
+  insert into qa.results (area, name, who, want, got, passed) values (area, name, who, want, got, ok);
+end $$;
+
+-- How many people are in a thread, counted as the owner (so a test can check
+-- what an attempt did even where RLS would hide it from the attacker).
+create function qa.members(conv uuid) returns bigint language sql security definer
+set search_path = '' as $$
+  select count(*) from public.conversation_members where conversation_id = conv;
+$$;
+-- Post as yourself, then read back your streak (two statements, so the second
+-- sees what the first's triggers did).
+create function qa.post_and_read_streak() returns bigint language plpgsql as $$
+begin
+  insert into public.posts (user_id, meal_slot, photo_url)
+  values (auth.uid(), 'dinner', 'https://x.supabase.co/streak.jpg');
+  return (select current_streak from public.streaks where user_id = auth.uid());
+end $$;
+grant usage on schema qa to anon, authenticated;
+grant execute on all functions in schema qa to anon, authenticated;
+
+-- A fact about the database itself (checked as the owner, no sign-in).
+create function qa.fact(area text, name text, sql text, want text) returns void
+language plpgsql as $$
+declare got text;
+begin
+  begin
+    execute sql into got;
+  exception when others then got := 'error:' || sqlerrm;
+  end;
+  insert into qa.results (area, name, who, want, got, passed)
+  values (area, name, '(schema)', want, coalesce(got, '(none)'), coalesce(got, '(none)') = want);
+end $$;
+
+-- ------------------------------------------------------------- test data
+-- Written as the owner, so it doesn't depend on the rules being tested.
+insert into auth.users (id) select id from qa.people;
+insert into public.users (id, handle, display_name, follows_private, timezone)
+select id, name, initcap(name), name = 'dave', 'America/Chicago' from qa.people;
+
+insert into public.follows (follower_id, followee_id) values
+  ('aaaaaaaa-0000-4000-8000-000000000001', 'bbbbbbbb-0000-4000-8000-000000000002'),
+  ('bbbbbbbb-0000-4000-8000-000000000002', 'aaaaaaaa-0000-4000-8000-000000000001'),
+  ('aaaaaaaa-0000-4000-8000-000000000001', 'cccccccc-0000-4000-8000-000000000003'),
+  ('dddddddd-0000-4000-8000-000000000004', 'aaaaaaaa-0000-4000-8000-000000000001'),
+  ('aaaaaaaa-0000-4000-8000-000000000001', 'dddddddd-0000-4000-8000-000000000004'),
+  -- Eve followed Alice before Alice blocked her.
+  ('eeeeeeee-0000-4000-8000-000000000005', 'aaaaaaaa-0000-4000-8000-000000000001'),
+  ('bbbbbbbb-0000-4000-8000-000000000002', 'ffffffff-0000-4000-8000-000000000006'),
+  ('ffffffff-0000-4000-8000-000000000006', 'bbbbbbbb-0000-4000-8000-000000000002');
+insert into public.blocks (blocker_id, blocked_id) values
+  ('aaaaaaaa-0000-4000-8000-000000000001', 'eeeeeeee-0000-4000-8000-000000000005');
+
+insert into public.posts (id, user_id, meal_slot, photo_url, blurb) values
+  ('10000000-0000-4000-8000-0000000000a1', 'aaaaaaaa-0000-4000-8000-000000000001', 'dinner', 'https://x.supabase.co/a.jpg', 'alice dinner'),
+  ('10000000-0000-4000-8000-0000000000b2', 'bbbbbbbb-0000-4000-8000-000000000002', 'lunch',  'https://x.supabase.co/b.jpg', 'bob lunch'),
+  ('10000000-0000-4000-8000-0000000000d4', 'dddddddd-0000-4000-8000-000000000004', 'snack',  'https://x.supabase.co/m.jpg', 'mallory snack');
+insert into public.recipes (id, post_id, title, ingredients) values
+  ('60000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-0000000000a1', 'Hotdish', '[{"item":"tots","quantity":1,"unit":"bag"}]'),
+  ('60000000-0000-4000-8000-000000000004', '10000000-0000-4000-8000-0000000000d4', 'Chips', '[]');
+insert into public.comments (id, post_id, user_id, text) values
+  ('40000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-0000000000a1', 'bbbbbbbb-0000-4000-8000-000000000002', 'looks good'),
+  ('40000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-0000000000b2', 'aaaaaaaa-0000-4000-8000-000000000001', 'yum');
+insert into public.reactions (post_id, user_id) values
+  ('10000000-0000-4000-8000-0000000000a1', 'bbbbbbbb-0000-4000-8000-000000000002'),
+  ('10000000-0000-4000-8000-0000000000b2', 'aaaaaaaa-0000-4000-8000-000000000001');
+insert into public.reposts (post_id, user_id) values
+  ('10000000-0000-4000-8000-0000000000b2', 'aaaaaaaa-0000-4000-8000-000000000001');
+insert into public.saved_posts (post_id, user_id) values
+  ('10000000-0000-4000-8000-0000000000b2', 'aaaaaaaa-0000-4000-8000-000000000001');
+insert into public.comment_reactions (comment_id, user_id) values
+  ('40000000-0000-4000-8000-000000000002', 'bbbbbbbb-0000-4000-8000-000000000002');
+insert into public.collections (id, user_id, name) values
+  ('50000000-0000-4000-8000-000000000001', 'aaaaaaaa-0000-4000-8000-000000000001', 'Dinners'),
+  ('50000000-0000-4000-8000-000000000004', 'dddddddd-0000-4000-8000-000000000004', 'Mine');
+insert into public.collection_posts (collection_id, post_id) values
+  ('50000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-0000000000a1');
+insert into public.post_tags (post_id, user_id) values
+  ('10000000-0000-4000-8000-0000000000a1', 'bbbbbbbb-0000-4000-8000-000000000002');
+
+-- DMs: Alice+Bob, the group (Alice, Bob, Carol), Mallory's own thread with
+-- Alice, and an old group Mallory has already left.
+insert into public.conversations (id, is_group) values
+  ('20000000-0000-4000-8000-000000000001', false),
+  ('20000000-0000-4000-8000-000000000002', true),
+  ('20000000-0000-4000-8000-000000000003', false),
+  ('20000000-0000-4000-8000-000000000004', true);
+insert into public.conversation_members (conversation_id, user_id) values
+  ('20000000-0000-4000-8000-000000000001', 'aaaaaaaa-0000-4000-8000-000000000001'),
+  ('20000000-0000-4000-8000-000000000001', 'bbbbbbbb-0000-4000-8000-000000000002'),
+  ('20000000-0000-4000-8000-000000000002', 'aaaaaaaa-0000-4000-8000-000000000001'),
+  ('20000000-0000-4000-8000-000000000002', 'bbbbbbbb-0000-4000-8000-000000000002'),
+  ('20000000-0000-4000-8000-000000000002', 'cccccccc-0000-4000-8000-000000000003'),
+  ('20000000-0000-4000-8000-000000000003', 'aaaaaaaa-0000-4000-8000-000000000001'),
+  ('20000000-0000-4000-8000-000000000003', 'dddddddd-0000-4000-8000-000000000004'),
+  ('20000000-0000-4000-8000-000000000004', 'aaaaaaaa-0000-4000-8000-000000000001'),
+  ('20000000-0000-4000-8000-000000000004', 'bbbbbbbb-0000-4000-8000-000000000002');
+insert into public.messages (id, conversation_id, sender_id, text) values
+  ('30000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000001', 'aaaaaaaa-0000-4000-8000-000000000001', 'private to bob'),
+  ('30000000-0000-4000-8000-000000000002', '20000000-0000-4000-8000-000000000002', 'bbbbbbbb-0000-4000-8000-000000000002', 'group chat'),
+  ('30000000-0000-4000-8000-000000000003', '20000000-0000-4000-8000-000000000003', 'dddddddd-0000-4000-8000-000000000004', 'hi alice'),
+  ('30000000-0000-4000-8000-000000000004', '20000000-0000-4000-8000-000000000004', 'aaaaaaaa-0000-4000-8000-000000000001', 'said after mallory left');
+insert into public.message_reactions (message_id, user_id, emoji) values
+  ('30000000-0000-4000-8000-000000000001', 'bbbbbbbb-0000-4000-8000-000000000002', '❤️');
+
+insert into public.push_tokens (user_id, token) values
+  ('aaaaaaaa-0000-4000-8000-000000000001', 'ExponentPushToken[alice]');
+insert into public.streaks (user_id, current_streak, longest_streak, last_post_date) values
+  ('aaaaaaaa-0000-4000-8000-000000000001', 3, 5, (now() at time zone 'America/Chicago')::date)
+on conflict (user_id) do update set
+  current_streak = excluded.current_streak, longest_streak = excluded.longest_streak,
+  last_post_date = excluded.last_post_date;
+insert into public.reports (reporter_id, post_id, reported_user_id, reason) values
+  ('bbbbbbbb-0000-4000-8000-000000000002', '10000000-0000-4000-8000-0000000000d4', 'dddddddd-0000-4000-8000-000000000004', 'spam');
+insert into public.feedback (user_id, kind, message) values
+  ('aaaaaaaa-0000-4000-8000-000000000001', 'bug', 'alice found a bug');
+insert into storage.objects (bucket_id, name, owner) values
+  ('photos', 'aaaaaaaa-0000-4000-8000-000000000001/1700000000000.jpg', 'aaaaaaaa-0000-4000-8000-000000000001'),
+  ('photos', 'bbbbbbbb-0000-4000-8000-000000000002/dm-photo.jpg', 'bbbbbbbb-0000-4000-8000-000000000002');
+
+-- Short names for the ids, used in the checks below.
+\set alice    '''aaaaaaaa-0000-4000-8000-000000000001'''
+\set bob      '''bbbbbbbb-0000-4000-8000-000000000002'''
+\set carol    '''cccccccc-0000-4000-8000-000000000003'''
+\set mallory  '''dddddddd-0000-4000-8000-000000000004'''
+\set eve      '''eeeeeeee-0000-4000-8000-000000000005'''
+\set dave     '''ffffffff-0000-4000-8000-000000000006'''
+
+-- =======================================================================
+-- 1. The database as a whole
+-- =======================================================================
+select qa.fact('schema', 'RLS is on for every table in public',
+  $q$select count(*)::text from pg_class c join pg_namespace n on n.oid = c.relnamespace
+     where n.nspname = 'public' and c.relkind in ('r', 'p') and not c.relrowsecurity$q$, '0');
+select qa.fact('schema', 'no views in public (a view can skip RLS)',
+  $q$select count(*)::text from pg_views where schemaname = 'public'$q$, '0');
+select qa.fact('schema', 'no policy applies to signed-out users (anon / public)',
+  $q$select count(*)::text from pg_policies
+     where schemaname in ('public', 'storage') and roles && array['public', 'anon']::name[]$q$, '0');
+select qa.fact('schema', 'every SECURITY DEFINER function pins its search_path',
+  $q$select count(*)::text from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public' and p.prosecdef
+       and not exists (select 1 from unnest(coalesce(p.proconfig, '{}')) c where c like 'search_path=%')$q$, '0');
+select qa.fact('schema', 'signed out, the only callable function is the share-link preview',
+  $q$select coalesce(string_agg(p.proname, ',' order by p.proname), '') from pg_proc p
+     join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public' and p.prokind = 'f' and p.prorettype <> 'trigger'::regtype
+       and has_function_privilege('anon', p.oid, 'execute')$q$, 'get_post_preview');
+select qa.fact('schema', 'signed in, only the functions the app needs are callable',
+  $q$select coalesce(string_agg(p.proname, ',' order by p.proname), '') from pg_proc p
+     join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public' and p.prokind = 'f' and p.prorettype <> 'trigger'::regtype
+       and has_function_privilege('authenticated', p.oid, 'execute')$q$,
+  'can_reply_under,conversation_has_block,follow_counts,get_post_preview,is_blocked_pair,is_conversation_member,leave_conversation,start_conversation,start_group_conversation');
+
+-- =======================================================================
+-- 2. Profiles
+-- =======================================================================
+select qa.check('profiles', 'read other people''s public profiles', 'mallory',
+  $q$select count(*) from public.users$q$, 'rows:6');
+select qa.check('profiles', 'change someone else''s name', 'mallory',
+  format($q$update public.users set display_name = 'pwned' where id = %L$q$, :alice), 'denied');
+select qa.check('profiles', 'delete someone else''s profile', 'mallory',
+  format($q$delete from public.users where id = %L$q$, :alice), 'denied');
+select qa.check('profiles', 'create a profile with someone else''s id', 'mallory',
+  $q$insert into public.users (id, handle, display_name) values (gen_random_uuid(), 'fake', 'Fake')$q$, 'denied');
+select qa.check('profiles', 'take over another account by changing your own id', 'mallory',
+  format($q$update public.users set id = %L where id = %L$q$, :alice, :mallory), 'denied');
+select qa.check('profiles', 'backdate your own account (created_at)', 'mallory',
+  format($q$with x as (update public.users set created_at = '2001-01-01' where id = %L returning created_at)
+           select count(*) from x where created_at < '2020-01-01'$q$, :mallory), 'denied');
+select qa.check('profiles', 'edit your own profile still works', 'mallory',
+  format($q$update public.users set display_name = 'M', bio = 'hi', follows_private = true where id = %L$q$, :mallory), 'rows:1');
+
+-- =======================================================================
+-- 3. Posts and recipes
+-- =======================================================================
+select qa.check('posts', 'edit someone else''s post', 'mallory',
+  $q$update public.posts set blurb = 'pwned' where id = '10000000-0000-4000-8000-0000000000a1'$q$, 'denied');
+select qa.check('posts', 'delete someone else''s post', 'mallory',
+  $q$delete from public.posts where id = '10000000-0000-4000-8000-0000000000a1'$q$, 'denied');
+select qa.check('posts', 'post as someone else', 'mallory',
+  format($q$insert into public.posts (user_id, meal_slot, photo_url) values (%L, 'dinner', 'https://x.supabase.co/z.jpg')$q$, :alice), 'denied');
+select qa.check('posts', 'hand your post to someone else', 'mallory',
+  format($q$update public.posts set user_id = %L where id = '10000000-0000-4000-8000-0000000000d4'$q$, :alice), 'denied');
+select qa.check('posts', 'pin a post to the top of everyone''s feed with a future date', 'mallory',
+  format($q$with x as (insert into public.posts (user_id, meal_slot, photo_url, created_at) values (%L, 'dinner', 'https://x.supabase.co/z.jpg', '2099-01-01') returning created_at)
+           select count(*) from x where created_at > now() + interval '1 minute'$q$, :mallory), 'rows:0');
+select qa.check('posts', 'move your old post to the top later (update created_at)', 'mallory',
+  $q$with x as (update public.posts set created_at = '2099-01-01' where id = '10000000-0000-4000-8000-0000000000d4' returning created_at)
+     select count(*) from x where created_at > now() + interval '1 minute'$q$, 'rows:0');
+select qa.check('posts', 'posting your own still works', 'mallory',
+  format($q$insert into public.posts (user_id, meal_slot, photo_url, blurb) values (%L, 'dinner', 'https://x.supabase.co/z.jpg', 'mine')$q$, :mallory), 'rows:1');
+select qa.check('posts', 'a blocked person cannot see the blocker''s posts', 'eve',
+  $q$select count(*) from public.posts where id = '10000000-0000-4000-8000-0000000000a1'$q$, 'rows:0');
+
+select qa.check('recipes', 'edit someone else''s recipe', 'mallory',
+  $q$update public.recipes set title = 'pwned' where id = '60000000-0000-4000-8000-000000000001'$q$, 'denied');
+select qa.check('recipes', 'delete someone else''s recipe', 'mallory',
+  $q$delete from public.recipes where id = '60000000-0000-4000-8000-000000000001'$q$, 'denied');
+select qa.check('recipes', 'add a recipe to someone else''s post', 'mallory',
+  $q$insert into public.recipes (post_id, title) values ('10000000-0000-4000-8000-0000000000b2', 'pwned')$q$, 'denied');
+select qa.check('recipes', 'move your recipe onto someone else''s post', 'mallory',
+  $q$update public.recipes set post_id = '10000000-0000-4000-8000-0000000000b2' where id = '60000000-0000-4000-8000-000000000004'$q$, 'denied');
+select qa.check('recipes', 'a blocked person cannot read the blocker''s recipes by id', 'eve',
+  $q$select count(*) from public.recipes where id = '60000000-0000-4000-8000-000000000001'$q$, 'rows:0');
+
+-- =======================================================================
+-- 4. Comments
+-- =======================================================================
+select qa.check('comments', 'delete someone else''s comment on someone else''s post', 'mallory',
+  $q$delete from public.comments where id = '40000000-0000-4000-8000-000000000001'$q$, 'denied');
+select qa.check('comments', 'edit a comment (nobody can, not even the author)', 'bob',
+  $q$update public.comments set text = 'edited' where id = '40000000-0000-4000-8000-000000000001'$q$, 'denied');
+select qa.check('comments', 'comment as someone else', 'mallory',
+  format($q$insert into public.comments (post_id, user_id, text) values ('10000000-0000-4000-8000-0000000000a1', %L, 'fake')$q$, :bob), 'denied');
+select qa.check('comments', 'a blocked person keeps commenting on the blocker''s post', 'eve',
+  format($q$insert into public.comments (post_id, user_id, text) values ('10000000-0000-4000-8000-0000000000a1', %L, 'still here')$q$, :eve), 'denied');
+select qa.check('comments', 'reply under a comment from a different post', 'mallory',
+  format($q$insert into public.comments (post_id, user_id, text, parent_id) values ('10000000-0000-4000-8000-0000000000d4', %L, 'x', '40000000-0000-4000-8000-000000000001')$q$, :mallory), 'denied');
+select qa.check('comments', 'backdate a comment', 'mallory',
+  format($q$with x as (insert into public.comments (post_id, user_id, text, created_at) values ('10000000-0000-4000-8000-0000000000d4', %L, 'x', '2001-01-01') returning created_at) select count(*) from x where created_at < now() - interval '1 minute'$q$, :mallory), 'rows:0');
+select qa.check('comments', 'commenting and replying normally still work', 'mallory',
+  format($q$insert into public.comments (post_id, user_id, text, parent_id) values ('10000000-0000-4000-8000-0000000000a1', %L, 'nice', '40000000-0000-4000-8000-000000000001')$q$, :mallory), 'rows:1');
+select qa.check('comments', 'the post owner can remove a comment on their post', 'alice',
+  $q$delete from public.comments where id = '40000000-0000-4000-8000-000000000001'$q$, 'rows:1');
+
+-- =======================================================================
+-- 5. Likes, reposts, shares, comment likes
+-- =======================================================================
+select qa.check('likes', 'like as someone else', 'mallory',
+  format($q$insert into public.reactions (post_id, user_id) values ('10000000-0000-4000-8000-0000000000b2', %L)$q$, :carol), 'denied');
+select qa.check('likes', 'remove someone else''s like', 'mallory',
+  $q$delete from public.reactions where post_id = '10000000-0000-4000-8000-0000000000a1'$q$, 'denied');
+select qa.check('likes', 'like your own post', 'mallory',
+  format($q$insert into public.reactions (post_id, user_id) values ('10000000-0000-4000-8000-0000000000d4', %L)$q$, :mallory), 'denied');
+select qa.check('likes', 'a blocked person likes the blocker''s post', 'eve',
+  format($q$insert into public.reactions (post_id, user_id) values ('10000000-0000-4000-8000-0000000000a1', %L)$q$, :eve), 'denied');
+select qa.check('likes', 'a blocked person reads what the blocker likes', 'eve',
+  format($q$select count(*) from public.reactions where user_id = %L$q$, :alice), 'rows:0');
+select qa.check('likes', 'liking normally still works', 'mallory',
+  format($q$insert into public.reactions (post_id, user_id) values ('10000000-0000-4000-8000-0000000000a1', %L)$q$, :mallory), 'rows:1');
+select qa.check('likes', 'repost as someone else', 'mallory',
+  format($q$insert into public.reposts (post_id, user_id) values ('10000000-0000-4000-8000-0000000000b2', %L)$q$, :carol), 'denied');
+select qa.check('likes', 'undo someone else''s repost', 'mallory',
+  $q$delete from public.reposts where post_id = '10000000-0000-4000-8000-0000000000b2'$q$, 'denied');
+select qa.check('likes', 'share as someone else', 'mallory',
+  format($q$insert into public.shares (post_id, user_id) values ('10000000-0000-4000-8000-0000000000b2', %L)$q$, :carol), 'denied');
+select qa.check('likes', 'like a comment as someone else', 'mallory',
+  format($q$insert into public.comment_reactions (comment_id, user_id) values ('40000000-0000-4000-8000-000000000002', %L)$q$, :carol), 'denied');
+select qa.check('likes', 'remove someone else''s comment like', 'mallory',
+  $q$delete from public.comment_reactions where comment_id = '40000000-0000-4000-8000-000000000002'$q$, 'denied');
+
+-- =======================================================================
+-- 6. Saved posts (private bookmarks)
+-- =======================================================================
+select qa.check('saves', 'read someone else''s saves', 'mallory',
+  format($q$select count(*) from public.saved_posts where user_id = %L$q$, :alice), 'rows:0');
+select qa.check('saves', 'save into someone else''s list', 'mallory',
+  format($q$insert into public.saved_posts (post_id, user_id) values ('10000000-0000-4000-8000-0000000000a1', %L)$q$, :alice), 'denied');
+select qa.check('saves', 'remove someone else''s save', 'mallory',
+  $q$delete from public.saved_posts where post_id = '10000000-0000-4000-8000-0000000000b2'$q$, 'denied');
+select qa.check('saves', 'you still see your own saves', 'alice',
+  $q$select count(*) from public.saved_posts$q$, 'rows:1');
+
+-- =======================================================================
+-- 7. Collections
+-- =======================================================================
+select qa.check('collections', 'rename someone else''s collection', 'mallory',
+  $q$update public.collections set name = 'pwned' where id = '50000000-0000-4000-8000-000000000001'$q$, 'denied');
+select qa.check('collections', 'delete someone else''s collection', 'mallory',
+  $q$delete from public.collections where id = '50000000-0000-4000-8000-000000000001'$q$, 'denied');
+select qa.check('collections', 'take over a collection (change its owner)', 'mallory',
+  format($q$update public.collections set user_id = %L where id = '50000000-0000-4000-8000-000000000004'$q$, :alice), 'denied');
+select qa.check('collections', 'put your post in someone else''s collection', 'mallory',
+  $q$insert into public.collection_posts (collection_id, post_id) values ('50000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-0000000000d4')$q$, 'denied');
+select qa.check('collections', 'put someone else''s post in your collection', 'mallory',
+  $q$insert into public.collection_posts (collection_id, post_id) values ('50000000-0000-4000-8000-000000000004', '10000000-0000-4000-8000-0000000000a1')$q$, 'denied');
+select qa.check('collections', 'take a post out of someone else''s collection', 'mallory',
+  $q$delete from public.collection_posts where collection_id = '50000000-0000-4000-8000-000000000001'$q$, 'denied');
+
+-- =======================================================================
+-- 8. DMs and group chats
+-- =======================================================================
+select qa.check('dms', 'read a thread you are not in', 'mallory',
+  $q$select count(*) from public.messages where conversation_id = '20000000-0000-4000-8000-000000000001'$q$, 'rows:0');
+select qa.check('dms', 'see who is in a thread you are not in', 'mallory',
+  $q$select count(*) from public.conversation_members where conversation_id = '20000000-0000-4000-8000-000000000001'$q$, 'rows:0');
+select qa.check('dms', 'see a thread you are not in', 'mallory',
+  $q$select count(*) from public.conversations where id = '20000000-0000-4000-8000-000000000001'$q$, 'rows:0');
+select qa.check('dms', 'post into a thread you are not in', 'mallory',
+  format($q$insert into public.messages (conversation_id, sender_id, text) values ('20000000-0000-4000-8000-000000000001', %L, 'hi')$q$, :mallory), 'denied');
+select qa.check('dms', 'add yourself to someone else''s thread', 'mallory',
+  format($q$insert into public.conversation_members (conversation_id, user_id) values ('20000000-0000-4000-8000-000000000001', %L)$q$, :mallory), 'denied');
+select qa.check('dms', 'slip into a thread by moving your own membership to it', 'mallory',
+  format($q$update public.conversation_members set conversation_id = '20000000-0000-4000-8000-000000000001'
+           where conversation_id = '20000000-0000-4000-8000-000000000003' and user_id = %L$q$, :mallory), 'denied');
+select qa.check('dms', 'slip into a thread by moving your only membership (no filter)', 'mallory',
+  $q$update public.conversation_members set conversation_id = '20000000-0000-4000-8000-000000000001'$q$, 'denied');
+select qa.check('dms', 'rejoin a group you left by moving a membership', 'mallory',
+  format($q$update public.conversation_members set conversation_id = '20000000-0000-4000-8000-000000000004'
+           where conversation_id = '20000000-0000-4000-8000-000000000003' and user_id = %L$q$, :mallory), 'denied');
+select qa.check('dms', 'make a raw conversation row (skipping the start-a-chat rules)', 'mallory',
+  $q$insert into public.conversations default values$q$, 'denied');
+select qa.check('dms', 'add someone to your own thread directly', 'mallory',
+  $q$insert into public.conversation_members (conversation_id, user_id) values ('20000000-0000-4000-8000-000000000003', 'cccccccc-0000-4000-8000-000000000003')$q$, 'denied');
+select qa.check('dms', 'send a message as someone else', 'mallory',
+  format($q$insert into public.messages (conversation_id, sender_id, text) values ('20000000-0000-4000-8000-000000000003', %L, 'fake')$q$, :alice), 'denied');
+select qa.check('dms', 'write a fake "X left the chat" line', 'mallory',
+  format($q$insert into public.messages (conversation_id, sender_id, text, kind) values ('20000000-0000-4000-8000-000000000003', %L, '', 'left')$q$, :mallory), 'denied');
+select qa.check('dms', 'delete someone else''s message', 'mallory',
+  $q$delete from public.messages where sender_id <> 'dddddddd-0000-4000-8000-000000000004'$q$, 'denied');
+select qa.check('dms', 'rename a group you are not in', 'mallory',
+  $q$update public.conversations set title = 'pwned' where id = '20000000-0000-4000-8000-000000000002'$q$, 'denied');
+select qa.check('dms', 'turn a 1:1 into a "group"', 'mallory',
+  $q$update public.conversations set is_group = true where id = '20000000-0000-4000-8000-000000000003'$q$, 'denied');
+select qa.check('dms', 'pin your thread to the top of their inbox with a future time', 'mallory',
+  $q$with x as (update public.conversations set updated_at = '2099-01-01' where id = '20000000-0000-4000-8000-000000000003' returning updated_at)
+     select count(*) from x where updated_at > now() + interval '1 minute'$q$, 'rows:0');
+select qa.check('dms', 'backdate or future-date a message', 'mallory',
+  format($q$with x as (insert into public.messages (conversation_id, sender_id, text, created_at) values ('20000000-0000-4000-8000-000000000003', %L, 'from the future', '2099-01-01') returning created_at)
+           select count(*) from x where created_at > now() + interval '1 minute'$q$, :mallory), 'rows:0');
+select qa.check('dms', 'mute or mark read someone else''s membership', 'mallory',
+  $q$update public.conversation_members set muted = true where conversation_id = '20000000-0000-4000-8000-000000000003' and user_id = 'aaaaaaaa-0000-4000-8000-000000000001'$q$, 'denied');
+select qa.check('dms', 'react to a message in a thread you are not in', 'mallory',
+  format($q$insert into public.message_reactions (message_id, user_id, emoji) values ('30000000-0000-4000-8000-000000000001', %L, 'x')$q$, :mallory), 'denied');
+select qa.check('dms', 'read reactions in a thread you are not in', 'mallory',
+  $q$select count(*) from public.message_reactions where message_id = '30000000-0000-4000-8000-000000000001'$q$, 'rows:0');
+select qa.check('dms', 'start a chat with someone you don''t follow', 'mallory',
+  format($q$select count(*) from public.start_conversation(%L)$q$, :bob), 'error');
+select qa.check('dms', 'start a group with someone you don''t follow', 'mallory',
+  format($q$select count(*) from public.start_group_conversation(array[%L, %L]::uuid[])$q$, :alice, :bob), 'error');
+select qa.check('dms', 'a blocked person starts a chat with the blocker', 'eve',
+  format($q$select count(*) from public.start_conversation(%L)$q$, :alice), 'error');
+select qa.check('dms', 'leave_conversation can''t remove anyone from a thread you are not in', 'mallory',
+  $q$select qa.members('20000000-0000-4000-8000-000000000001') from (select public.leave_conversation('20000000-0000-4000-8000-000000000001')) s$q$, 'rows:2');
+-- What must keep working.
+select qa.check('dms', 'members read their thread', 'bob',
+  $q$select count(*) from public.messages where conversation_id = '20000000-0000-4000-8000-000000000001'$q$, 'rows:1');
+select qa.check('dms', 'group members read the group', 'carol',
+  $q$select count(*) from public.messages where conversation_id = '20000000-0000-4000-8000-000000000002'$q$, 'rows:1');
+select qa.check('dms', 'someone who left a group can''t read it any more', 'mallory',
+  $q$select count(*) from public.messages where conversation_id = '20000000-0000-4000-8000-000000000004'$q$, 'rows:0');
+select qa.check('dms', 'sending a message still works', 'mallory',
+  format($q$insert into public.messages (conversation_id, sender_id, text) values ('20000000-0000-4000-8000-000000000003', %L, 'hey')$q$, :mallory), 'rows:1');
+select qa.check('dms', 'muting and marking read your own still work', 'mallory',
+  format($q$update public.conversation_members set muted = true, last_read_at = now() where conversation_id = '20000000-0000-4000-8000-000000000003' and user_id = %L$q$, :mallory), 'rows:1');
+select qa.check('dms', 'renaming your group and bumping it still work', 'carol',
+  $q$update public.conversations set title = 'Supper club', updated_at = now() where id = '20000000-0000-4000-8000-000000000002'$q$, 'rows:1');
+select qa.check('dms', 'starting a chat with someone you follow still works', 'alice',
+  format($q$select count(*) from public.start_conversation(%L)$q$, :carol), 'rows:1');
+select qa.check('dms', 'starting a group still works', 'alice',
+  format($q$select count(*) from public.start_group_conversation(array[%L, %L]::uuid[])$q$, :bob, :carol), 'rows:1');
+select qa.check('dms', 'reacting in your own thread still works', 'alice',
+  format($q$insert into public.message_reactions (message_id, user_id, emoji, created_at) values ('30000000-0000-4000-8000-000000000001', %L, '😂', now())
+           on conflict (message_id, user_id) do update set emoji = excluded.emoji, created_at = excluded.created_at$q$, :alice), 'rows:1');
+
+-- =======================================================================
+-- 9. Follows and blocks
+-- =======================================================================
+select qa.check('follows', 'make someone else follow a person', 'mallory',
+  format($q$insert into public.follows (follower_id, followee_id) values (%L, %L)$q$, :carol, :mallory), 'denied');
+select qa.check('follows', 'remove someone else''s follow', 'mallory',
+  format($q$delete from public.follows where follower_id = %L$q$, :bob), 'denied');
+select qa.check('follows', 'read a private account''s follower list', 'mallory',
+  format($q$select count(*) from public.follows where follower_id = %L or followee_id = %L$q$, :dave, :dave), 'rows:0');
+select qa.check('follows', 'read a private follow graph through is_following()', 'mallory',
+  format($q$select count(*) from (select 1 where public.is_following(%L, %L)) s$q$, :dave, :bob), 'denied');
+select qa.check('blocks', 'read someone else''s block list', 'mallory',
+  format($q$select count(*) from public.blocks where blocker_id = %L$q$, :alice), 'rows:0');
+select qa.check('blocks', 'undo someone else''s block', 'eve',
+  format($q$delete from public.blocks where blocker_id = %L$q$, :alice), 'denied');
+select qa.check('blocks', 'ask whether two other people blocked each other', 'mallory',
+  format($q$select count(*) from (select 1 where public.is_blocked_pair(%L, %L)) s$q$, :alice, :eve), 'rows:0');
+select qa.check('blocks', 'ask whether two other people share a thread', 'mallory',
+  format($q$select count(*) from (select 1 where public.is_conversation_member('20000000-0000-4000-8000-000000000001', %L)) s$q$, :alice), 'rows:0');
+select qa.check('blocks', 'probe another thread for blocks', 'mallory',
+  format($q$select count(*) from (select 1 where public.conversation_has_block('20000000-0000-4000-8000-000000000001', %L)) s$q$, :eve), 'rows:0');
+
+-- =======================================================================
+-- 10. Notifications, reports, feedback, streaks, push tokens, tags
+-- =======================================================================
+select qa.check('notifications', 'read someone else''s notifications', 'mallory',
+  format($q$select count(*) from public.notifications where user_id = %L$q$, :alice), 'rows:0');
+select qa.check('notifications', 'forge a notification', 'mallory',
+  format($q$insert into public.notifications (user_id, actor_id, type) values (%L, %L, 'follow')$q$, :alice, :bob), 'denied');
+select qa.check('notifications', 'clear someone else''s notifications', 'mallory',
+  format($q$delete from public.notifications where user_id = %L$q$, :alice), 'denied');
+select qa.check('notifications', 'rewrite one of your own (who did it)', 'alice',
+  format($q$update public.notifications set actor_id = %L$q$, :carol), 'denied');
+select qa.check('notifications', 'marking your own read still works', 'alice',
+  $q$update public.notifications set read_at = now() where read_at is null$q$, 'rows:5');
+
+select qa.check('reports', 'read reports filed by others', 'mallory',
+  $q$select count(*) from public.reports$q$, 'rows:0');
+select qa.check('reports', 'delete a report against you', 'mallory',
+  $q$delete from public.reports$q$, 'denied');
+select qa.check('reports', 'file a report already marked "actioned"', 'mallory',
+  format($q$with x as (insert into public.reports (reporter_id, post_id, reason, status, reviewer_notes) values (%L, '10000000-0000-4000-8000-0000000000b2', 'spam', 'actioned', 'banned') returning status) select count(*) from x where status <> 'open'$q$, :mallory), 'rows:0');
+select qa.check('reports', 'file a report with made-up evidence (snapshot)', 'mallory',
+  format($q$with x as (insert into public.reports (reporter_id, post_id, reason, post_blurb_snapshot) values (%L, '10000000-0000-4000-8000-0000000000b2', 'harassment', 'something bob never wrote') returning post_blurb_snapshot) select count(*) from x where post_blurb_snapshot = 'something bob never wrote'$q$, :mallory), 'rows:0');
+select qa.check('reports', 'pin a report on someone who didn''t write the post', 'mallory',
+  format($q$with x as (insert into public.reports (reporter_id, post_id, reported_user_id, reason) values (%L, '10000000-0000-4000-8000-0000000000b2', %L, 'spam') returning reported_user_id) select count(*) from x where reported_user_id = %L$q$, :mallory, :carol, :carol), 'rows:0');
+select qa.check('reports', 'read a DM you are not in by reporting it', 'mallory',
+  format($q$with x as (insert into public.reports (reporter_id, message_id, reason) values (%L, '30000000-0000-4000-8000-000000000001', 'spam') returning message_text_snapshot) select count(*) from x where message_text_snapshot is not null$q$, :mallory), 'denied');
+select qa.check('reports', 'reporting a post still works and records what it said', 'mallory',
+  format($q$with x as (insert into public.reports (reporter_id, post_id, reason) values (%L, '10000000-0000-4000-8000-0000000000b2', 'spam') returning post_blurb_snapshot, reported_user_id, status)
+           select count(*) from x where post_blurb_snapshot = 'bob lunch' and reported_user_id = 'bbbbbbbb-0000-4000-8000-000000000002' and status = 'open'$q$, :mallory), 'rows:1');
+select qa.check('reports', 'reporting a message in your own thread still works', 'alice',
+  format($q$with x as (insert into public.reports (reporter_id, message_id, reason) values (%L, '30000000-0000-4000-8000-000000000003', 'harassment') returning message_text_snapshot, reported_user_id)
+           select count(*) from x where message_text_snapshot = 'hi alice' and reported_user_id = 'dddddddd-0000-4000-8000-000000000004'$q$, :alice), 'rows:1');
+
+select qa.check('feedback', 'read someone else''s feedback', 'mallory',
+  $q$select count(*) from public.feedback$q$, 'rows:0');
+select qa.check('feedback', 'file feedback already marked resolved', 'mallory',
+  format($q$with x as (insert into public.feedback (user_id, message, status) values (%L, 'x', 'resolved') returning status) select count(*) from x where status <> 'new'$q$, :mallory), 'rows:0');
+select qa.check('feedback', 'file feedback under someone else''s handle', 'mallory',
+  format($q$with x as (insert into public.feedback (user_id, message, handle_snapshot) values (%L, 'x', 'alice') returning handle_snapshot) select count(*) from x where handle_snapshot = 'alice'$q$, :mallory), 'rows:0');
+
+select qa.check('streaks', 'give yourself a 999-day streak to top the leaderboard', 'mallory',
+  format($q$insert into public.streaks (user_id, current_streak, longest_streak, last_post_date) values (%L, 999, 999, current_date)$q$, :mallory), 'denied');
+select qa.check('streaks', 'edit someone else''s streak', 'mallory',
+  format($q$update public.streaks set current_streak = 0 where user_id = %L$q$, :alice), 'denied');
+select qa.check('streaks', 'inflate your own existing streak', 'alice',
+  format($q$update public.streaks set current_streak = 500, longest_streak = 500 where user_id = %L$q$, :alice), 'denied');
+select qa.check('streaks', 'posting still starts your streak (kept by the database now)', 'bob',
+  $q$select qa.post_and_read_streak()$q$, 'rows:1');
+select qa.check('streaks', 'posting again the same day keeps it, not doubles it', 'alice',
+  $q$select qa.post_and_read_streak()$q$, 'rows:3');
+
+select qa.check('push', 'read someone else''s push tokens', 'mallory',
+  $q$select count(*) from public.push_tokens$q$, 'rows:0');
+select qa.check('push', 'add a push token to someone else''s account', 'mallory',
+  format($q$insert into public.push_tokens (user_id, token) values (%L, 'ExponentPushToken[mallory]')$q$, :alice), 'denied');
+
+select qa.check('tags', 'tag people on someone else''s post', 'mallory',
+  format($q$insert into public.post_tags (post_id, user_id) values ('10000000-0000-4000-8000-0000000000a1', %L)$q$, :mallory), 'denied');
+select qa.check('tags', 'remove a tag you are not part of', 'mallory',
+  $q$delete from public.post_tags where post_id = '10000000-0000-4000-8000-0000000000a1'$q$, 'denied');
+
+-- =======================================================================
+-- 11. Server-only functions and tables
+-- =======================================================================
+select qa.check('server-only', 'burn someone''s AI allowance (consume_ai_quota)', 'mallory',
+  format($q$select count(*) from (select public.consume_ai_quota(%L, 1)) s$q$, :alice), 'error');
+select qa.check('server-only', 'read the AI usage ledger', 'mallory',
+  $q$select count(*) from public.ai_usage$q$, 'error');
+select qa.check('server-only', 'write to the nutrition cache', 'mallory',
+  $q$insert into public.nutrition_cache (term, per_100g) values ('x', '{}')$q$, 'error');
+select qa.check('server-only', 'call a trigger function directly', 'mallory',
+  $q$select count(*) from (select public.notify_follow()) s$q$, 'error');
+
+-- =======================================================================
+-- 12. Signed out (the public anon key)
+-- =======================================================================
+select qa.check('signed out', 'read profiles', 'anon', $q$select count(*) from public.users$q$, 'denied');
+select qa.check('signed out', 'read posts', 'anon', $q$select count(*) from public.posts$q$, 'denied');
+select qa.check('signed out', 'read messages', 'anon', $q$select count(*) from public.messages$q$, 'denied');
+select qa.check('signed out', 'read push tokens', 'anon', $q$select count(*) from public.push_tokens$q$, 'denied');
+select qa.check('signed out', 'write a post', 'anon',
+  format($q$insert into public.posts (user_id, meal_slot, photo_url) values (%L, 'dinner', 'https://x.supabase.co/z.jpg')$q$, :alice), 'denied');
+select qa.check('signed out', 'call start_conversation', 'anon',
+  format($q$select count(*) from public.start_conversation(%L)$q$, :alice), 'error');
+select qa.check('signed out', 'read follower counts', 'anon',
+  format($q$select count(*) from public.follow_counts(%L)$q$, :alice), 'error');
+select qa.check('signed out', 'a shared post link still previews', 'anon',
+  $q$select count(*) from public.get_post_preview('10000000-0000-4000-8000-0000000000a1')$q$, 'rows:1');
+
+-- =======================================================================
+-- 13. Photo storage
+-- =======================================================================
+select qa.check('storage', 'list everyone''s photos signed out', 'anon',
+  $q$select count(*) from storage.objects where bucket_id = 'photos'$q$, 'rows:0');
+select qa.check('storage', 'list other people''s photos (DM photos included)', 'mallory',
+  $q$select count(*) from storage.objects where bucket_id = 'photos'$q$, 'rows:0');
+select qa.check('storage', 'upload into someone else''s folder', 'mallory',
+  format($q$insert into storage.objects (bucket_id, name) values ('photos', %L || '/evil.jpg')$q$, :alice), 'denied');
+select qa.check('storage', 'overwrite someone else''s photo', 'mallory',
+  $q$update storage.objects set name = name where bucket_id = 'photos'$q$, 'denied');
+select qa.check('storage', 'delete someone else''s photo', 'mallory',
+  $q$delete from storage.objects where bucket_id = 'photos'$q$, 'denied');
+select qa.check('storage', 'uploading to your own folder still works', 'mallory',
+  format($q$insert into storage.objects (bucket_id, name) values ('photos', %L || '/mine.jpg')$q$, :mallory), 'rows:1');
+select qa.check('storage', 'you can still see (and so delete) your own photos', 'alice',
+  $q$select count(*) from storage.objects where bucket_id = 'photos'$q$, 'rows:1');
+
+-- ------------------------------------------------------------- report
+\echo
+\echo '================ results ================'
+select case when passed then 'PASS' else 'FAIL' end as result, area, name, who,
+       want, left(got, 90) as got
+from qa.results order by n;
+
+select count(*) filter (where passed) as passed, count(*) filter (where not passed) as failed, count(*) as total
+from qa.results;
+
+do $$
+declare f int := (select count(*) from qa.results where not passed);
+begin
+  if f > 0 then raise exception '% security check(s) failed', f; end if;
+end $$;

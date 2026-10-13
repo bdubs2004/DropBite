@@ -4,6 +4,37 @@ Run the real `schema.sql` against a throwaway local Postgres and assert the
 security properties that matter, so a future schema edit can't quietly undo
 them.
 
+## rls_attack_test.sql: start here
+
+The main suite: 141 checks, self-asserting (it ends with an error if any fail).
+Six separate accounts sign in the way the API does it, with their own tokens,
+and an attacker with a normal account (Mallory, who follows the victim and has
+her own posts and a DM with her) tries to read, change or delete other people's
+data by id across every table: profiles, posts, recipes, comments, likes,
+reposts, shares, saves, collections, DMs, group chats and their membership,
+notifications, reports, feedback, streaks, push tokens, tags and photo storage.
+It also checks the database as a whole: RLS on every table, no views, no policy
+open to signed-out users, every SECURITY DEFINER function pinned, and exactly
+which functions anon and signed-in users can call.
+
+Writes are sent the way an attacker would (no RETURNING, like PostgREST's
+`Prefer: return=minimal`): RETURNING adds a read check that can make a write
+that actually succeeds look refused, which once hid a real hole here.
+
+```bash
+supabase/tests/run_security.sh            # fresh install from schema.sql
+supabase/tests/run_security.sh upgrade    # committed schema + migrations 0030+
+```
+
+It runs on `supabase_sim.sql`, a stand-in for Supabase that matters more than it
+looks: it grants every new table and function to anon and authenticated the way
+Supabase does by default, drives `auth.uid()` from the token, and makes
+service_role bypass RLS. The older `harness.sql` grants by hand, which is how
+"signed-in users can call is_following()" went unnoticed.
+
+Before migration 0030 this suite failed 32 checks; the worst was a DM member
+moving their own membership row into any other thread and reading it.
+
 ## reports_test.sql
 
 Covers the moderation guarantees documented in `MODERATION.md`:
