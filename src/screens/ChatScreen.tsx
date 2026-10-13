@@ -494,7 +494,12 @@ export function ChatScreen({ navigation, route }: any) {
                           onLongPress={() => setMenuFor(item)}
                           delayLongPress={350}
                         >
-                          <FitPhoto uri={item.image_url} width={PHOTO_W} style={styles.photo} />
+                          <FitPhoto
+                            uri={item.image_url}
+                            width={PHOTO_W}
+                            style={styles.photo}
+                            cacheKey={item.image_path}
+                          />
                         </Pressable>
                       ) : null}
 

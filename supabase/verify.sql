@@ -50,7 +50,8 @@ expected_functions(name) as (
          ('conversation_has_block'), ('is_following'), ('follow_counts'),
          ('consume_ai_quota'), ('notify_post_interaction'), ('notify_comment'),
          ('can_reply_under'), ('stamp_created_at'), ('bump_streak'),
-         ('prepare_report'), ('prepare_feedback')
+         ('prepare_report'), ('prepare_feedback'),
+         ('check_photo_links'), ('storage_orphans'), ('consume_upload_quota')
 ),
 
 -- The triggers are the only thing that writes notifications. Without them the
@@ -66,15 +67,20 @@ expected_triggers(name, tbl, fixed_by) as (
          ('conversations_stamp_activity', 'conversations', '0030_rls_hardening.sql'),
          ('posts_bump_streak', 'posts', '0030_rls_hardening.sql'),
          ('reports_prepare', 'reports', '0030_rls_hardening.sql'),
-         ('feedback_prepare', 'feedback', '0030_rls_hardening.sql')
+         ('feedback_prepare', 'feedback', '0030_rls_hardening.sql'),
+         -- Photo links must be real uploads (0031).
+         ('posts_check_photo_links', 'posts', '0031_storage_hardening.sql'),
+         ('users_check_photo_links', 'users', '0031_storage_hardening.sql'),
+         ('comments_check_photo_links', 'comments', '0031_storage_hardening.sql'),
+         ('messages_check_photo_links', 'messages', '0031_storage_hardening.sql')
 ),
 
--- Three storage policies by design. There is deliberately no UPDATE policy:
--- uploads always use a fresh path, so nobody needs to overwrite an existing
--- object — and without the policy, nobody can. Reading is your own folder
--- only: photos load by their public URL without any policy.
+-- Three storage policies by design, and deliberately no INSERT or UPDATE
+-- policy: only the upload-photo function (service role) writes files, and
+-- nothing is ever overwritten. Reading is your own folder in `photos` (public
+-- photos load by URL without any policy), and chats you're in for dm-photos.
 expected_storage_policies(name) as (
-  values ('read own photos'), ('upload own photos'), ('delete own photos')
+  values ('read own photos'), ('delete own photos'), ('read photos in own chats')
 ),
 
 tables as (
@@ -157,17 +163,21 @@ checks(grp, item, status) as (
 
   -- The bucket's size and MIME limits are the controls that stop someone
   -- uploading an HTML file to a public origin on your own domain.
-  select 6, 'storage bucket: photos',
+  select 6, 'storage bucket: ' || want.id,
     case
-      when b.id is null then 'MISSING — run schema.sql'
-      when not b.public then 'NOT PUBLIC — photos will not load in the app'
+      when b.id is null then 'MISSING — run 0031_storage_hardening.sql'
+      when b.public <> want.public then
+        case when want.public then 'NOT PUBLIC — photos will not load in the app'
+             else 'PUBLIC — DM photos would be open to anyone with the link' end
       when b.file_size_limit is distinct from 10485760 then
         'SIZE LIMIT IS ' || coalesce(b.file_size_limit::text, 'unset') || ', expected 10485760'
-      when b.allowed_mime_types is null then 'NO MIME RESTRICTION — any file type can be uploaded'
+      when b.allowed_mime_types is distinct from array['image/jpeg'] then
+        'ACCEPTS ' || coalesce(array_to_string(b.allowed_mime_types, ', '), 'ANY TYPE')
+          || ' — expected image/jpeg only; run 0031_storage_hardening.sql'
       else 'OK'
     end
-  from (select 1) one
-  left join storage.buckets b on b.id = 'photos'
+  from (values ('photos', true), ('dm-photos', false)) want(id, public)
+  left join storage.buckets b on b.id = want.id
 
   union all
 
@@ -206,6 +216,30 @@ checks(grp, item, status) as (
      has_column_privilege('authenticated', 'public.users', 'created_at', 'UPDATE'),
      'USERS CAN CHANGE PROTECTED PROFILE FIELDS')
   ) v(item, open, problem)
+
+  union all
+
+  -- And the ones 0031 closed.
+  select 9, 'locked: ' || item,
+    case when open then problem || ' — run 0031_storage_hardening.sql' else 'OK' end
+  from (values
+    ('nobody uploads straight into storage',
+     exists (select 1 from pg_policy p join pg_class c on c.oid = p.polrelid
+             where c.relname = 'objects' and c.relnamespace = 'storage'::regnamespace
+               and p.polcmd in ('a', '*')),
+     'CLIENTS CAN UPLOAD ANY FILE, SKIPPING THE PHOTO CHECKS'),
+    ('the orphan finder is server-only',
+     has_function_privilege('authenticated', 'public.storage_orphans(interval, text)', 'EXECUTE'),
+     'SIGNED-IN USERS CAN LIST EVERY STORED FILE')
+  ) v(item, open, problem)
+
+  union all
+
+  -- Not a hole, but photo links can't be saved until it's recorded: deploy
+  -- upload-photo and post one photo, and it fills itself in.
+  select 10, 'setting: storage origin',
+    case when exists (select 1 from public.app_config where key = 'storage_origin')
+      then 'OK' else 'NOT SET YET — deploy upload-photo and upload one photo' end
 )
 
 -- Summary row first, then any failures, then the rest.

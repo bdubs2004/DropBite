@@ -35,6 +35,18 @@ service_role bypass RLS. The older `harness.sql` grants by hand, which is how
 Before migration 0030 this suite failed 32 checks; the worst was a DM member
 moving their own membership row into any other thread and reading it.
 
+Sections 13-16 cover photo storage (migration 0031): nobody can upload
+straight into storage, list or touch other people's files, or read a DM photo
+from a chat they're not in; saved photo links must be real uploads in your own
+space (no outside servers, no copying someone else's photo); and
+`storage_orphans()` finds exactly the files nothing uses.
+
+The upload and cleanup functions have their own tests, run with `npm test`:
+`test:jpeg` (real JPEGs pass and come out without EXIF/GPS; PNG, HTML, SVG,
+disguised, truncated, appended-payload and decompression-bomb files are
+refused), `test:upload` and `test:sweep` (the functions' rules, with stand-ins
+for Supabase).
+
 ## reports_test.sql
 
 Covers the moderation guarantees documented in `MODERATION.md`:

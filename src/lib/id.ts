@@ -14,14 +14,3 @@ export function uid(prefix = ''): string {
   return `${prefix}${Date.now().toString(36)}${rand}`;
 }
 
-/**
- * A storage file name nobody can guess: 128 random bits from the platform
- * CSPRNG. Photos sit in a public bucket and load by URL, so a name built from
- * a timestamp could be found by trying the milliseconds around a known one
- * (DM and comment photos included).
- */
-export function unguessableName(): string {
-  return Array.from(Crypto.getRandomBytes(16))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-}

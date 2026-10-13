@@ -15,6 +15,13 @@ insert into public.follows (follower_id, followee_id) values
   ('33333333-3333-3333-3333-333333333333','11111111-1111-1111-1111-111111111111'),
   ('33333333-3333-3333-3333-333333333333','22222222-2222-2222-2222-222222222222');
 
+-- Photos as upload-photo would have stored them: since 0031 a posted photo
+-- link has to be a real upload in the poster's own folder.
+insert into public.app_config (key, value) values ('storage_origin', 'https://x.supabase.co')
+  on conflict (key) do nothing;
+insert into storage.objects (bucket_id, name) values
+  ('photos', '33333333-3333-3333-3333-333333333333/c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0.jpg');
+
 set role authenticated;
 set test.uid = '33333333-3333-3333-3333-333333333333';
 
@@ -36,15 +43,15 @@ insert into public.posts (user_id,meal_slot,photo_url,blurb)
   values ('33333333-3333-3333-3333-333333333333','dinner','javascript:alert(1)','x');
 insert into public.posts (user_id,meal_slot,photo_url,blurb)
   values ('33333333-3333-3333-3333-333333333333','dinner','data:text/html,<script>','x');
-\echo '   https is accepted:'
+\echo '   a real upload (https, this project, your own folder) is accepted:'
 insert into public.posts (user_id,meal_slot,photo_url,blurb)
-  values ('33333333-3333-3333-3333-333333333333','dinner','https://x.supabase.co/a.jpg','ok')
+  values ('33333333-3333-3333-3333-333333333333','dinner','https://x.supabase.co/storage/v1/object/public/photos/33333333-3333-3333-3333-333333333333/c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0.jpg','ok')
   returning 'accepted' as result;
 
 \echo '--- 5. Oversized bio and blurb rejected ---'
 update public.users set bio = repeat('a', 301) where id = '33333333-3333-3333-3333-333333333333';
 insert into public.posts (user_id,meal_slot,photo_url,blurb)
-  values ('33333333-3333-3333-3333-333333333333','dinner','https://x/a.jpg',repeat('b',2001));
+  values ('33333333-3333-3333-3333-333333333333','dinner','https://x.supabase.co/storage/v1/object/public/photos/33333333-3333-3333-3333-333333333333/c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0.jpg',repeat('b',2001));
 
 \echo '--- 6. Forged streaks rejected ---'
 insert into public.streaks (user_id,current_streak,longest_streak)

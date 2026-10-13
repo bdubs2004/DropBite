@@ -149,6 +149,7 @@ from `supabase/migrations/`:
 | `0028_activity.sql` | Follows, comment likes and replies in Activity; push for them; no liking your own post |
 | `0029_activity_live.sql` | Live Activity, so the in-app banner drops down the moment it happens |
 | `0030_rls_hardening.sql` | **Security fix** — closes the holes found before outside testing (DM membership, dates, streaks, reports, blocked users, photo listing); see SECURITY.md |
+| `0031_storage_hardening.sql` | **Security fix** — photos only upload through `upload-photo` (real JPEGs, metadata stripped), private DM photos, photo links must be real uploads, orphan cleanup. Deploy `upload-photo` and `sweep-storage` and ship the matching app build at the same time |
 
 They are all safe to run twice, and so is `schema.sql` itself. What re-running
 `schema.sql` will **not** do is add a column to a table that already exists —
@@ -304,6 +305,36 @@ eas build --profile development --platform ios     # or android
 One notification per meal. If you get two, that was the bug fixed in
 `src/lib/mealReminderPlan.ts`; make sure you're on a build that includes it, and
 the next sync cleans up the leftovers.
+
+### Photo uploads and cleanup (after migration 0031)
+
+```bash
+supabase functions deploy upload-photo    # the only way photos get into storage
+supabase functions deploy sweep-storage   # deletes photos nothing uses any more
+supabase functions deploy delete-account  # now also removes the person's DM photos
+```
+
+Ship them together with the app build that uses them: older builds upload
+straight to storage, which is now refused.
+
+1. Upload one photo from the app (a post or an avatar). That records where
+   your photos live (`app_config.storage_origin`), which the database checks
+   every saved photo link against. `verify.sql` shows it as OK afterwards.
+   If you ever move to a custom domain, update that row to match.
+2. **Move DM photos sent before 0031** into the private bucket, once. Repeat
+   until it says `"moved": 0`:
+   ```bash
+   curl -X POST https://<ref>.supabase.co/functions/v1/sweep-storage \
+     -H "Authorization: Bearer <service role key>" \
+     -d '{"migrate_legacy_dm_photos": true}'
+   ```
+3. **Schedule the daily sweep.** Dashboard → Integrations → Cron → create a
+   job that calls the `sweep-storage` Edge Function once a day (e.g.
+   `17 4 * * *`), method POST, header `Authorization: Bearer <service role
+   key>`, body `{"grace_hours": 24}`. It deletes at most 2,000 files a run.
+
+`UPLOAD_HOURLY_LIMIT` (default 60) caps uploads per user per hour:
+`supabase secrets set UPLOAD_HOURLY_LIMIT=60`.
 
 ### Push notifications for DMs and Activity
 
