@@ -376,6 +376,8 @@ alter table public.messages
 -- (<conversation id>/<random>.jpg). image_url is only for photos sent before
 -- DM photos went private (0031); new messages can't set it.
 alter table public.messages add column if not exists image_path text;
+-- When notify-message pushed it (0032): each message is pushed once.
+alter table public.messages add column if not exists pushed_at timestamptz;
 alter table public.messages drop constraint if exists messages_image_path_format;
 alter table public.messages
   add constraint messages_image_path_format check (
@@ -545,7 +547,8 @@ begin
 end;
 $$;
 
--- Start (or reuse) a group thread with several people at once. Same opt-in
+-- Start (or reuse) a group thread with several people at once (at most 32,
+-- you included). Same opt-in
 -- rules as start_conversation, applied to every target; reuses a thread only
 -- when its member set is exactly {you} + targets, so a group never collides
 -- with a 1:1.
@@ -563,6 +566,12 @@ declare
   conv uuid;
 begin
   if me is null then raise exception 'Not authenticated'; end if;
+
+  -- You plus 31 others. Checked first, so a huge list costs nothing.
+  if (select count(distinct u) from unnest(coalesce(targets, '{}'::uuid[])) u
+      where u is not null and u <> me) > 31 then
+    raise exception 'A group chat can have at most 32 people.';
+  end if;
 
   foreach t in array coalesce(targets, '{}'::uuid[]) loop
     if t is null or t = me then continue; end if;
@@ -2041,3 +2050,77 @@ begin
   end if;
 end
 $$;
+
+
+-- ====================================================== chat hardening (0032)
+-- Message pushes: notify-message (service role) claims each message once, and
+-- only a fresh one, sent by the caller, in the thread named, while they're
+-- still in it. Calling it again sends nothing.
+create or replace function public.claim_message_push(msg uuid, conv uuid, sender uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  update public.messages m
+  set pushed_at = now()
+  where m.id = msg
+    and m.conversation_id = conv
+    and m.sender_id = sender
+    and m.kind = 'message'
+    and m.pushed_at is null
+    and m.created_at > now() - interval '5 minutes'
+    and exists (
+      select 1 from public.conversation_members cm
+      where cm.conversation_id = conv and cm.user_id = sender
+    );
+  return found;
+end;
+$$;
+revoke all on function public.claim_message_push(uuid, uuid, uuid) from public, anon, authenticated;
+grant execute on function public.claim_message_push(uuid, uuid, uuid) to service_role;
+
+
+-- Push tokens: one account per phone. Saving a token moves it off any other
+-- account, so a phone that switched accounts stops showing the old account's
+-- DMs. Tokens must look like Expo's; an account keeps at most 10.
+create or replace function public.push_token_one_account()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if new.token !~ '^(ExponentPushToken|ExpoPushToken)\[[A-Za-z0-9_-]{1,200}\]$' then
+    raise exception 'Not a push token' using errcode = '22023';
+  end if;
+  -- The phone is someone else's now (or theirs on another account): it stops
+  -- getting the previous account's notifications.
+  delete from public.push_tokens
+  where token = new.token and user_id <> new.user_id;
+  -- Keep the 9 most recent others plus this one.
+  delete from public.push_tokens p
+  where p.user_id = new.user_id
+    and p.token <> new.token
+    and p.token not in (
+      select q.token from public.push_tokens q
+      where q.user_id = new.user_id and q.token <> new.token
+      order by q.updated_at desc
+      limit 9
+    );
+  return new;
+end;
+$$;
+revoke all on function public.push_token_one_account() from public, anon, authenticated;
+
+drop trigger if exists push_token_one_account on public.push_tokens;
+create trigger push_token_one_account before insert or update of token, user_id on public.push_tokens
+  for each row execute function public.push_token_one_account();
+
+-- Tokens that were on more than one account before this: keep the newest.
+delete from public.push_tokens p
+using public.push_tokens q
+where p.token = q.token
+  and p.user_id <> q.user_id
+  and (p.updated_at, p.user_id::text) < (q.updated_at, q.user_id::text);

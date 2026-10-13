@@ -324,6 +324,18 @@ export class SupabaseService implements DataService {
   }
 
   async signOut(): Promise<void> {
+    // Take this phone off the account first, so whoever signs in on it next
+    // doesn't get this account's DMs on their lock screen. Best-effort: the
+    // server also moves a token to the new account when it's saved again.
+    const token = this.pushToken;
+    this.pushToken = null;
+    if (token) {
+      try {
+        await this.sb.from('push_tokens').delete().eq('token', token);
+      } catch {
+        // Offline: the next account's save still takes the token over.
+      }
+    }
     await this.sb.auth.signOut();
   }
 
@@ -1104,14 +1116,20 @@ export class SupabaseService implements DataService {
     return (await this.signDmPhotos([this.hydrateMessageRow(data)]))[0];
   }
 
+  /** This phone's push token, once saved, so sign-out can remove it. */
+  private pushToken: string | null = null;
+
   async savePushToken(token: string, platform: string): Promise<void> {
     const meId = await this.myId();
-    await this.sb
+    // Saving moves the token off any other account (migration 0032): one
+    // phone, one account's notifications.
+    const { error } = await this.sb
       .from('push_tokens')
       .upsert(
         { user_id: meId, token, platform, updated_at: new Date().toISOString() },
         { onConflict: 'user_id,token' },
       );
+    if (!error) this.pushToken = token;
   }
 
   async startConversation(userId: string): Promise<string> {

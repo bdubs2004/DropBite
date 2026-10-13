@@ -77,6 +77,8 @@ declare
   ok boolean := case
     when want = 'denied' then got like 'error:%' or got = 'rows:0'
     when want = 'error' then got like 'error:%'
+    -- 'error:<start of message>': refused, and for the stated reason
+    when want like 'error:%' then got like want || '%'
     else got = want
   end;
 begin
@@ -91,6 +93,18 @@ set search_path = '' as $$
 $$;
 -- Post as yourself, then read back your streak (two statements, so the second
 -- sees what the first's triggers did).
+-- Save a push token as yourself (the way the app does), then count how many
+-- accounts it now belongs to, counted as the owner.
+create function qa.token_owners(tok text) returns bigint language sql security definer
+set search_path = '' as $$
+  select count(*) from public.push_tokens where token = tok;
+$$;
+create function qa.save_token_then_count_owners(tok text) returns bigint language plpgsql as $$
+begin
+  insert into public.push_tokens (user_id, token, platform) values (auth.uid(), tok, 'ios')
+  on conflict (user_id, token) do update set updated_at = now();
+  return qa.token_owners(tok);
+end $$;
 create function qa.post_and_read_streak() returns bigint language plpgsql as $$
 begin
   insert into public.posts (user_id, meal_slot, photo_url)
@@ -181,7 +195,8 @@ insert into public.messages (id, conversation_id, sender_id, text) values
   ('30000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000001', 'aaaaaaaa-0000-4000-8000-000000000001', 'private to bob'),
   ('30000000-0000-4000-8000-000000000002', '20000000-0000-4000-8000-000000000002', 'bbbbbbbb-0000-4000-8000-000000000002', 'group chat'),
   ('30000000-0000-4000-8000-000000000003', '20000000-0000-4000-8000-000000000003', 'dddddddd-0000-4000-8000-000000000004', 'hi alice'),
-  ('30000000-0000-4000-8000-000000000004', '20000000-0000-4000-8000-000000000004', 'aaaaaaaa-0000-4000-8000-000000000001', 'said after mallory left');
+  ('30000000-0000-4000-8000-000000000004', '20000000-0000-4000-8000-000000000004', 'aaaaaaaa-0000-4000-8000-000000000001', 'said after mallory left'),
+  ('30000000-0000-4000-8000-000000000005', '20000000-0000-4000-8000-000000000004', 'dddddddd-0000-4000-8000-000000000004', 'said before mallory left');
 insert into public.message_reactions (message_id, user_id, emoji) values
   ('30000000-0000-4000-8000-000000000001', 'bbbbbbbb-0000-4000-8000-000000000002', '❤️');
 
@@ -227,12 +242,16 @@ begin
     insert into storage.objects (bucket_id, name, owner, created_at) values
       ('dm-photos', '20000000-0000-4000-8000-000000000001/c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6.jpg', 'aaaaaaaa-0000-4000-8000-000000000001', now() - interval '2 days'),
       ('dm-photos', '20000000-0000-4000-8000-000000000001/c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7.jpg', 'aaaaaaaa-0000-4000-8000-000000000001', now() - interval '2 days'),
-      ('dm-photos', '20000000-0000-4000-8000-000000000003/d8d8d8d8d8d8d8d8d8d8d8d8d8d8d8d8.jpg', 'dddddddd-0000-4000-8000-000000000004', now());
+      ('dm-photos', '20000000-0000-4000-8000-000000000003/d8d8d8d8d8d8d8d8d8d8d8d8d8d8d8d8.jpg', 'dddddddd-0000-4000-8000-000000000004', now()),
+      -- Sent in the old group, before and after Mallory left.
+      ('dm-photos', '20000000-0000-4000-8000-000000000004/e9e9e9e9e9e9e9e9e9e9e9e9e9e9e9e9.jpg', 'aaaaaaaa-0000-4000-8000-000000000001', now() - interval '2 days');
   end if;
   if exists (select 1 from information_schema.columns where table_name = 'messages' and column_name = 'image_path') then
     execute $x$insert into public.messages (conversation_id, sender_id, image_path) values
       ('20000000-0000-4000-8000-000000000001', 'aaaaaaaa-0000-4000-8000-000000000001',
-       '20000000-0000-4000-8000-000000000001/c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6.jpg')$x$;
+       '20000000-0000-4000-8000-000000000001/c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6.jpg'),
+      ('20000000-0000-4000-8000-000000000004', 'aaaaaaaa-0000-4000-8000-000000000001',
+       '20000000-0000-4000-8000-000000000004/e9e9e9e9e9e9e9e9e9e9e9e9e9e9e9e9.jpg')$x$;
   end if;
   if to_regclass('public.app_config') is not null then
     execute $x$insert into public.app_config (key, value) values ('storage_origin', 'https://x.supabase.co')
@@ -668,6 +687,59 @@ select qa.fact('orphans', 'finds files nothing uses any more (older than a day),
   'dm-photos/20000000-0000-4000-8000-000000000001/c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7.jpg,photos/aaaaaaaa-0000-4000-8000-000000000001/a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2.jpg');
 select qa.check('orphans', 'only the server can run the orphan search', 'mallory',
   $q$select count(*) from public.storage_orphans(interval '0')$q$, 'error');
+
+-- =======================================================================
+-- 17. Chats: leaving, pushes, live updates
+-- =======================================================================
+-- Policy: leaving a chat ends your access to all of it, old and new. Mallory
+-- left the old group (…0004); she keeps nothing.
+select qa.check('left chat', 'read the old group''s photos after leaving', 'mallory',
+  $q$select count(*) from storage.objects where bucket_id = 'dm-photos' and name like '20000000-0000-4000-8000-000000000004/%'$q$, 'rows:0');
+select qa.check('left chat', 'read the old group''s members after leaving', 'mallory',
+  $q$select count(*) from public.conversation_members where conversation_id = '20000000-0000-4000-8000-000000000004'$q$, 'rows:0');
+select qa.check('left chat', 'read the old group itself after leaving', 'mallory',
+  $q$select count(*) from public.conversations where id = '20000000-0000-4000-8000-000000000004'$q$, 'rows:0');
+select qa.check('left chat', 'send into the old group after leaving', 'mallory',
+  format($q$insert into public.messages (conversation_id, sender_id, text) values ('20000000-0000-4000-8000-000000000004', %L, 'still here')$q$, :mallory), 'denied');
+select qa.check('left chat', 'react in the old group after leaving', 'mallory',
+  format($q$insert into public.message_reactions (message_id, user_id, emoji) values ('30000000-0000-4000-8000-000000000004', %L, 'x')$q$, :mallory), 'denied');
+select qa.check('left chat', 'rename the old group after leaving', 'mallory',
+  $q$update public.conversations set title = 'back' where id = '20000000-0000-4000-8000-000000000004'$q$, 'denied');
+select qa.check('left chat', 'the people still in it see its photos', 'bob',
+  $q$select count(*) from storage.objects where bucket_id = 'dm-photos' and name like '20000000-0000-4000-8000-000000000004/%'$q$, 'rows:1');
+
+select qa.check('chat ids', 'moving your reaction to another of your own threads is fine', 'bob',
+  $q$update public.message_reactions set message_id = '30000000-0000-4000-8000-000000000002' where message_id = '30000000-0000-4000-8000-000000000001'$q$, 'rows:1');
+select qa.check('chat ids', 'move your reaction into a thread you are not in', 'bob',
+  $q$update public.message_reactions set message_id = '30000000-0000-4000-8000-000000000003' where message_id = '30000000-0000-4000-8000-000000000001'$q$, 'denied');
+select qa.check('chat ids', 'take over someone else''s reaction', 'mallory',
+  format($q$update public.message_reactions set user_id = %L$q$, :mallory), 'denied');
+select qa.check('chat ids', 'start a group with more people than a group can hold', 'mallory',
+  $q$select count(*) from public.start_group_conversation(array(select gen_random_uuid() from generate_series(1, 40)))$q$,
+  'error:A group chat can have at most 32 people');
+
+select qa.fact('live updates', 'only Activity is broadcast live (chats are not)',
+  $q$select coalesce(string_agg(schemaname || '.' || tablename, ',' order by tablename), '(none)')
+     from pg_publication_tables where pubname = 'supabase_realtime'$q$, 'public.notifications');
+
+select qa.check('push', 'only the server can mark a message as pushed', 'mallory',
+  $q$select count(*) from (select public.claim_message_push('30000000-0000-4000-8000-000000000003', '20000000-0000-4000-8000-000000000003', 'dddddddd-0000-4000-8000-000000000004')) s$q$, 'error');
+select qa.fact('push', 'a message is pushed once, then never again',
+  $q$select public.claim_message_push('30000000-0000-4000-8000-000000000003', '20000000-0000-4000-8000-000000000003', 'dddddddd-0000-4000-8000-000000000004')::text
+     || ',' || public.claim_message_push('30000000-0000-4000-8000-000000000003', '20000000-0000-4000-8000-000000000003', 'dddddddd-0000-4000-8000-000000000004')::text$q$,
+  'true,false');
+select qa.fact('push', 'pushing a message into a different thread than it was sent in',
+  $q$select public.claim_message_push('30000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000002', 'aaaaaaaa-0000-4000-8000-000000000001')::text$q$, 'false');
+select qa.fact('push', 'pushing someone else''s message as yours',
+  $q$select public.claim_message_push('30000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000001', 'bbbbbbbb-0000-4000-8000-000000000002')::text$q$, 'false');
+select qa.fact('push', 'pushing a message to a thread you have left',
+  $q$select public.claim_message_push('30000000-0000-4000-8000-000000000005', '20000000-0000-4000-8000-000000000004', 'dddddddd-0000-4000-8000-000000000004')::text$q$, 'false');
+select qa.check('push', 'a junk push token is refused', 'mallory',
+  format($q$insert into public.push_tokens (user_id, token) values (%L, 'https://evil.example/hook')$q$, :mallory), 'denied');
+select qa.check('push', 'a phone signed into a new account stops getting the old account''s messages', 'bob',
+  $q$select qa.save_token_then_count_owners('ExponentPushToken[alice]')$q$, 'rows:1');
+select qa.check('push', 'saving your own token still works', 'mallory',
+  $q$select qa.save_token_then_count_owners('ExponentPushToken[mallory-phone]')$q$, 'rows:1');
 
 -- ------------------------------------------------------------- report
 \echo

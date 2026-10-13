@@ -11,7 +11,7 @@ create table storage.buckets (
   file_size_limit bigint,
   allowed_mime_types text[]
 );
-create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text, name text not null, owner uuid);
+create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text, name text not null, owner uuid, created_at timestamptz default now());
 alter table storage.objects enable row level security;
 create or replace function storage.foldername(name text) returns text[] language sql immutable as $$
   select string_to_array(regexp_replace(name, '/[^/]*$', ''), '/'); $$;

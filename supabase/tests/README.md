@@ -6,7 +6,7 @@ them.
 
 ## rls_attack_test.sql: start here
 
-The main suite: 141 checks, self-asserting (it ends with an error if any fail).
+The main suite: 185 checks, self-asserting (it ends with an error if any fail).
 Six separate accounts sign in the way the API does it, with their own tokens,
 and an attacker with a normal account (Mallory, who follows the victim and has
 her own posts and a DM with her) tries to read, change or delete other people's
@@ -41,11 +41,18 @@ from a chat they're not in; saved photo links must be real uploads in your own
 space (no outside servers, no copying someone else's photo); and
 `storage_orphans()` finds exactly the files nothing uses.
 
+Section 17 covers chats (migration 0032): after leaving a group you can't read
+its photos, members or messages, or send, react or rename; reactions can't be
+moved into a thread you're not in; groups stop at 32 people; only Activity is
+broadcast live; a message is pushed once, only by the server, only into the
+thread it was sent in, and never by someone who has left; push tokens must be
+real and belong to one account.
+
 The upload and cleanup functions have their own tests, run with `npm test`:
 `test:jpeg` (real JPEGs pass and come out without EXIF/GPS; PNG, HTML, SVG,
 disguised, truncated, appended-payload and decompression-bomb files are
-refused), `test:upload` and `test:sweep` (the functions' rules, with stand-ins
-for Supabase).
+refused), `test:upload`, `test:sweep` and `test:notify` (the functions' rules,
+with stand-ins for Supabase).
 
 ## reports_test.sql
 

@@ -87,7 +87,10 @@ Deno.serve(async (req) => {
       .gte('created_at', since)
       .in('type', PUSHED)
       .select('id, user_id, type, post_id, comment_id');
-    if (error) return json({ error: error.message }, 500);
+    if (error) {
+      console.error('notify-activity claim failed', error);
+      return json({ error: 'server_error' }, 500);
+    }
     const rows = claimed ?? [];
     if (!rows.length) return json({ sent: 0 });
 
@@ -141,7 +144,8 @@ Deno.serve(async (req) => {
     }
     return json({ sent: messages.length });
   } catch (e) {
-    return json({ error: String((e as Error)?.message ?? e) }, 500);
+    console.error('notify-activity failed', e);
+    return json({ error: 'server_error' }, 500);
   }
 });
 
