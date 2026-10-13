@@ -4,6 +4,35 @@ Run the real `schema.sql` against a throwaway local Postgres and assert the
 security properties that matter, so a future schema edit can't quietly undo
 them.
 
+## e2e/: the whole backend, attacked for real
+
+```bash
+npm run test:e2e        # or: supabase/tests/e2e/run.sh
+```
+
+Starts a private copy of the backend and attacks it through the same front
+door the app uses, with three identities: **User A** owns the data, **User B**
+is a separate, unrelated account, **User C** is signed out (plus a few
+supporting accounts: Alice's friends, one that deletes itself, one that gets
+banned). What runs is real: Postgres 16 with `schema.sql`, the Supabase Auth
+server (sign-up, sign-in, sign-out, tokens), the PostgREST API server with the
+session check, all seven edge functions under Deno, and supabase-js as the
+client. Storage is a stand-in that authorizes the way Supabase Storage does,
+through the `storage.objects` policies (`gateway.mjs` explains), and Anthropic,
+USDA and Expo push are stand-ins that count their calls.
+
+It checks, with an expected and an actual result for each: B can't read A's
+messages, change her collection or bookmarks, edit or delete her posts, get
+her private photos or join her group; C can't call any protected function;
+bad uploads are refused and nothing is stored; AI requests stop at the limit
+(and refused ones cost nothing); and an old token stops working after sign-out,
+account deletion or a ban. It also checks the public things stay public.
+`e2e/RESULTS.md` is the latest run.
+
+Linux only (it downloads Linux builds of PostgREST and Supabase Auth, cached in
+`~/.cache/niblgo-e2e`); needs Postgres 16, Node, Deno and openssl. Set
+`E2E_RESULTS=path.md` to write a results table.
+
 ## rls_attack_test.sql: start here
 
 The main suite: 239 checks, self-asserting (it ends with an error if any fail).

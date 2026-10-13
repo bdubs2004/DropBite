@@ -30,6 +30,13 @@ hosts the legal pages, the email-confirmation page and shared-post previews.
 
 ## What's protected, and the evidence
 
+**End to end.** `supabase/tests/e2e/run.sh` (`npm run test:e2e`) starts a
+private copy of the whole backend (real Supabase Auth, real PostgREST, the
+seven edge functions) and attacks it through the app's own front door with
+User A (owns the data), User B (an unrelated account) and User C (signed out):
+78 checks, every one with an expected and an actual result, in
+`supabase/tests/e2e/RESULTS.md`. The table below is the database-level detail.
+
 Every database claim below is a check in `supabase/tests/rls_attack_test.sql`
 (239 checks, six accounts signing in the way the API does, an attacker with an
 ordinary account), run on a fresh install and on an upgraded database
@@ -90,7 +97,8 @@ In code, deliberately deferred:
   appeals path, and auto-hiding a post past a report threshold.
 
 Outside the code (they can't be checked from the repository, so confirm them
-before the test):
+before the test; docs/DEPLOY_SECURITY_UPDATE.md walks through all of them in
+order):
 
 - [ ] Migrations `0030` to `0036` run on production; `verify.sql` says PASS.
 - [ ] Edge functions deployed at the current version (all seven), with
@@ -113,6 +121,7 @@ before the test):
 ## Re-running everything
 
 ```bash
+npm run test:e2e                          # 78 end-to-end checks, Users A, B and C (Linux)
 supabase/tests/run_security.sh            # 239 database checks, fresh install
 supabase/tests/run_security.sh upgrade    # the same, on an upgraded database
 npm test                                  # app and function unit tests
