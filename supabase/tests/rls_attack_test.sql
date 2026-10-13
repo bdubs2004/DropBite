@@ -105,6 +105,22 @@ begin
   on conflict (user_id, token) do update set updated_at = now();
   return qa.token_owners(tok);
 end $$;
+-- One API request the way PostgREST makes it: the token's role and claims,
+-- then the per-request check. 'ok', 'refused' (PostgREST answers 401), or the
+-- error.
+create function qa.request(as_role text, claims jsonb) returns text language plpgsql as $$
+begin
+  begin
+    perform set_config('request.jwt.claims', claims::text, true);
+    execute format('set local role %I', as_role);
+    perform public.check_request();
+    raise exception using errcode = 'QA001', message = 'ok';
+  exception
+    when sqlstate 'QA001' then return 'ok';
+    when sqlstate 'PGRST' then return 'refused';
+    when others then return 'error:' || sqlerrm;
+  end;
+end $$;
 create function qa.post_and_read_streak() returns bigint language plpgsql as $$
 begin
   insert into public.posts (user_id, meal_slot, photo_url)
@@ -259,6 +275,22 @@ begin
   end if;
 end $$;
 
+-- Sign-in sessions: Alice's phone is signed in; Dave's session has run past
+-- its time limit; Zed is banned; Yan deleted his account (which deletes his
+-- sessions too) and Xia's account is soft-deleted.
+insert into auth.sessions (id, user_id, not_after) values
+  ('5e550000-0000-4000-8000-000000000001', 'aaaaaaaa-0000-4000-8000-000000000001', null),
+  ('5e550000-0000-4000-8000-000000000006', 'ffffffff-0000-4000-8000-000000000006', now() - interval '1 minute');
+insert into auth.users (id, banned_until, deleted_at) values
+  ('99999999-0000-4000-8000-000000000009', now() + interval '7 days', null),
+  ('88888888-0000-4000-8000-000000000008', null, null),
+  ('77777777-0000-4000-8000-000000000007', null, now());
+insert into auth.sessions (id, user_id) values
+  ('5e550000-0000-4000-8000-000000000009', '99999999-0000-4000-8000-000000000009'),
+  ('5e550000-0000-4000-8000-000000000008', '88888888-0000-4000-8000-000000000008'),
+  ('5e550000-0000-4000-8000-000000000007', '77777777-0000-4000-8000-000000000007');
+delete from auth.users where id = '88888888-0000-4000-8000-000000000008';
+
 -- Short names for the ids, used in the checks below.
 \set alice    '''aaaaaaaa-0000-4000-8000-000000000001'''
 \set bob      '''bbbbbbbb-0000-4000-8000-000000000002'''
@@ -282,17 +314,19 @@ select qa.fact('schema', 'every SECURITY DEFINER function pins its search_path',
   $q$select count(*)::text from pg_proc p join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'public' and p.prosecdef
        and not exists (select 1 from unnest(coalesce(p.proconfig, '{}')) c where c like 'search_path=%')$q$, '0');
-select qa.fact('schema', 'signed out, the only callable function is the share-link preview',
+-- check_request is the per-request session check PostgREST runs as the
+-- caller (0033); it reads nothing back and only ever refuses.
+select qa.fact('schema', 'signed out, only the share-link preview (and the session check) are callable',
   $q$select coalesce(string_agg(p.proname, ',' order by p.proname), '') from pg_proc p
      join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'public' and p.prokind = 'f' and p.prorettype <> 'trigger'::regtype
-       and has_function_privilege('anon', p.oid, 'execute')$q$, 'get_post_preview');
+       and has_function_privilege('anon', p.oid, 'execute')$q$, 'check_request,get_post_preview');
 select qa.fact('schema', 'signed in, only the functions the app needs are callable',
   $q$select coalesce(string_agg(p.proname, ',' order by p.proname), '') from pg_proc p
      join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'public' and p.prokind = 'f' and p.prorettype <> 'trigger'::regtype
        and has_function_privilege('authenticated', p.oid, 'execute')$q$,
-  'can_reply_under,conversation_has_block,follow_counts,get_post_preview,is_blocked_pair,is_conversation_member,leave_conversation,start_conversation,start_group_conversation');
+  'can_reply_under,check_request,conversation_has_block,follow_counts,get_post_preview,is_blocked_pair,is_conversation_member,leave_conversation,start_conversation,start_group_conversation');
 
 -- =======================================================================
 -- 2. Profiles
@@ -740,6 +774,40 @@ select qa.check('push', 'a phone signed into a new account stops getting the old
   $q$select qa.save_token_then_count_owners('ExponentPushToken[alice]')$q$, 'rows:1');
 select qa.check('push', 'saving your own token still works', 'mallory',
   $q$select qa.save_token_then_count_owners('ExponentPushToken[mallory-phone]')$q$, 'rows:1');
+
+-- =======================================================================
+-- 18. Sessions: signed out, deleted or banned means locked out now
+-- =======================================================================
+-- A token stays cryptographically valid until it expires (an hour), so on its
+-- own the API would keep honouring it after sign-out or account deletion. The
+-- per-request check (public.check_request, run by PostgREST before every
+-- request) refuses any token whose session is gone.
+select qa.fact('sessions', 'a signed-in phone works',
+  $q$select qa.request('authenticated', '{"role":"authenticated","sub":"aaaaaaaa-0000-4000-8000-000000000001","session_id":"5e550000-0000-4000-8000-000000000001"}')$q$, 'ok');
+select qa.fact('sessions', 'after signing out, the old token is refused',
+  $q$select qa.request('authenticated', '{"role":"authenticated","sub":"aaaaaaaa-0000-4000-8000-000000000001","session_id":"5e550000-0000-4000-8000-0000000000ff"}')$q$, 'refused');
+select qa.fact('sessions', 'someone else''s session id doesn''t help',
+  $q$select qa.request('authenticated', '{"role":"authenticated","sub":"dddddddd-0000-4000-8000-000000000004","session_id":"5e550000-0000-4000-8000-000000000001"}')$q$, 'refused');
+select qa.fact('sessions', 'after deleting the account, the old token is refused',
+  $q$select qa.request('authenticated', '{"role":"authenticated","sub":"88888888-0000-4000-8000-000000000008","session_id":"5e550000-0000-4000-8000-000000000008"}')$q$, 'refused');
+select qa.fact('sessions', 'a soft-deleted account is refused',
+  $q$select qa.request('authenticated', '{"role":"authenticated","sub":"77777777-0000-4000-8000-000000000007","session_id":"5e550000-0000-4000-8000-000000000007"}')$q$, 'refused');
+select qa.fact('sessions', 'a banned account is refused straight away',
+  $q$select qa.request('authenticated', '{"role":"authenticated","sub":"99999999-0000-4000-8000-000000000009","session_id":"5e550000-0000-4000-8000-000000000009"}')$q$, 'refused');
+select qa.fact('sessions', 'a session past its time limit is refused',
+  $q$select qa.request('authenticated', '{"role":"authenticated","sub":"ffffffff-0000-4000-8000-000000000006","session_id":"5e550000-0000-4000-8000-000000000006"}')$q$, 'refused');
+select qa.fact('sessions', 'a signed-in token that names no session is refused',
+  $q$select qa.request('authenticated', '{"role":"authenticated","sub":"aaaaaaaa-0000-4000-8000-000000000001"}')$q$, 'refused');
+select qa.fact('sessions', 'a session id that isn''t an id is refused (no error leak)',
+  $q$select qa.request('authenticated', '{"role":"authenticated","sub":"aaaaaaaa-0000-4000-8000-000000000001","session_id":"x'' or 1=1"}')$q$, 'refused');
+select qa.fact('sessions', 'signed-out visitors are unaffected',
+  $q$select qa.request('anon', '{"role":"anon"}')$q$, 'ok');
+select qa.fact('sessions', 'the server is unaffected',
+  $q$select qa.request('service_role', '{"role":"service_role"}')$q$, 'ok');
+select qa.fact('sessions', 'every API request runs the check',
+  $q$select (coalesce((select array_to_string(setconfig, ',') from pg_db_role_setting
+                       where setrole = 'authenticator'::regrole and setdatabase = 0), '')
+             like '%pgrst.db_pre_request=public.check_request%')::text$q$, 'true');
 
 -- ------------------------------------------------------------- report
 \echo

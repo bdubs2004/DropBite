@@ -259,6 +259,20 @@ checks(grp, item, status) as (
 
   union all
 
+  -- And the one 0033 closed.
+  select 12, 'locked: ' || item,
+    case when open then problem || ' — run 0033_session_checks.sql' else 'OK' end
+  from (values
+    ('signed-out and deleted accounts are locked out at once',
+     to_regprocedure('public.check_request()') is null
+     or not coalesce((select array_to_string(setconfig, ',') from pg_db_role_setting
+                      where setrole = (select oid from pg_roles where rolname = 'authenticator')
+                        and setdatabase = 0), '') like '%pgrst.db_pre_request=public.check_request%',
+     'A SIGNED-OUT OR DELETED USER''S TOKEN KEEPS WORKING UNTIL IT EXPIRES')
+  ) v(item, open, problem)
+
+  union all
+
   -- Not a hole, but photo links can't be saved until it's recorded: deploy
   -- upload-photo and post one photo, and it fills itself in.
   select 10, 'setting: storage origin',

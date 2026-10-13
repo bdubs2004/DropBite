@@ -8,7 +8,10 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import { AppState as RNAppState } from 'react-native';
+import { clearPendingAuth } from '../lib/pendingAuth';
 import { registerPushToken } from '../lib/push';
+import { clearRecentSearches, clearRecentTerms } from '../lib/recentSearches';
 import { getDataService } from '../services';
 import { syncMealtimeNotifications } from '../services/notifications';
 import { NotificationPrefs, Post, Streak, User } from '../types';
@@ -26,6 +29,12 @@ interface AppState {
   refreshFeed: () => Promise<void>;
   refreshMe: () => Promise<void>;
   setUser: (u: User | null) => void;
+  /**
+   * After signing out or deleting the account: forget who was signed in and
+   * clear what this phone kept for them (recent searches), so the next person
+   * to use it sees none of it.
+   */
+  forgetAccount: () => Promise<void>;
   setPrefs: (p: NotificationPrefs) => Promise<void>;
   /** Hide a post everywhere (e.g. after reporting it). Persists. */
   hidePost: (postId: string) => Promise<void>;
@@ -86,6 +95,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // interrupting the report flow over.
     }
   }, []);
+
+  const forgetAccount = useCallback(async () => {
+    setUser(null);
+    await Promise.all([clearRecentSearches(), clearRecentTerms(), clearPendingAuth()]);
+  }, []);
+
+  // A session can end somewhere else: signed out from another phone, the
+  // account deleted, a ban. The server refuses its token straight away
+  // (migration 0033); this brings the app back to the sign-in screen instead
+  // of leaving it showing errors. Checked when the app comes to the
+  // foreground, and whenever the auth client drops the session itself.
+  const userRef = useRef(user);
+  userRef.current = user;
+  useEffect(() => {
+    const off = svc.onSignedOut(() => {
+      if (userRef.current) forgetAccount();
+    });
+    const sub = RNAppState.addEventListener('change', async (state) => {
+      if (state !== 'active' || !userRef.current) return;
+      try {
+        if (await svc.sessionEnded()) forgetAccount();
+      } catch {
+        // Can't tell (offline): stay signed in.
+      }
+    });
+    return () => {
+      off();
+      sub.remove();
+    };
+  }, [svc, forgetAccount]);
 
   const refreshMe = useCallback(async () => {
     const u = await svc.getCurrentUser();
@@ -161,11 +200,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       refreshFeed,
       refreshMe,
       setUser,
+      forgetAccount,
       setPrefs,
       hidePost,
       hiddenIds,
     }),
-    [booted, user, feed, feedLoading, streak, prefs, refreshFeed, refreshMe, setPrefs, hidePost, hiddenIds],
+    [booted, user, feed, feedLoading, streak, prefs, refreshFeed, refreshMe, forgetAccount, setPrefs, hidePost, hiddenIds],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

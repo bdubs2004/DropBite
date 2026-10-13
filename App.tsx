@@ -57,7 +57,8 @@ import { UserListScreen } from './src/screens/UserListScreen';
 import { AppProvider, useApp } from './src/state/AppContext';
 import { ThemeProvider } from './src/state/ThemeProvider';
 import { APP_LINK_BASE } from './src/config';
-import { parseAuthParams, sessionTokens } from './src/lib/authLink';
+import { linkSessionAllowed, parseAuthParams, sessionTokens } from './src/lib/authLink';
+import { clearPendingAuth, readPendingAuth } from './src/lib/pendingAuth';
 import { LINK_PATHS } from './src/lib/links';
 import { fonts, makeStyles, radius, useColors } from './src/theme';
 
@@ -229,6 +230,13 @@ function Root() {
 
   useEffect(() => {
     let mounted = true;
+    const linkAllowed = async (accessToken: string, kind: 'confirm' | 'reset') => {
+      const [pending, current] = await Promise.all([
+        readPendingAuth(),
+        svc.getCurrentUser().catch(() => null),
+      ]);
+      return linkSessionAllowed({ accessToken, kind, pending, signedIn: !!current, now: Date.now() });
+    };
     const handle = async (url: string | null) => {
       if (!url) return;
       const p = parseAuthParams(url);
@@ -240,9 +248,13 @@ function Root() {
       // sign-in.
       if (isConfirmLink(url)) {
         const tokens = sessionTokens(url);
-        if (tokens) {
+        // Only the link this phone asked for may sign it in: a link carrying
+        // someone else's tokens would otherwise quietly sign the person into
+        // that account (see linkSessionAllowed).
+        if (tokens && (await linkAllowed(tokens.access_token, 'confirm'))) {
           try {
             await svc.setSessionFromTokens(tokens.access_token, tokens.refresh_token);
+            await clearPendingAuth();
           } catch {
             // Fall back to the sign-in screen; they can log in by hand.
           }
@@ -255,21 +267,32 @@ function Root() {
       }
 
       if (!isResetLink(url)) return;
-      // Supabase puts an expired/used link's reason in the fragment too.
+      // Supabase puts an expired/used link's reason in the fragment too. The
+      // wording is ours, not the link's: a link's text could say anything.
       if (p.error || p.error_description) {
-        if (mounted) setRecovery({ active: true, error: p.error_description || p.error });
+        if (mounted) setRecovery({ active: true, error: 'This reset link has expired or was already used.' });
         return;
       }
       if (p.access_token && p.refresh_token) {
-        try {
-          await svc.setSessionFromTokens(p.access_token, p.refresh_token);
-          await refreshMe();
-          if (mounted) setRecovery({ active: true, error: null });
-        } catch (e: any) {
+        if (!(await linkAllowed(p.access_token, 'reset'))) {
           if (mounted) {
             setRecovery({
               active: true,
-              error: e?.message || 'This reset link is invalid or has expired.',
+              error: 'This reset link wasn’t requested on this phone. Ask for a new one from the sign-in screen.',
+            });
+          }
+          return;
+        }
+        try {
+          await svc.setSessionFromTokens(p.access_token, p.refresh_token);
+          await clearPendingAuth();
+          await refreshMe();
+          if (mounted) setRecovery({ active: true, error: null });
+        } catch {
+          if (mounted) {
+            setRecovery({
+              active: true,
+              error: 'This reset link is invalid or has expired.',
             });
           }
         }

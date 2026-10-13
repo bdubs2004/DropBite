@@ -336,7 +336,29 @@ export class SupabaseService implements DataService {
         // Offline: the next account's save still takes the token over.
       }
     }
-    await this.sb.auth.signOut();
+    // This phone only, like Instagram. The server ends this session at once
+    // (migration 0033 refuses its token from then on); other phones stay in.
+    await this.sb.auth.signOut({ scope: 'local' });
+  }
+
+  async sessionEnded(): Promise<boolean> {
+    // Only a definite answer from Supabase Auth counts. A network failure has
+    // no HTTP status, and must leave the person signed in.
+    const refused = (e: unknown) =>
+      [400, 401, 403, 404].includes(Number((e as { status?: number })?.status ?? 0));
+    const { data, error: sessionErr } = await this.sb.auth.getSession();
+    if (sessionErr) return refused(sessionErr); // e.g. a revoked refresh token
+    if (!data.session) return true;
+    // Asks Supabase Auth, which knows whether the session still exists.
+    const { error } = await this.sb.auth.getUser();
+    return !!error && refused(error);
+  }
+
+  onSignedOut(cb: () => void): () => void {
+    const { data } = this.sb.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') cb();
+    });
+    return () => data.subscription.unsubscribe();
   }
 
   async requestPasswordReset(email: string): Promise<void> {
@@ -375,7 +397,9 @@ export class SupabaseService implements DataService {
     // delete-account edge function (see supabase/functions/delete-account).
     const { error } = await this.sb.functions.invoke('delete-account');
     if (error) throw error;
-    await this.sb.auth.signOut();
+    // The server already ended every session with the account; this clears
+    // the phone's copy.
+    await this.sb.auth.signOut({ scope: 'local' });
   }
 
   async exportMyData(): Promise<string> {

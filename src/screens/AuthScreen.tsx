@@ -14,6 +14,7 @@ import { PasswordChecklist } from '../components/PasswordChecklist';
 import { Button, Input, Muted } from '../components/ui';
 import { LIMITS } from '../lib/limits';
 import { passwordMeetsAll } from '../lib/passwordRules';
+import { clearPendingAuth, rememberPendingAuth } from '../lib/pendingAuth';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
 import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
@@ -30,6 +31,11 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  */
 function authErrorMessage(e: any, mode: 'signin' | 'signup'): string {
   const raw = String(e?.message ?? '');
+  const status = Number(e?.status ?? 0);
+  // Being rate limited says nothing about whether the account exists.
+  if (status === 429 || /rate limit|too many/i.test(raw)) {
+    return 'Too many attempts. Please wait a minute and try again.';
+  }
   if (mode === 'signin') return 'Wrong email or password.';
   if (/handle/i.test(raw)) return raw;
   if (/already registered|already exists|user already/i.test(raw)) {
@@ -38,7 +44,6 @@ function authErrorMessage(e: any, mode: 'signin' | 'signup'): string {
   if (/password/i.test(raw)) {
     return `Your password needs at least ${LIMITS.passwordMin} characters, a number, and a special character.`;
   }
-  if (/rate|too many/i.test(raw)) return 'Too many attempts. Please wait a minute and try again.';
   return 'Could not create the account. Please check your details and try again.';
 }
 
@@ -64,6 +69,11 @@ export function AuthScreen() {
   const [cooldown, setCooldown] = useState(0);
   const [actionBusy, setActionBusy] = useState(false);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
+  // Wrong passwords in a row, and the seconds left before another try. The
+  // server's own rate limit is what actually stops guessing; this just keeps
+  // a fumbling thumb (or a script driving the app) from hammering it.
+  const [misses, setMisses] = useState(0);
+  const [lockout, setLockout] = useState(0);
 
   // Tick the resend cooldown down to zero.
   useEffect(() => {
@@ -72,12 +82,19 @@ export function AuthScreen() {
     return () => clearInterval(t);
   }, [cooldown]);
 
+  useEffect(() => {
+    if (lockout <= 0) return;
+    const t = setInterval(() => setLockout((c) => (c <= 1 ? 0 : c - 1)), 1000);
+    return () => clearInterval(t);
+  }, [lockout]);
+
   const resendConfirmation = async () => {
     if (cooldown > 0 || actionBusy) return;
     setActionBusy(true);
     setActionMsg(null);
     try {
       await svc.resendConfirmation(unconfirmedEmail ?? email);
+      await rememberPendingAuth('confirm', unconfirmedEmail ?? email);
       setActionMsg('Sent. Check your inbox, and your spam folder.');
     } catch (e: any) {
       const raw = String(e?.message ?? '');
@@ -102,6 +119,7 @@ export function AuthScreen() {
     setError(null);
     try {
       await svc.requestPasswordReset(email.trim());
+      await rememberPendingAuth('reset', email.trim());
       setResetSent(email.trim());
     } catch (e: any) {
       const raw = String(e?.message ?? '');
@@ -145,15 +163,27 @@ export function AuthScreen() {
         // Not an error: the account exists but is not usable until the link in
         // the email is clicked, so there is nobody to sign in yet.
         if (result.status === 'confirm_email') {
+          // Only this email's confirmation link may sign this phone in.
+          await rememberPendingAuth('confirm', result.email);
           setConfirmEmail(result.email);
           return;
         }
         setUser(result.user);
       } else {
-        setUser(await svc.signIn(email, password));
+        if (lockout > 0) return;
+        const me = await svc.signIn(email, password);
+        setMisses(0);
+        await clearPendingAuth();
+        setUser(me);
       }
     } catch (e: any) {
       const raw = String(e?.message ?? '');
+      if (mode === 'signin' && /invalid login|credentials|wrong email or password/i.test(raw)) {
+        // 5 misses: 30 seconds; each miss after that doubles it, up to 5 minutes.
+        const n = misses + 1;
+        setMisses(n);
+        if (n >= 5) setLockout(Math.min(300, 30 * 2 ** (n - 5)));
+      }
       // Unconfirmed accounts get a way forward (resend) instead of the generic
       // "wrong email or password" — this is the Outlook-Safe-Links case where a
       // scanner ate the one-time link before the user could tap it.
@@ -366,9 +396,16 @@ export function AuthScreen() {
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <Button
-            title={mode === 'signup' ? 'Create account' : 'Sign in'}
+            title={
+              mode === 'signup'
+                ? 'Create account'
+                : lockout > 0
+                  ? `Try again in ${lockout}s`
+                  : 'Sign in'
+            }
+            testID="auth-submit"
             onPress={submit}
-            disabled={!valid}
+            disabled={!valid || (mode === 'signin' && lockout > 0)}
             loading={busy}
             style={{ marginTop: spacing.sm }}
           />

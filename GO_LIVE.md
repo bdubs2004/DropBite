@@ -108,6 +108,12 @@ up:
    - `niblgo://reset` (password reset opens the app to set a new password)
    - `https://niblgo.com/auth/confirm` (sign-up confirmation)
 
+   List exactly these two and nothing broader: no `*` or `**` wildcards, and
+   remove testing leftovers like `localhost` or `exp://`. Supabase sends a
+   link wherever the request asks if it matches this list, so a loose entry
+   lets someone have a confirmation or reset link carry its session to their
+   own site.
+
 **Check it:** tap "Forgot password?" in the app with an account's email. The
 email should arrive within a minute (look in spam the first time), and tapping
 its link on the phone should open NiblGo on the "Set a new password" screen. If
@@ -151,6 +157,7 @@ from `supabase/migrations/`:
 | `0030_rls_hardening.sql` | **Security fix** — closes the holes found before outside testing (DM membership, dates, streaks, reports, blocked users, photo listing); see SECURITY.md |
 | `0031_storage_hardening.sql` | **Security fix** — photos only upload through `upload-photo` (real JPEGs, metadata stripped), private DM photos, photo links must be real uploads, orphan cleanup. Deploy `upload-photo` and `sweep-storage` and ship the matching app build at the same time |
 | `0032_chat_hardening.sql` | **Security fix** — DM pushes go out once per message and only into the chat it was sent in; a phone gets one account's notifications; groups hold at most 32. Redeploy `notify-message` right after it |
+| `0033_session_checks.sql` | **Security fix** — signing out, deleting the account or a ban locks the old token out of the API at once instead of after an hour. Nothing to deploy with it; if anything ever goes wrong, the file's header has a two-line switch-off |
 
 They are all safe to run twice, and so is `schema.sql` itself. What re-running
 `schema.sql` will **not** do is add a column to a table that already exists —

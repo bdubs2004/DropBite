@@ -6,7 +6,7 @@ them.
 
 ## rls_attack_test.sql: start here
 
-The main suite: 185 checks, self-asserting (it ends with an error if any fail).
+The main suite: 197 checks, self-asserting (it ends with an error if any fail).
 Six separate accounts sign in the way the API does it, with their own tokens,
 and an attacker with a normal account (Mallory, who follows the victim and has
 her own posts and a DM with her) tries to read, change or delete other people's
@@ -47,6 +47,13 @@ moved into a thread you're not in; groups stop at 32 people; only Activity is
 broadcast live; a message is pushed once, only by the server, only into the
 thread it was sent in, and never by someone who has left; push tokens must be
 real and belong to one account.
+
+Section 18 covers sessions (migration 0033): `check_request()`, which
+PostgREST runs before every request, lets a live session through and refuses a
+signed-out, deleted, soft-deleted, banned or timed-out one, a session that
+belongs to someone else, a token naming no session or a malformed one, while
+signed-out visitors and the server pass. It also checks the check is switched
+on (`pgrst.db_pre_request` on the `authenticator` role).
 
 The upload and cleanup functions have their own tests, run with `npm test`:
 `test:jpeg` (real JPEGs pass and come out without EXIF/GPS; PNG, HTML, SVG,
