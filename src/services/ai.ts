@@ -96,9 +96,10 @@ export interface FormattedRecipe {
  * Demo mode: a local heuristic parser so the flow is fully testable offline.
  *
  * Always parse defensively: on any failure return null and let the UI fall
- * back to blurb-only. Formatting must never block a post.
+ * back to blurb-only, or 'limited' when the person has used their allowance
+ * for now. Formatting must never block a post.
  */
-export async function formatRecipe(blurb: string): Promise<FormattedRecipe | null> {
+export async function formatRecipe(blurb: string): Promise<FormattedRecipe | null | 'limited'> {
   try {
     if (DEMO_MODE) {
       // simulate a beat of latency so the loading state is honest
@@ -111,7 +112,8 @@ export async function formatRecipe(blurb: string): Promise<FormattedRecipe | nul
       // cap, and sending less keeps a long blurb from being billed as tokens.
       body: { blurb: blurb.slice(0, LIMITS.blurb) },
     });
-    if (error) return null;
+    // 429: this person's AI allowance (per minute or per day) is used up.
+    if (error) return (error as { context?: { status?: number } })?.context?.status === 429 ? 'limited' : null;
     return sanitize(data);
   } catch {
     return null;

@@ -17,6 +17,10 @@ export const LIMITS = {
   recipeTitle: 120,
   /** Max ingredients, and max steps, on one recipe card. */
   recipeItems: 50,
+  /** One ingredient's name, and its quantity or unit; one step. */
+  ingredientItem: 120,
+  ingredientQuantity: 32,
+  recipeStep: 500,
   /** Minimum password length. Raise Supabase's own minimum to match under
    *  Authentication > Providers > Email. */
   passwordMin: 8,

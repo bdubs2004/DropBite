@@ -273,6 +273,41 @@ checks(grp, item, status) as (
 
   union all
 
+  -- And the ones 0034 closed.
+  select 13, 'locked: ' || item,
+    case when open then problem || ' — run 0034_ai_limits.sql' else 'OK' end
+  from (values
+    ('AI spend has a per-minute and an app-wide daily limit',
+     to_regprocedure('public.consume_ai_quota(uuid, integer, integer, integer)') is null
+     or to_regprocedure('public.consume_ai_quota(uuid, integer)') is not null,
+     'ANY NUMBER OF ACCOUNTS CAN SPEND WITHOUT AN OVERALL CEILING'),
+    ('only the server can spend AI allowance',
+     coalesce(has_function_privilege('authenticated',
+       to_regprocedure('public.consume_ai_quota(uuid, integer, integer, integer)'), 'EXECUTE'), true),
+     'SIGNED-IN USERS CAN CALL THE AI METER'),
+    ('recipe cards must be well-formed',
+     (select count(*) from pg_constraint
+      where conrelid = 'public.recipes'::regclass
+        and conname in ('recipes_ingredients_shape', 'recipes_steps_shape', 'recipes_nutrition_shape')) < 3,
+     'A MALFORMED RECIPE CARD CAN CRASH THE APP FOR EVERYONE WHO SEES IT')
+  ) v(item, open, problem)
+
+  union all
+
+  -- Cards saved before 0034 aren't rewritten; the app draws malformed ones
+  -- safely (cleanRecipe). Not a hole, just worth knowing.
+  select 13, 'data: older recipe cards',
+    case when to_regprocedure('public.recipe_ingredients_ok(jsonb)') is null then 'OK (run 0034 to check them)'
+         else coalesce((
+           select case when count(*) = 0 then 'OK (all well-formed)'
+                       else 'OK (' || count(*) || ' saved before 0034 are malformed; the app draws them safely)' end
+           from public.recipes r
+           where not (public.recipe_ingredients_ok(r.ingredients)
+                      and public.recipe_steps_ok(r.steps)
+                      and public.recipe_nutrition_ok(r.nutrition))), 'OK') end
+
+  union all
+
   -- Not a hole, but photo links can't be saved until it's recorded: deploy
   -- upload-photo and post one photo, and it fills itself in.
   select 10, 'setting: storage origin',

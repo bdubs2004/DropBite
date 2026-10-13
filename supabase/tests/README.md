@@ -6,7 +6,7 @@ them.
 
 ## rls_attack_test.sql: start here
 
-The main suite: 197 checks, self-asserting (it ends with an error if any fail).
+The main suite: 212 checks, self-asserting (it ends with an error if any fail).
 Six separate accounts sign in the way the API does it, with their own tokens,
 and an attacker with a normal account (Mallory, who follows the victim and has
 her own posts and a DM with her) tries to read, change or delete other people's
@@ -55,10 +55,16 @@ belongs to someone else, a token naming no session or a malformed one, while
 signed-out visitors and the server pass. It also checks the check is switched
 on (`pgrst.db_pre_request` on the `authenticator` role).
 
+Section 19 covers AI allowance and recipe data (migration 0034): the daily,
+per-minute and app-wide limits trip where they should and only the server can
+spend allowance; a recipe card whose ingredients, steps or nutrition aren't
+the documented shape is refused, and a well-formed one still saves.
+
 The upload and cleanup functions have their own tests, run with `npm test`:
 `test:jpeg` (real JPEGs pass and come out without EXIF/GPS; PNG, HTML, SVG,
 disguised, truncated, appended-payload and decompression-bomb files are
-refused), `test:upload`, `test:sweep` and `test:notify` (the functions' rules,
+refused), `test:ai` (request size, model timeouts, hostile or malformed model
+replies, prompt echoes), `test:upload`, `test:sweep` and `test:notify` (the functions' rules,
 with stand-ins for Supabase). `npm run test:functions` (needs Deno) runs every
 edge function for real against a stand-in Supabase that records each call:
 no token, the publishable key or a forged token gets 401 with nothing touched,

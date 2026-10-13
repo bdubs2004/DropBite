@@ -121,6 +121,20 @@ begin
     when others then return 'error:' || sqlerrm;
   end;
 end $$;
+-- Ask for AI allowance n times in a row for one person (as the server does);
+-- 't' for each allowed call, 'f' for each refused. Global ceiling is given
+-- relative to what has already been used today, so tests don't depend on order.
+create function qa.ai_calls(who uuid, n int, daily int, per_min int, global_headroom int) returns text
+language plpgsql as $$
+declare out text := ''; used int;
+begin
+  select coalesce((select count from public.ai_usage_global where day = (now() at time zone 'utc')::date), 0) into used;
+  for i in 1..n loop
+    out := out || case when public.consume_ai_quota(who, daily, per_min, used + global_headroom) then 't' else 'f' end;
+  end loop;
+  return out;
+exception when others then return 'error:' || sqlerrm;
+end $$;
 create function qa.post_and_read_streak() returns bigint language plpgsql as $$
 begin
   insert into public.posts (user_id, meal_slot, photo_url)
@@ -315,7 +329,8 @@ select qa.fact('schema', 'every SECURITY DEFINER function pins its search_path',
      where n.nspname = 'public' and p.prosecdef
        and not exists (select 1 from unnest(coalesce(p.proconfig, '{}')) c where c like 'search_path=%')$q$, '0');
 -- check_request is the per-request session check PostgREST runs as the
--- caller (0033); it reads nothing back and only ever refuses.
+-- caller (0033); it reads nothing back and only ever refuses. The recipe_*_ok
+-- shape checks (0034) are pure functions the recipe CHECKs call as the writer.
 select qa.fact('schema', 'signed out, only the share-link preview (and the session check) are callable',
   $q$select coalesce(string_agg(p.proname, ',' order by p.proname), '') from pg_proc p
      join pg_namespace n on n.oid = p.pronamespace
@@ -326,7 +341,7 @@ select qa.fact('schema', 'signed in, only the functions the app needs are callab
      join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'public' and p.prokind = 'f' and p.prorettype <> 'trigger'::regtype
        and has_function_privilege('authenticated', p.oid, 'execute')$q$,
-  'can_reply_under,check_request,conversation_has_block,follow_counts,get_post_preview,is_blocked_pair,is_conversation_member,leave_conversation,start_conversation,start_group_conversation');
+  'can_reply_under,check_request,conversation_has_block,follow_counts,get_post_preview,is_blocked_pair,is_conversation_member,leave_conversation,recipe_ingredients_ok,recipe_nutrition_ok,recipe_steps_ok,start_conversation,start_group_conversation');
 
 -- =======================================================================
 -- 2. Profiles
@@ -808,6 +823,50 @@ select qa.fact('sessions', 'every API request runs the check',
   $q$select (coalesce((select array_to_string(setconfig, ',') from pg_db_role_setting
                        where setrole = 'authenticator'::regrole and setdatabase = 0), '')
              like '%pgrst.db_pre_request=public.check_request%')::text$q$, 'true');
+
+-- =======================================================================
+-- 19. AI allowance and recipe data
+-- =======================================================================
+-- Every recipe card and nutrition estimate costs money. Three meters: per
+-- person per day, per person per minute, and the whole app per day (the
+-- ceiling on what many accounts together can spend).
+select qa.fact('ai', 'a person gets their daily allowance, then no more',
+  $q$select qa.ai_calls('aaaaaaaa-0000-4000-8000-000000000001', 5, 3, 100, 1000)$q$, 'tttff');
+select qa.fact('ai', 'bursts are capped per minute',
+  $q$select qa.ai_calls('bbbbbbbb-0000-4000-8000-000000000002', 8, 100, 6, 1000)$q$, 'ttttttff');
+select qa.fact('ai', 'one person hitting their limit doesn''t affect another',
+  $q$select qa.ai_calls('cccccccc-0000-4000-8000-000000000003', 2, 3, 6, 1000)$q$, 'tt');
+select qa.fact('ai', 'the whole app stops at its daily ceiling, however many accounts ask',
+  $q$select qa.ai_calls('ffffffff-0000-4000-8000-000000000006', 3, 100, 100, 2)
+     || qa.ai_calls('eeeeeeee-0000-4000-8000-000000000005', 1, 100, 100, 0)$q$, 'ttff');
+select qa.check('ai', 'read the app-wide AI meter', 'mallory',
+  $q$select count(*) from public.ai_usage_global$q$, 'denied');
+select qa.check('ai', 'spend the app-wide AI allowance (consume_ai_quota)', 'mallory',
+  format($q$select count(*) from (select public.consume_ai_quota(%L, 1000, 1000, 100000)) s$q$, :mallory), 'error');
+
+-- Recipe cards are rendered for everyone who sees the post, so their JSON must
+-- be the documented shape: one malformed card must not break other people's
+-- apps (an object where text belongs crashes the screen that draws it).
+select qa.check('recipe data', 'an ingredient that is an object, not text', 'mallory',
+  $q$update public.recipes set ingredients = '[{"item":{"x":1},"quantity":"","unit":""}]' where id = '60000000-0000-4000-8000-000000000004'$q$, 'denied');
+select qa.check('recipe data', 'an ingredient that is null', 'mallory',
+  $q$update public.recipes set ingredients = '[null]' where id = '60000000-0000-4000-8000-000000000004'$q$, 'denied');
+select qa.check('recipe data', 'an ingredient that is a bare string', 'mallory',
+  $q$update public.recipes set ingredients = '["salt"]' where id = '60000000-0000-4000-8000-000000000004'$q$, 'denied');
+select qa.check('recipe data', 'an ingredient name 5,000 characters long', 'mallory',
+  format($q$update public.recipes set ingredients = jsonb_build_array(jsonb_build_object('item', %L, 'quantity', '', 'unit', '')) where id = '60000000-0000-4000-8000-000000000004'$q$, repeat('x', 5000)), 'denied');
+select qa.check('recipe data', 'a step that is an object', 'mallory',
+  $q$update public.recipes set steps = '["Chop.", {"evil": true}]' where id = '60000000-0000-4000-8000-000000000004'$q$, 'denied');
+select qa.check('recipe data', 'nutrition that is text', 'mallory',
+  $q$update public.recipes set nutrition = '{"calories":"lots"}' where id = '60000000-0000-4000-8000-000000000004'$q$, 'denied');
+select qa.check('recipe data', 'negative nutrition', 'mallory',
+  $q$update public.recipes set nutrition = '{"calories":-500}' where id = '60000000-0000-4000-8000-000000000004'$q$, 'denied');
+select qa.check('recipe data', 'nutrition inside an ingredient that is malformed', 'mallory',
+  $q$update public.recipes set ingredients = '[{"item":"salt","quantity":"1","unit":"tsp","grams":"x"}]' where id = '60000000-0000-4000-8000-000000000004'$q$, 'denied');
+select qa.check('recipe data', 'a well-formed card still saves', 'mallory',
+  $q$update public.recipes set ingredients = '[{"item":"potatoes","quantity":"2","unit":""},{"item":"salt","quantity":"","unit":"","grams":1.5,"fdc_id":123,"nutrition":{"calories":0,"sodium_mg":580}}]',
+       steps = '["Slice.","Fry."]', nutrition = '{"calories":320.5,"protein_g":4,"carbs_g":40,"fat_g":17,"fiber_g":3,"sugar_g":0,"sodium_mg":580}', servings = 2
+     where id = '60000000-0000-4000-8000-000000000004'$q$, 'rows:1');
 
 -- ------------------------------------------------------------- report
 \echo

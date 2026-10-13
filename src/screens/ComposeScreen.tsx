@@ -58,7 +58,7 @@ export function ComposeScreen({ navigation }: any) {
   // notice when the user rewrites the description out from under the card.
   const [recipeBlurb, setRecipeBlurb] = useState('');
   const [formatting, setFormatting] = useState(false);
-  const [formatFailed, setFormatFailed] = useState<null | 'error'>(null);
+  const [formatFailed, setFormatFailed] = useState<null | 'error' | 'limited'>(null);
   // Set when the card had to start blank (nothing in the description to build
   // from), so it can say what to do with it.
   const [recipeBlank, setRecipeBlank] = useState(false);
@@ -108,8 +108,8 @@ export function ComposeScreen({ navigation }: any) {
     setFormatFailed(null);
     const result = await formatRecipe(blurb);
     setFormatting(false);
-    if (!result) {
-      setFormatFailed('error');
+    if (!result || result === 'limited') {
+      setFormatFailed(result === 'limited' ? 'limited' : 'error');
       return;
     }
     // Tapping Format always gives you a card. The AI makes one for anything
@@ -420,6 +420,11 @@ export function ComposeScreen({ navigation }: any) {
                 Formatting is unavailable right now. Your post works fine without it, or
                 try again in a moment.
               </Muted>
+            ) : formatFailed === 'limited' ? (
+              <Muted style={{ marginTop: spacing.sm }}>
+                You’ve made a lot of recipe cards lately. Try again a bit later, or post
+                without one.
+              </Muted>
             ) : null}
           </View>
         ) : (
@@ -458,6 +463,11 @@ export function ComposeScreen({ navigation }: any) {
                   <Muted style={{ marginTop: spacing.sm }}>
                     Rebuilding is unavailable right now. Try again in a moment, or keep
                     the card you have.
+                  </Muted>
+                ) : formatFailed === 'limited' ? (
+                  <Muted style={{ marginTop: spacing.sm }}>
+                    You’ve made a lot of recipe cards lately. Try again a bit later, or
+                    keep the card you have.
                   </Muted>
                 ) : null}
               </View>
