@@ -11,7 +11,7 @@ function world(orphans: string[], over: Partial<SweepDeps> = {}) {
   const removed: { bucket: string; paths: string[] }[] = [];
   const asked: { grace: number; bucket: string | null }[] = [];
   const deps: SweepDeps = {
-    isServiceKey: (t) => t === 'service-key',
+    isServerSecret: (t) => t === 'service-key' || t === 'sweep-secret',
     findOrphans: async (grace, bucket) => {
       asked.push({ grace, bucket });
       return orphans;
@@ -28,10 +28,10 @@ function world(orphans: string[], over: Partial<SweepDeps> = {}) {
   };
   return { deps, removed, asked };
 }
-const req = (auth: string | null, body?: unknown, method = 'POST') =>
+const req = (auth: string | null, body?: unknown, method = 'POST', headers: Record<string, string> = {}) =>
   new Request('https://fn/sweep-storage', {
     method,
-    headers: auth ? { Authorization: `Bearer ${auth}` } : {},
+    headers: { ...(auth ? { Authorization: `Bearer ${auth}` } : {}), ...headers },
     body: body === undefined || method !== 'POST' ? undefined : JSON.stringify(body),
   });
 
@@ -43,6 +43,10 @@ const req = (auth: string | null, body?: unknown, method = 'POST') =>
   check('a user token: refused, nothing deleted', res.status === 401 && w.removed.length === 0);
   res = await handleSweep(req('service-key', undefined, 'GET'), w.deps);
   check('GET: refused', res.status === 405);
+  res = await handleSweep(req(null, {}, 'POST', { 'x-sweep-secret': 'a-guess' }), w.deps);
+  check('a wrong sweep secret: refused, nothing deleted', res.status === 401 && w.removed.length === 0);
+  res = await handleSweep(req(null, {}, 'POST', { 'x-sweep-secret': 'sweep-secret' }), w.deps);
+  check('the sweep secret (what the cron job keeps) runs it', res.status === 200 && w.removed.length === 1);
 
   w = world(['photos/u1/a.jpg', 'dm-photos/c1/b.jpg', 'photos/u2/c.jpg']);
   res = await handleSweep(req('service-key'), w.deps);

@@ -59,7 +59,11 @@ The upload and cleanup functions have their own tests, run with `npm test`:
 `test:jpeg` (real JPEGs pass and come out without EXIF/GPS; PNG, HTML, SVG,
 disguised, truncated, appended-payload and decompression-bomb files are
 refused), `test:upload`, `test:sweep` and `test:notify` (the functions' rules,
-with stand-ins for Supabase).
+with stand-ins for Supabase). `npm run test:functions` (needs Deno) runs every
+edge function for real against a stand-in Supabase that records each call:
+no token, the publishable key or a forged token gets 401 with nothing touched,
+a user id in the request is never taken as identity, and only the server can
+run the sweep.
 
 ## reports_test.sql
 

@@ -60,6 +60,7 @@ export function activityText(type: string, name: string, commentText?: string | 
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
+  if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
 
   try {
     const url = Deno.env.get('SUPABASE_URL')!;
