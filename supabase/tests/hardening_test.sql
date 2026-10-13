@@ -90,10 +90,12 @@ with ours(name) as (
          ('consume_ai_quota'), ('notify_post_interaction'), ('notify_comment')
 ),
 -- authenticated needs EXECUTE only where an RLS policy expression calls it.
+-- is_following and conversation_is_empty lost their last policy in 0030
+-- (members are only added by the start functions), so nobody calls them.
 expected(name, anon_ok, auth_ok) as (
   values ('is_blocked_pair', false, true), ('is_conversation_member', false, true),
-         ('conversation_is_empty', false, true), ('conversation_has_block', false, true),
-         ('is_following', false, true), ('follow_counts', false, true),
+         ('conversation_is_empty', false, false), ('conversation_has_block', false, true),
+         ('is_following', false, false), ('follow_counts', false, true),
          ('consume_ai_quota', false, false), ('notify_post_interaction', false, false),
          ('notify_comment', false, false)
 )

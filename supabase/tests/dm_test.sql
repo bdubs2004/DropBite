@@ -52,16 +52,21 @@ set test.uid = '11111111-1111-1111-1111-111111111111';
 insert into public.messages (conversation_id, sender_id, text)
   values ('cccccccc-0000-0000-0000-000000000001','11111111-1111-1111-1111-111111111111','');
 
-\echo '--- 8. Starting a NEW thread works (expect success) ---'
+\echo '--- 8. Starting a NEW thread works, through start_conversation (expect 1 msg) ---'
+-- Chats only start through the function (migration 0030): it checks the
+-- follow and any block. Raw inserts into conversations / members are refused.
 set test.uid = '33333333-3333-3333-3333-333333333333';
-insert into public.conversations (id) values ('cccccccc-0000-0000-0000-000000000002');
-insert into public.conversation_members (conversation_id, user_id) values
-  ('cccccccc-0000-0000-0000-000000000002','33333333-3333-3333-3333-333333333333');
-insert into public.conversation_members (conversation_id, user_id) values
-  ('cccccccc-0000-0000-0000-000000000002','11111111-1111-1111-1111-111111111111');
+insert into public.follows (follower_id, followee_id)
+  values ('33333333-3333-3333-3333-333333333333','11111111-1111-1111-1111-111111111111');
+-- Two steps, like the app: start (or reuse) the thread, then send.
+select public.start_conversation('11111111-1111-1111-1111-111111111111') as conv \gset
 insert into public.messages (conversation_id, sender_id, text)
-  values ('cccccccc-0000-0000-0000-000000000002','33333333-3333-3333-3333-333333333333','hi alice');
+  values (:'conv', '33333333-3333-3333-3333-333333333333', 'hi alice');
 select count(*) as snoop_own_thread_msgs from public.messages;
+\echo '--- 8b. ...but not by hand (expect two RLS denials) ---'
+insert into public.conversations (id) values ('cccccccc-0000-0000-0000-000000000003');
+insert into public.conversation_members (conversation_id, user_id)
+  values ('cccccccc-0000-0000-0000-000000000001','33333333-3333-3333-3333-333333333333');
 
 \echo '--- 9. A shared post survives the post being deleted (SET NULL) ---'
 reset role;

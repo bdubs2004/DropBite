@@ -148,6 +148,7 @@ from `supabase/migrations/`:
 | `0027_handle_capitals.sql` | Handles keep their capitals (JoeMama), still unique ignoring case |
 | `0028_activity.sql` | Follows, comment likes and replies in Activity; push for them; no liking your own post |
 | `0029_activity_live.sql` | Live Activity, so the in-app banner drops down the moment it happens |
+| `0030_rls_hardening.sql` | **Security fix** — closes the holes found before outside testing (DM membership, dates, streaks, reports, blocked users, photo listing); see SECURITY.md |
 
 They are all safe to run twice, and so is `schema.sql` itself. What re-running
 `schema.sql` will **not** do is add a column to a table that already exists —
