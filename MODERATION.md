@@ -228,9 +228,11 @@ messages. Their photos go with the next daily `sweep-storage` run.
 > and the app rebuilds a missing profile the next time they sign in, so they
 > would simply be back.
 
-> Reports they *filed* are removed with them (`reporter_id` cascades). Reports
-> *against* them survive with `reported_user_id` set to null — the audit trail
-> stays.
+> Reports they *filed* survive with `reporter_id` set to null, and reports
+> *against* them with `reported_user_id` set to null: the audit trail stays
+> either way (migration 0036). Two years after a report is closed, the copy of
+> the reported content is cleared by the daily sweep (`REPORT_RETENTION_DAYS`);
+> the report itself stays.
 
 ---
 

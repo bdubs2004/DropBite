@@ -13,6 +13,39 @@
 --
 -- Afterwards, run `schema.sql`, then `verify.sql` to confirm.
 
+-- A guard, so this can't wipe a live app by being pasted into the wrong
+-- project: it refuses when there are more than 5 accounts, unless you add
+-- this line at the very top, in the same run:
+--
+--     set niblgo.confirm_reset = 'wipe everything';
+--
+-- It all runs as one transaction, so a refusal changes nothing.
+begin;
+
+do $$
+declare
+  accounts bigint := (select count(*) from auth.users);
+begin
+  if accounts > 5 and current_setting('niblgo.confirm_reset', true) is distinct from 'wipe everything' then
+    raise exception 'Refusing to wipe a database with % accounts. If you really mean to, put  set niblgo.confirm_reset = ''wipe everything'';  at the top and run again.', accounts;
+  end if;
+end
+$$;
+
+-- The API checks every request with public.check_request() (0033), which is
+-- about to be dropped. Switch that off first, or every request fails until
+-- schema.sql has been run again (schema.sql switches it back on).
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'authenticator') then
+    alter role authenticator reset pgrst.db_pre_request;
+    perform pg_notify('pgrst', 'reload config');
+  end if;
+exception when others then
+  raise warning 'Could not switch off the session check (%); run schema.sql straight after this.', sqlerrm;
+end
+$$;
+
 -- Everything the app owns lives in `public`, so dropping the schema takes the
 -- tables, policies, functions, triggers and the meal_slot type with it.
 drop schema if exists public cascade;
@@ -25,11 +58,15 @@ grant all on schema public to postgres;
 -- no longer see in the app.
 delete from auth.users;
 
--- Uploaded photos, and the bucket itself. schema.sql recreates the bucket with
--- the right size and MIME limits.
-delete from storage.objects where bucket_id = 'photos';
-delete from storage.buckets where id = 'photos';
+-- Uploaded photos (public and DM), and the buckets themselves. schema.sql
+-- recreates them with the right privacy, size and type limits.
+delete from storage.objects where bucket_id in ('photos', 'dm-photos');
+delete from storage.buckets where id in ('photos', 'dm-photos');
 
 drop policy if exists "photos public read" on storage.objects;
+drop policy if exists "read own photos" on storage.objects;
+drop policy if exists "read photos in own chats" on storage.objects;
 drop policy if exists "upload own photos" on storage.objects;
 drop policy if exists "delete own photos" on storage.objects;
+
+commit;

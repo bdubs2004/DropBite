@@ -24,6 +24,10 @@ the enforcement point.
 | Anthropic API key | Server-only secret | `supabase secrets set`, never `.env`, never the bundle. |
 | Model output | **Untrusted input** | Steered by user text; bounded and re-shaped before use. |
 
+**Before the outside test:** docs/SECURITY_REVIEW.md is the brief (what's
+protected and the evidence, accepted risks, what's left), and
+docs/OPERATIONS.md covers logs, access, backups, recovery and retention.
+
 ## Keys and secrets
 
 Every key the project uses, and where it lives:
@@ -382,6 +386,14 @@ than `Math.random`.
 - **Sessions don't time out on their own** (like Instagram). Supabase's session
   time-box and inactivity timeout are paid-plan settings; the app works with
   them if they're turned on (expired sessions are refused).
+- **DM notifications carry the message's words** through Expo's and Apple's
+  push services, like Instagram. `DM_PUSH_PREVIEWS=off` (notify-message)
+  sends "New message" instead.
+- **Logs keep some personal data for the plan's retention**: API logs include
+  query strings, Postgres error logs can include the row a refused write tried
+  to save, and auth logs hold emails and IPs (docs/OPERATIONS.md, "Logs").
+- **All `eas.json` build profiles use the production project**, so development
+  builds see real data. Use a staging project for testing anything risky.
 - **Recipe labels are client-set**: `nutrition_source`, `ai_generated` and
   `user_edited` are whatever the app sends, so a scripted client could label
   its own numbers as USDA.
@@ -432,6 +444,8 @@ than `Math.random`.
       key to the iOS bundle id `com.niblgo.app` (and the Android package) and
       to the Places API only, and set a daily quota. It ships in the app, so
       the restrictions are the only thing stopping someone else spending it.
+- [ ] docs/OPERATIONS.md, "Production configuration": `pg_graphql` off, SSL
+      enforced; on a paid plan with backups, and `scripts/backup.sh` run once.
 - [ ] Turn on GitHub secret scanning and push protection for the repo
       (Settings → Code security), so a pasted key is stopped at `git push`.
 - [ ] Publish a moderation contact and community guidelines (see
@@ -439,7 +453,7 @@ than `Math.random`.
 - [ ] Run `supabase/tests/` against a scratch Postgres after any schema change,
       above all `rls_attack_test.sql` (see `supabase/tests/README.md`).
 - [ ] Paste `supabase/verify.sql` into the SQL Editor after migrating: its
-      "locked:" rows confirm the 0030 to 0033 holes are closed on the real
+      "locked:" rows confirm the 0030 to 0036 holes are closed on the real
       project.
 - [ ] Never add the chat tables to Realtime (Database → Publications); verify.sql
       flags it if someone does.

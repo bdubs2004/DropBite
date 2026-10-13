@@ -15,6 +15,13 @@
 export type SweepDeps = {
   /** True only for SWEEP_SECRET or the service-role key (compared in constant time). */
   isServerSecret(token: string): boolean;
+  /**
+   * Clear what closed reports copied once they're old enough (0036). Returns
+   * how many. Runs first, so the photos they pointed at go in the same sweep.
+   */
+  redactClosedReports(days: number): Promise<number>;
+  /** How long a closed report keeps its copies. */
+  reportRetentionDays: number;
   /** 'bucket/path' for every orphan older than `graceHours`. */
   findOrphans(graceHours: number, onlyBucket: string | null): Promise<string[]>;
   remove(bucket: string, paths: string[]): Promise<{ error?: string }>;
@@ -77,6 +84,14 @@ export async function handleSweep(req: Request, deps: SweepDeps): Promise<Respon
     return json({ moved: moved.length, failed }, failed.length ? 500 : 200);
   }
 
+  // Never less than 30 days: moderators need time to look at a closed report again.
+  let reportsRedacted = 0;
+  try {
+    reportsRedacted = await deps.redactClosedReports(Math.max(30, deps.reportRetentionDays));
+  } catch {
+    // Retention is tidy-up; a failure here mustn't stop the photo sweep.
+  }
+
   const orphans = (await deps.findOrphans(graceHours, onlyBucket)).slice(0, MAX_PER_RUN);
   const byBucket = new Map<string, string[]>();
   for (const full of orphans) {
@@ -98,5 +113,8 @@ export async function handleSweep(req: Request, deps: SweepDeps): Promise<Respon
       else removed += batch.length;
     }
   }
-  return json({ found: orphans.length, removed, errors }, errors.length ? 500 : 200);
+  return json(
+    { found: orphans.length, removed, reports_redacted: reportsRedacted, errors },
+    errors.length ? 500 : 200,
+  );
 }

@@ -10,8 +10,14 @@ const check = (name: string, ok: boolean, detail = '') => {
 function world(orphans: string[], over: Partial<SweepDeps> = {}) {
   const removed: { bucket: string; paths: string[] }[] = [];
   const asked: { grace: number; bucket: string | null }[] = [];
+  const redacted: number[] = [];
   const deps: SweepDeps = {
     isServerSecret: (t) => t === 'service-key' || t === 'sweep-secret',
+    reportRetentionDays: 730,
+    redactClosedReports: async (days) => {
+      redacted.push(days);
+      return 2;
+    },
     findOrphans: async (grace, bucket) => {
       asked.push({ grace, bucket });
       return orphans;
@@ -26,7 +32,7 @@ function world(orphans: string[], over: Partial<SweepDeps> = {}) {
     randomName: () => 'f'.repeat(32),
     ...over,
   };
-  return { deps, removed, asked };
+  return { deps, removed, asked, redacted };
 }
 const req = (auth: string | null, body?: unknown, method = 'POST', headers: Record<string, string> = {}) =>
   new Request('https://fn/sweep-storage', {
@@ -57,6 +63,13 @@ const req = (auth: string | null, body?: unknown, method = 'POST', headers: Reco
       { bucket: 'dm-photos', paths: ['c1/b.jpg'] },
     ]), JSON.stringify(w.removed));
   check('defaults to a day of grace', w.asked[0].grace === 24 && w.asked[0].bucket === null);
+  check('each run also clears old closed reports (two years by default)', w.redacted.join() === '730' && body.reports_redacted === 2);
+  w = world([], { reportRetentionDays: 1 });
+  await handleSweep(req('service-key'), w.deps);
+  check('report copies are never cleared sooner than 30 days', w.redacted.join() === '30');
+  w = world(['photos/u1/a.jpg'], { redactClosedReports: async () => { throw new Error('no 0036'); } });
+  res = await handleSweep(req('service-key'), w.deps);
+  check('a retention failure doesn\'t stop the photo sweep', res.status === 200 && w.removed.length === 1);
 
   w = world([]);
   await handleSweep(req('service-key', { grace_hours: 0, bucket: 'dm-photos' }), w.deps);

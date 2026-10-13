@@ -59,7 +59,7 @@ Deno.serve(async (req: Request) => {
     // would remain fetchable by anyone holding the URL. Every upload path in
     // the app writes under `<user id>/`, which is what makes this sweep exact.
     let photosRemoved = 0;
-    let photoError: string | null = null;
+    let photoError = false;
     try {
       // Always list from the start: each pass deletes what it lists, so the
       // next page is again at offset 0. The pass cap stops this spinning
@@ -84,7 +84,7 @@ Deno.serve(async (req: Request) => {
       // for and what the law requires; blocking it on a storage hiccup would
       // trap them in an account they have asked to leave. Log loudly instead
       // so the leftovers can be swept by hand — the prefix is in the message.
-      photoError = String(e);
+      photoError = true;
       console.error(`photo cleanup FAILED for ${userId}/ — sweep this prefix manually`, e);
     }
 
@@ -117,7 +117,9 @@ Deno.serve(async (req: Request) => {
     }
 
     console.log(`deleted account ${userId}, photos removed: ${photosRemoved}`);
-    return json({ ok: true, photos_removed: photosRemoved, photo_error: photoError }, 200, cors);
+    // The detail stays in the logs; the caller only learns that the daily
+    // sweep will finish the photos.
+    return json({ ok: true, photos_removed: photosRemoved, photos_pending: photoError }, 200, cors);
   } catch (e) {
     console.error('delete-account failed', e);
     return json({ error: 'server_error' }, 500, cors);

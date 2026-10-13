@@ -11,6 +11,7 @@
 //
 // Deploy:  supabase functions deploy notify-message
 // Needs migration 0032 (claim_message_push); without it nothing is pushed.
+// DM_PUSH_PREVIEWS=off sends "New message" instead of the message's words.
 // Uses the SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY secrets Supabase injects.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
@@ -45,6 +46,7 @@ const admin = createClient(
 Deno.serve((req) =>
   handleNotify(req, {
     corsHeaders: corsHeaders(req.headers.get('Origin')),
+    showPreviews: Deno.env.get('DM_PUSH_PREVIEWS') !== 'off',
 
     async userFromToken(jwt) {
       const { data, error } = await admin.auth.getUser(jwt);

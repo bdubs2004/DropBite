@@ -37,6 +37,7 @@ const MODEL_TIMEOUT_MS = 25_000;
 const USDA_TIMEOUT_MS = 8_000;
 /** USDA lookups in flight at once (api.data.gov allows 1,000 an hour per key). */
 const USDA_PARALLEL = 4;
+const DEBUG = Deno.env.get('NUTRITION_DEBUG') === '1';
 
 // USDA nutrient numbers are stable identifiers; names drift between datasets,
 // so match on these rather than on strings like "Total lipid (fat)".
@@ -141,17 +142,20 @@ Deno.serve(async (req: Request) => {
       const fdcId = hit ? hit.fdc_id : null;
       if (hit) anyUsda = true;
 
-      // Log each outcome so a dropped ingredient can be diagnosed from the
-      // function logs: is it the weight step (grams null) or the USDA match?
-      console.log(
-        'nutrition item',
-        JSON.stringify({
-          item: ing.item,
-          grams: ing.grams,
-          search_term: ing.search_term,
-          usda_matched: !!per100g,
-        }),
-      );
+      // Off unless NUTRITION_DEBUG=1: logs say what people cook, which the
+      // logs don't otherwise need. Turn it on to see whether a dropped
+      // ingredient failed the weight step (grams null) or the USDA match.
+      if (DEBUG) {
+        console.log(
+          'nutrition item',
+          JSON.stringify({
+            item: ing.item,
+            grams: ing.grams,
+            search_term: ing.search_term,
+            usda_matched: !!per100g,
+          }),
+        );
+      }
 
       if (!per100g || !ing.grams) {
         unmatched.push(ing.item);
