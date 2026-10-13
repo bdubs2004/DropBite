@@ -1,10 +1,10 @@
 # End-to-end security verification: last run
 
-Run 2026-10-13 20:13 UTC with `supabase/tests/e2e/run.sh`: Postgres 16 + schema.sql, Supabase Auth v2.177.0, PostgREST 12.2.3, the seven edge functions on Deno, supabase-js as the client. Storage is a stand-in that authorizes through the same storage.objects policies (gateway.mjs).
+Run 2026-10-13 20:32 UTC with `supabase/tests/e2e/run.sh`: Postgres 16 + schema.sql, Supabase Auth v2.177.0, PostgREST 12.2.3, the seven edge functions on Deno, supabase-js as the client. Storage is a stand-in that authorizes through the same storage.objects policies (gateway.mjs).
 
 User A owns the data; User B is a separate, unrelated account; User C is signed out.
 
-**78 of 78 checks passed.**
+**110 of 110 checks passed.**
 
 ## 1. User B requests User A's private messages
 
@@ -27,7 +27,7 @@ User A owns the data; User B is a separate, unrelated account; User C is signed 
 | B renames it | denied (0 rows changed) | 0 row(s) | PASS |
 | B deletes it | denied (0 rows deleted) | 0 row(s) | PASS |
 | B adds a post to it | denied (error) | error: new row violates row-level security policy for table "collection_posts" | PASS |
-| afterwards A's collection is exactly as it was | owner A, name "Weeknight dinners" | {"id":"742d569a-ada4-4269-bbd3-ac4d0b80599a","user_id":"f9b8e22c-31a4-4a5e-9807-1fef391d4919","name":"Weeknight dinners"} | PASS |
+| afterwards A's collection is exactly as it was | owner A, name "Weeknight dinners" | {"id":"4b8b6d9f-c054-4573-af7c-d3e951c665a3","user_id":"f471039c-f729-4ab2-82ac-c3c746bc1cca","name":"Weeknight dinners"} | PASS |
 | B reads A's saved posts (the private list) | denied (0 rows) | 0 row(s) | PASS |
 | B clears A's saved posts | denied (0 rows) | 0 row(s) | PASS |
 | control: A still sees her saved post | 1 row | 1 row(s) | PASS |
@@ -41,7 +41,7 @@ User A owns the data; User B is a separate, unrelated account; User C is signed 
 | B deletes A's post | denied (0 rows deleted) | 0 row(s) | PASS |
 | B posts as A (user_id = A) | denied (error) | error: Upload photos with the app. | PASS |
 | B edits A's profile | denied (0 rows changed) | 0 row(s) | PASS |
-| afterwards A's post is untouched | unchanged | {"blurb":"Alice's garlic chicken","user_id":"f9b8e22c-31a4-4a5e-9807-1fef391d4919"} | PASS |
+| afterwards A's post is untouched | unchanged | {"blurb":"Alice's garlic chicken","user_id":"f471039c-f729-4ab2-82ac-c3c746bc1cca"} | PASS |
 | control: A edits her own post | 1 row changed | 1 row(s) | PASS |
 
 ## 4. User B tries to get User A's private photos
@@ -133,3 +133,40 @@ User A owns the data; User B is a separate, unrelated account; User C is signed 
 | B sees A's public profile | 1 row | 1 row(s) | PASS |
 | B sees A's collection (collections show on profiles) | 1 row | 1 row(s) | PASS |
 | …but never her email (not a profile column) | error (no such column) | error: column users.email does not exist | PASS |
+
+## 11. Everyday features still work after the hardening
+
+| Check | Expected | Got | |
+| --- | --- | --- | --- |
+| A tags Dana in her post | ok | ok | PASS |
+| …Dana gets a "tagged you" notification | 1 | 1 tag notification(s) | PASS |
+| …and everyone can see who is tagged | Dana listed | 1 row(s) | PASS |
+| …but B can't tag himself (or anyone) on A's post | denied | error: new row violates row-level security policy for table "post_tags" | PASS |
+| Dana removes herself from the tag | 1 row | 1 row(s) | PASS |
+| B likes A's post | ok | ok | PASS |
+| …A gets a like notification | from B | checked | PASS |
+| …and a push for it goes to Alice's phone | a push to Alice | "Bob liked your post" | PASS |
+| B comments on A's post | ok | ok | PASS |
+| A replies to the comment | ok | ok | PASS |
+| A likes B's comment | ok | ok | PASS |
+| B follows A | ok | ok | PASS |
+| …A gets a follow notification | from B | checked | PASS |
+| B reposts A's post | ok | ok | PASS |
+| B shares A's post | ok | ok | PASS |
+| B saves A's post | ok | ok | PASS |
+| A saves a recipe card with nutrition on her post | ok | ok | PASS |
+| …and others see the card | 1 card | 1 row(s) | PASS |
+| Format recipe makes a card | a card | "Garlic chicken", 2 ingredients | PASS |
+| Estimate nutrition works | USDA numbers | source usda, 150 kcal | PASS |
+| B edits his profile with a new avatar | ok | ok | PASS |
+| Dana replies in the DM | ok | ok | PASS |
+| …Alice gets a push with the message | 1 push to Alice | 1 push to ExponentPushToken[alice-phone]: "got it, thanks!" | PASS |
+| A reacts to Dana's message | ok | ok | PASS |
+| Eli posts in the group | ok | ok | PASS |
+| A names the group | 1 row | 1 row(s) | PASS |
+| Eli leaves the group, and can no longer read it | ok; 0 rows | ok; 0 row(s) after | PASS |
+| A's streak counted her post | at least 1 | {"current_streak":1} | PASS |
+| Dana reports a post | ok | ok | PASS |
+| Dana sends feedback | ok | ok | PASS |
+| Dana posts, then deletes her own post | ok; 1 deleted | ok; 1 row(s) deleted | PASS |
+| A blocks B, and B no longer sees her posts | ok; 0 rows | ok; B sees 0 row(s) | PASS |

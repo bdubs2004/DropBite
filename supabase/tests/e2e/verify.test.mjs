@@ -352,6 +352,113 @@ check('B sees A\'s collection (collections show on profiles)', r.data?.length ==
 r = await B.sb.from('users').select('email').eq('id', A.id);
 check('…but never her email (not a profile column)', !!r.error, r.error ? `error: ${r.error.message}` : JSON.stringify(r.data), 'error (no such column)');
 
+// ======================================== everyday features still work
+heading('11. Everyday features still work after the hardening');
+const ok_ = (r) => (r.error ? `error: ${r.error.message}` : 'ok');
+const notes = async (who, type) => {
+  const n = await who.sb.from('notifications').select('type, actor_id').eq('user_id', who.id).eq('type', type);
+  return n.data ?? [];
+};
+// Dana follows Alice back so the two can interact both ways.
+await D.sb.from('follows').insert({ follower_id: D.id, followee_id: A.id });
+// Phones register for notifications when they sign in (savePushToken).
+for (const who of [A, D]) {
+  const t = await who.sb.from('push_tokens').upsert({ user_id: who.id, token: `ExponentPushToken[${who.name}-phone]`, platform: 'ios' }, { onConflict: 'user_id,token' });
+  if (t.error) throw new Error(`push token ${who.name}: ${t.error.message}`);
+}
+// Bob signed back in in section 10: his current token is the new session's.
+B.token = (await B.sb.auth.getSession()).data.session.access_token;
+
+// Tagging people in a post.
+r = await A.sb.from('post_tags').insert({ post_id: POST, user_id: D.id });
+check('A tags Dana in her post', !r.error, ok_(r), 'ok');
+check('…Dana gets a "tagged you" notification', (await notes(D, 'tag')).some((x) => x.actor_id === A.id), `${(await notes(D, 'tag')).length} tag notification(s)`, '1');
+r = await D.sb.from('post_tags').select('user_id').eq('post_id', POST);
+check('…and everyone can see who is tagged', r.data?.some((t) => t.user_id === D.id), rows(r), 'Dana listed');
+r = await B.sb.from('post_tags').insert({ post_id: POST, user_id: B.id });
+check('…but B can\'t tag himself (or anyone) on A\'s post', !!r.error, ok_(r), 'denied');
+r = await D.sb.from('post_tags').delete().eq('post_id', POST).eq('user_id', D.id).select();
+check('Dana removes herself from the tag', r.data?.length === 1, rows(r), '1 row');
+
+// Likes, comments, replies, comment likes, follows.
+r = await B.sb.from('reactions').insert({ post_id: POST, user_id: B.id });
+check('B likes A\'s post', !r.error, ok_(r), 'ok');
+check('…A gets a like notification', (await notes(A, 'like')).some((x) => x.actor_id === B.id), 'checked', 'from B');
+const pushesBefore = (await stats()).pushes.length;
+await B.sb.functions.invoke('notify-activity', { body: {} });
+const likePush = (await stats()).pushes.slice(pushesBefore);
+check('…and a push for it goes to Alice\'s phone', likePush.some((p) => p.to === 'ExponentPushToken[alice-phone]'),
+  likePush.map((p) => `"${p.body}"`).join(', ') || 'none', 'a push to Alice');
+const cm = await B.sb.from('comments').insert({ post_id: POST, user_id: B.id, text: 'looks amazing' }).select().single();
+check('B comments on A\'s post', !cm.error, ok_(cm), 'ok');
+r = await A.sb.from('comments').insert({ post_id: POST, user_id: A.id, text: 'thank you!', parent_id: cm.data?.id });
+check('A replies to the comment', !r.error, ok_(r), 'ok');
+r = await A.sb.from('comment_reactions').insert({ comment_id: cm.data?.id, user_id: A.id });
+check('A likes B\'s comment', !r.error, ok_(r), 'ok');
+r = await B.sb.from('follows').insert({ follower_id: B.id, followee_id: A.id });
+check('B follows A', !r.error, ok_(r), 'ok');
+check('…A gets a follow notification', (await notes(A, 'follow')).some((x) => x.actor_id === B.id), 'checked', 'from B');
+r = await B.sb.from('reposts').insert({ post_id: POST, user_id: B.id });
+check('B reposts A\'s post', !r.error, ok_(r), 'ok');
+r = await B.sb.from('shares').insert({ post_id: POST, user_id: B.id });
+check('B shares A\'s post', !r.error, ok_(r), 'ok');
+r = await B.sb.from('saved_posts').insert({ user_id: B.id, post_id: POST });
+check('B saves A\'s post', !r.error, ok_(r), 'ok');
+
+// Recipe cards and nutrition.
+r = await A.sb.from('recipes').insert({
+  post_id: POST, title: 'Garlic chicken', ai_generated: true, user_edited: true, servings: 2, cook_time_minutes: 25,
+  ingredients: [{ item: 'chicken thighs', quantity: '2', unit: '' }, { item: 'garlic', quantity: '3', unit: 'cloves' }],
+  steps: ['Rub with garlic.', 'Roast 25 minutes.'],
+  nutrition: { calories: 620, protein_g: 58, carbs_g: 3, fat_g: 40, fiber_g: 0, sugar_g: 0, sodium_mg: 240 }, nutrition_source: 'usda',
+});
+check('A saves a recipe card with nutrition on her post', !r.error, ok_(r), 'ok');
+r = await B.sb.from('recipes').select('title, ingredients, nutrition').eq('post_id', POST);
+check('…and others see the card', r.data?.length === 1 && r.data[0].ingredients.length === 2, rows(r), '1 card');
+const card = await E.sb.functions.invoke('format-recipe', { body: { blurb: 'chicken thighs, 3 cloves garlic, roast 25 min' } });
+check('Format recipe makes a card', !card.error && card.data?.ingredients?.length === 2, card.error ? card.error.message : `"${card.data?.title}", ${card.data?.ingredients?.length} ingredients`, 'a card');
+const nut2 = await E.sb.functions.invoke('lookup-nutrition', { body: { ingredients: [{ item: 'garlic', quantity: '3', unit: 'cloves' }] } });
+check('Estimate nutrition works', !nut2.error && nut2.data?.source === 'usda' && nut2.data?.ingredients?.[0]?.nutrition?.calories > 0,
+  nut2.error ? nut2.error.message : `source ${nut2.data?.source}, ${nut2.data?.ingredients?.[0]?.nutrition?.calories} kcal`, 'USDA numbers');
+
+// Profile and avatar.
+const av = await upload(B, fixture('browser.jpg'), 'avatar');
+r = av.status === 200 ? await B.sb.from('users').update({ display_name: 'Bob B', bio: 'cooks a lot', avatar_url: av.json.url }).eq('id', B.id).select() : { error: { message: `upload ${av.status}` } };
+check('B edits his profile with a new avatar', r.data?.length === 1, ok_(r), 'ok');
+
+// DMs and groups.
+r = await D.sb.from('messages').insert({ conversation_id: DM, sender_id: D.id, text: 'got it, thanks!' }).select().single();
+check('Dana replies in the DM', !r.error, ok_(r), 'ok');
+const pb = (await stats()).pushes.length;
+await D.sb.functions.invoke('notify-message', { body: { conversationId: DM, messageId: r.data?.id } });
+const lastPush = (await stats()).pushes.at(-1);
+check('…Alice gets a push with the message', (await stats()).pushes.length === pb + 1 && lastPush?.body === 'got it, thanks!' && lastPush?.to === 'ExponentPushToken[alice-phone]',
+  `${(await stats()).pushes.length - pb} push to ${lastPush?.to}: "${lastPush?.body}"`, '1 push to Alice');
+r = await A.sb.from('message_reactions').insert({ message_id: r.data?.id, user_id: A.id, emoji: '❤️' });
+check('A reacts to Dana\'s message', !r.error, ok_(r), 'ok');
+r = await E.sb.from('messages').insert({ conversation_id: GROUP, sender_id: E.id, text: 'count me in' });
+check('Eli posts in the group', !r.error, ok_(r), 'ok');
+r = await A.sb.from('conversations').update({ title: 'Party crew' }).eq('id', GROUP).select();
+check('A names the group', r.data?.length === 1, rows(r), '1 row');
+r = await E.sb.rpc('leave_conversation', { conv: GROUP });
+const afterLeave = await E.sb.from('messages').select('id').eq('conversation_id', GROUP);
+check('Eli leaves the group, and can no longer read it', !r.error && afterLeave.data?.length === 0, `${ok_(r)}; ${rows(afterLeave)} after`, 'ok; 0 rows');
+
+// Streaks, reports, feedback, deleting your own post, blocking.
+r = await A.sb.from('streaks').select('current_streak').eq('user_id', A.id).single();
+check('A\'s streak counted her post', r.data?.current_streak >= 1, JSON.stringify(r.data), 'at least 1');
+r = await D.sb.from('reports').insert({ reporter_id: D.id, post_id: POST, reason: 'spam' });
+check('Dana reports a post', !r.error, ok_(r), 'ok');
+r = await D.sb.from('feedback').insert({ user_id: D.id, kind: 'bug', message: 'the button is blue' });
+check('Dana sends feedback', !r.error, ok_(r), 'ok');
+const up2 = await upload(D, fixture('progressive.jpg'));
+const p2 = await D.sb.from('posts').insert({ user_id: D.id, meal_slot: 'snack', photo_url: up2.json?.url, blurb: 'quick snack' }).select().single();
+r = await D.sb.from('posts').delete().eq('id', p2.data?.id).select();
+check('Dana posts, then deletes her own post', !p2.error && r.data?.length === 1, `${ok_(p2)}; ${rows(r)} deleted`, 'ok; 1 deleted');
+r = await A.sb.from('blocks').insert({ blocker_id: A.id, blocked_id: B.id });
+const hidden = await B.sb.from('posts').select('id').eq('id', POST);
+check('A blocks B, and B no longer sees her posts', !r.error && hidden.data?.length === 0, `${ok_(r)}; B sees ${rows(hidden)}`, 'ok; 0 rows');
+
 // ================================================================= result
 const failed = results.filter((x) => !x.ok);
 console.log(`\n# ${results.length - failed.length} of ${results.length} passed${failed.length ? `, ${failed.length} FAILED` : ''}`);
