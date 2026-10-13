@@ -34,7 +34,7 @@ hosts the legal pages, the email-confirmation page and shared-post previews.
 private copy of the whole backend (real Supabase Auth, real PostgREST, the
 seven edge functions) and attacks it through the app's own front door with
 User A (owns the data), User B (an unrelated account) and User C (signed out):
-78 checks, every one with an expected and an actual result, in
+110 checks (78 attacks and 32 everyday features), every one with an expected and an actual result, in
 `supabase/tests/e2e/RESULTS.md`. The table below is the database-level detail.
 
 Every database claim below is a check in `supabase/tests/rls_attack_test.sql`
@@ -121,7 +121,7 @@ order):
 ## Re-running everything
 
 ```bash
-npm run test:e2e                          # 78 end-to-end checks, Users A, B and C (Linux)
+npm run test:e2e                          # 110 end-to-end checks, Users A, B and C (Linux)
 supabase/tests/run_security.sh            # 239 database checks, fresh install
 supabase/tests/run_security.sh upgrade    # the same, on an upgraded database
 npm test                                  # app and function unit tests

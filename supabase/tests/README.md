@@ -26,7 +26,11 @@ messages, change her collection or bookmarks, edit or delete her posts, get
 her private photos or join her group; C can't call any protected function;
 bad uploads are refused and nothing is stored; AI requests stop at the limit
 (and refused ones cost nothing); and an old token stops working after sign-out,
-account deletion or a ban. It also checks the public things stay public.
+account deletion or a ban. It also checks the public things stay public, and
+that everyday features still work against the hardened backend: tagging people,
+likes, comments and replies, follows, reposts, shares, saves, recipe cards and
+nutrition, profile and avatar edits, DMs with reactions and pushes, groups,
+leaving, streaks, reports, feedback, deleting your own post and blocking.
 `e2e/RESULTS.md` is the latest run.
 
 Linux only (it downloads Linux builds of PostgREST and Supabase Auth, cached in
