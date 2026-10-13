@@ -5,142 +5,124 @@
 //   POST { conversationId, messageId }
 //
 // Why client-triggered rather than a DB trigger: it needs no pg_net, no webhook
-// wiring and no stored service URL — just deploy the function. The caller's JWT
-// proves who they are; we verify they're actually a member before sending, and
-// we use the service role only to read the OTHER members' tokens (which RLS
-// would otherwise hide).
+// wiring and no stored service URL, just deploy the function. The rules (only
+// your own fresh message, once, to the people in that thread) are in
+// handler.ts; this file only connects them to Supabase and Expo.
 //
 // Deploy:  supabase functions deploy notify-message
-// (Uses the SUPABASE_URL / SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY secrets
-//  that Supabase injects into every function automatically.)
+// Needs migration 0032 (claim_message_push); without it nothing is pushed.
+// Uses the SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY secrets Supabase injects.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { handleNotify } from './handler.ts';
 
 const EXPO_PUSH = 'https://exp.host/--/api/v2/push/send';
 
-const cors = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+const ALLOWED_ORIGINS = (Deno.env.get('ALLOWED_ORIGINS') ?? '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
 
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
+function corsHeaders(origin: string | null): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    Vary: 'Origin',
+  };
+  if (ALLOWED_ORIGINS.length === 0) headers['Access-Control-Allow-Origin'] = '*';
+  else if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    headers['Access-Control-Allow-Origin'] = origin;
+  }
+  return headers;
+}
 
-  try {
-    const url = Deno.env.get('SUPABASE_URL')!;
-    const anon = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const service = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const authHeader = req.headers.get('Authorization') ?? '';
+const admin = createClient(
+  Deno.env.get('SUPABASE_URL')!,
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+  { auth: { persistSession: false } },
+);
 
-    const { conversationId, messageId } = await req.json();
-    if (!conversationId || !messageId) {
-      return json({ error: 'conversationId and messageId required' }, 400);
-    }
+Deno.serve((req) =>
+  handleNotify(req, {
+    corsHeaders: corsHeaders(req.headers.get('Origin')),
 
-    // Who is calling (their RLS context) — must be a member of this thread.
-    const asUser = createClient(url, anon, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: me } = await asUser.auth.getUser();
-    const senderId = me.user?.id;
-    if (!senderId) return json({ error: 'not authenticated' }, 401);
+    async userFromToken(jwt) {
+      const { data, error } = await admin.auth.getUser(jwt);
+      return error || !data.user ? null : data.user.id;
+    },
 
-    const admin = createClient(url, service);
+    async claimMessage(messageId, conversationId, senderId) {
+      const { data, error } = await admin.rpc('claim_message_push', {
+        msg: messageId,
+        conv: conversationId,
+        sender: senderId,
+      });
+      if (error) {
+        console.error('claim_message_push failed (is migration 0032 in?)', error);
+        return false; // fail closed: never push what can't be claimed
+      }
+      return data === true;
+    },
 
-    // Confirm the sender really is in this conversation.
-    const { data: membership } = await admin
-      .from('conversation_members')
-      .select('user_id')
-      .eq('conversation_id', conversationId)
-      .eq('user_id', senderId)
-      .maybeSingle();
-    if (!membership) return json({ error: 'not a member' }, 403);
+    async loadMessage(messageId) {
+      const { data } = await admin
+        .from('messages')
+        .select('text, shared_post_id, shared_user_id, image_url, image_path')
+        .eq('id', messageId)
+        .maybeSingle();
+      return data;
+    },
 
-    // The message, for the preview text.
-    const { data: msg } = await admin
-      .from('messages')
-      .select('*') // image_path (0031) included where it exists
-      .eq('id', messageId)
-      .maybeSingle();
-    if (!msg || msg.sender_id !== senderId) return json({ error: 'no such message' }, 404);
+    async senderName(senderId) {
+      const { data } = await admin
+        .from('users')
+        .select('display_name, handle')
+        .eq('id', senderId)
+        .maybeSingle();
+      return data?.display_name || (data?.handle ? '@' + data.handle : 'Someone');
+    },
 
-    // Sender's display name for the title.
-    const { data: sender } = await admin
-      .from('users')
-      .select('display_name, handle')
-      .eq('id', senderId)
-      .maybeSingle();
-    const senderName = sender?.display_name || (sender?.handle ? '@' + sender.handle : 'Someone');
+    async conversation(conversationId) {
+      const { data } = await admin
+        .from('conversations')
+        .select('title, is_group')
+        .eq('id', conversationId)
+        .maybeSingle();
+      return { title: data?.title ?? null, isGroup: data?.is_group ?? null };
+    },
 
-    // Group name, if any, so the title reads "Name (Group)".
-    // `*` rather than naming is_group, so this still works on a database that
-    // hasn't run migration 0025 yet.
-    const { data: conv } = await admin
-      .from('conversations')
-      .select('*')
-      .eq('id', conversationId)
-      .maybeSingle();
+    async recipients(conversationId, senderId) {
+      const { data: members } = await admin
+        .from('conversation_members')
+        .select('user_id, muted')
+        .eq('conversation_id', conversationId)
+        .neq('user_id', senderId);
+      const others = members ?? [];
+      const unmuted = others.filter((m) => !m.muted).map((m) => m.user_id as string);
+      if (!unmuted.length) return { others: others.length, pushTo: [] };
+      // Nobody gets a push from someone they've blocked or who blocked them,
+      // even if the block came after the message.
+      const { data: blocks } = await admin
+        .from('blocks')
+        .select('blocker_id, blocked_id')
+        .or(`blocker_id.eq.${senderId},blocked_id.eq.${senderId}`);
+      const blocked = new Set(
+        (blocks ?? []).map((b) => (b.blocker_id === senderId ? b.blocked_id : b.blocker_id)),
+      );
+      return { others: others.length, pushTo: unmuted.filter((id) => !blocked.has(id)) };
+    },
 
-    // Recipients: every other member who has NOT muted this thread.
-    const { data: recipients } = await admin
-      .from('conversation_members')
-      .select('user_id, muted')
-      .eq('conversation_id', conversationId)
-      .neq('user_id', senderId);
-    const targetIds = (recipients ?? []).filter((r) => !r.muted).map((r) => r.user_id);
-    if (!targetIds.length) return json({ sent: 0 });
+    async tokensFor(userIds) {
+      const { data } = await admin.from('push_tokens').select('token').in('user_id', userIds);
+      return (data ?? []).map((t) => t.token as string);
+    },
 
-    const { data: tokenRows } = await admin
-      .from('push_tokens')
-      .select('token')
-      .in('user_id', targetIds);
-    const tokens = [...new Set((tokenRows ?? []).map((t) => t.token))].filter(Boolean);
-    if (!tokens.length) return json({ sent: 0 });
-
-    const preview = msg.text?.trim()
-      ? msg.text.trim()
-      : msg.shared_post_id
-        ? 'Shared a post'
-        : msg.shared_user_id
-          ? 'Shared a profile'
-          : msg.image_url || msg.image_path
-            ? 'Sent a photo'
-            : 'New message';
-    // Remembered on the thread (migration 0025): a group that's down to two
-    // people after someone left still opens as a group.
-    const isGroup =
-      typeof conv?.is_group === 'boolean' ? conv.is_group : (recipients ?? []).length + 1 > 2;
-    const title = conv?.title ? `${senderName} · ${conv.title}` : senderName;
-    // Header title to show if the recipient taps through: the group's name, else
-    // the sender (who, in a 1:1, is exactly who they're talking to).
-    const openTitle = conv?.title || senderName;
-
-    const messages = tokens.map((to) => ({
-      to,
-      title,
-      body: preview.length > 160 ? preview.slice(0, 157) + '…' : preview,
-      sound: 'default',
-      data: { conversationId, kind: 'dm', title: openTitle, isGroup },
-    }));
-
-    // Expo accepts up to 100 messages per request.
-    for (let i = 0; i < messages.length; i += 100) {
+    async send(batch) {
       await fetch(EXPO_PUSH, {
         method: 'POST',
         headers: { 'content-type': 'application/json', accept: 'application/json' },
-        body: JSON.stringify(messages.slice(i, i + 100)),
+        body: JSON.stringify(batch),
       });
-    }
-
-    return json({ sent: tokens.length });
-  } catch (e) {
-    return json({ error: String(e) }, 500);
-  }
-});
-
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...cors, 'content-type': 'application/json' },
-  });
-}
+    },
+  }),
+);

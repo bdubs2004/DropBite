@@ -48,6 +48,32 @@ could move their own membership row into *any* thread
 history; an even earlier version let anyone add themselves to a stranger's
 thread.
 
+**Leaving a chat ends your access to all of it.** That's the policy: the
+moment you leave (the only way out; nobody can remove anyone else), you can't
+read the thread, its members, its old or new messages, or its photos, and you
+can't send, react or rename. Starting a chat with the same people makes a new,
+empty thread rather than reopening the old one. The one exception is a DM photo
+link you signed while still in the chat, which keeps working until it expires
+(an hour). A group holds at most 32 people (0032).
+
+**IDs can't be swapped to get in.** Every write is checked against the row it
+ends up as, not the id you name: moving a membership, a reaction or a message
+into another thread, sending a photo from another chat's folder, reporting a
+message you can't see, or naming someone else as the sender are all refused,
+and `rls_attack_test.sql` tries each of them.
+
+**Nothing private goes out live.** Only `notifications` is in the Realtime
+publication, and Realtime applies RLS to it, so each person receives only their
+own Activity; chats are fetched, never broadcast. Message pushes come from
+`notify-message`, which since 0032 pushes a message only once, only if the
+caller sent it, in the thread named, in the last five minutes, while still in
+it, and only to the other members who haven't muted it and aren't in a block
+with the sender. Before that it could be replayed to spam a chat. Push tokens
+belong to one account: saving a token takes it off any other account, and
+signing out removes it, so a phone that switches accounts stops showing the
+old account's DMs on its lock screen. Edge functions answer errors with a code
+(`server_error`), never the underlying message.
+
 **Direct messages are opt-in.** You can only *start* a thread with someone you
 follow and aren't blocked with, which the start functions check inside
 `SECURITY DEFINER` (a plain subquery would fail for private accounts, whose
@@ -185,7 +211,7 @@ than `Math.random`.
 - [ ] Re-enable **Confirm email** (Authentication → Providers → Email) if it
       was turned off for testing.
 - [ ] Raise the Supabase minimum password length to **8** to match the app.
-- [ ] Set `ALLOWED_ORIGINS` on both edge functions if you ship a web build;
+- [ ] Set `ALLOWED_ORIGINS` on the edge functions if you ship a web build;
       otherwise CORS stays `*`.
 - [ ] Set `AI_DAILY_LIMIT` to whatever you're willing to pay for.
 - [ ] Confirm leaked-password protection is on (Authentication → Policies).
@@ -196,7 +222,10 @@ than `Math.random`.
 - [ ] Run `supabase/tests/` against a scratch Postgres after any schema change,
       above all `rls_attack_test.sql` (see `supabase/tests/README.md`).
 - [ ] Paste `supabase/verify.sql` into the SQL Editor after migrating: its
-      "locked:" rows confirm the 0030 holes are closed on the real project.
+      "locked:" rows confirm the 0030, 0031 and 0032 holes are closed on the
+      real project.
+- [ ] Never add the chat tables to Realtime (Database → Publications); verify.sql
+      flags it if someone does.
 
 ## Reporting
 

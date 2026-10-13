@@ -72,7 +72,9 @@ expected_triggers(name, tbl, fixed_by) as (
          ('posts_check_photo_links', 'posts', '0031_storage_hardening.sql'),
          ('users_check_photo_links', 'users', '0031_storage_hardening.sql'),
          ('comments_check_photo_links', 'comments', '0031_storage_hardening.sql'),
-         ('messages_check_photo_links', 'messages', '0031_storage_hardening.sql')
+         ('messages_check_photo_links', 'messages', '0031_storage_hardening.sql'),
+         -- One account per phone for pushes (0032).
+         ('push_token_one_account', 'push_tokens', '0032_chat_hardening.sql')
 ),
 
 -- Three storage policies by design, and deliberately no INSERT or UPDATE
@@ -231,6 +233,28 @@ checks(grp, item, status) as (
     ('the orphan finder is server-only',
      has_function_privilege('authenticated', 'public.storage_orphans(interval, text)', 'EXECUTE'),
      'SIGNED-IN USERS CAN LIST EVERY STORED FILE')
+  ) v(item, open, problem)
+
+  union all
+
+  -- And the ones 0032 closed.
+  select 11, 'locked: ' || item,
+    case when open then problem || ' — run 0032_chat_hardening.sql' else 'OK' end
+  from (values
+    ('each message is pushed once, by the server only',
+     coalesce(has_function_privilege('authenticated',
+       to_regprocedure('public.claim_message_push(uuid, uuid, uuid)'), 'EXECUTE'), true),
+     'MESSAGE PUSHES CAN BE REPLAYED OR AIMED AT ANOTHER CHAT'),
+    ('a group chat holds at most 32 people',
+     not exists (select 1 from pg_proc where oid = to_regprocedure('public.start_group_conversation(uuid[])')
+                 and prosrc like '%at most 32 people%'),
+     'GROUP CHATS HAVE NO SIZE LIMIT'),
+    ('chats are never broadcast live',
+     exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime'
+             and schemaname = 'public'
+             and tablename in ('messages', 'conversations', 'conversation_members',
+                               'message_reactions', 'push_tokens')),
+     'CHAT TABLES ARE IN THE REALTIME PUBLICATION; REMOVE THEM')
   ) v(item, open, problem)
 
   union all
