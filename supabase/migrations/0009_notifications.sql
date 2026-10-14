@@ -41,6 +41,7 @@ declare
   owner uuid;
 begin
   select p.user_id into owner from public.posts p where p.id = new.post_id;
+  -- No post, your own post, or someone you have blocked: nothing to send.
   if owner is null or owner = new.user_id then
     return new;
   end if;

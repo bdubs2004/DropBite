@@ -57,7 +57,15 @@ that actually succeeds look refused, which once hid a real hole here.
 ```bash
 supabase/tests/run_security.sh            # fresh install from schema.sql
 supabase/tests/run_security.sh upgrade    # committed schema + migrations 0030+
+supabase/tests/run_security.sh legacy     # the oldest schema.sql, rewound to before
+                                          # any migration, then upgrade_all.sql
 ```
+
+`legacy` is the one that matches a database first set up long ago: it starts
+from the oldest `schema.sql` in git with everything the migrations add taken
+away (`legacy_base.sql`), runs `upgrade_all.sql` in one transaction the way the
+SQL Editor does, and attacks the result. It's how the leftover "update own
+photos" storage rule was found (migration 0037).
 
 It runs on `supabase_sim.sql`, a stand-in for Supabase that matters more than it
 looks: it grants every new table and function to anon and authenticated the way

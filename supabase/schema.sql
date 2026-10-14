@@ -2625,3 +2625,38 @@ end;
 $$;
 revoke all on function public.redact_closed_reports(interval) from public, anon, authenticated;
 grant execute on function public.redact_closed_reports(interval) to service_role;
+
+
+-- ================================================= legacy clean-up (0037)
+-- Databases set up from an early schema.sql kept an "update own photos"
+-- storage policy and a differently written comment rule. Both brought in line
+-- with a fresh install; a no-op here.
+-- 1. No client writes to the photo buckets ------------------------------------------------
+do $$
+declare
+  p record;
+begin
+  for p in
+    select pol.polname
+    from pg_policy pol
+    where pol.polrelid = 'storage.objects'::regclass
+      and pol.polcmd in ('a', 'w', '*')
+      and (coalesce(pg_get_expr(pol.polqual, pol.polrelid), '') ~ '''(dm-)?photos'''
+           or coalesce(pg_get_expr(pol.polwithcheck, pol.polrelid), '') ~ '''(dm-)?photos''')
+  loop
+    execute format('drop policy %I on storage.objects', p.polname);
+    raise notice 'Removed storage policy "%" (only the server uploads photos).', p.polname;
+  end loop;
+end
+$$;
+
+-- 2. Comment text, as on a fresh install ------------------------------------------------------
+update public.comments set text = '' where text is null;
+alter table public.comments alter column text set default '';
+alter table public.comments alter column text set not null;
+alter table public.comments drop constraint if exists comments_not_empty;
+alter table public.comments
+  add constraint comments_not_empty check (char_length(text) > 0 or image_url is not null);
+alter table public.comments drop constraint if exists comments_text_check;
+alter table public.comments
+  add constraint comments_text_check check (char_length(text) <= 2000);

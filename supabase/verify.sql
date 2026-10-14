@@ -334,6 +334,27 @@ checks(grp, item, status) as (
 
   union all
 
+  -- And the ones 0037 closed: what very old databases still carried.
+  select 16, 'locked: ' || item,
+    case when open then problem || ' — run upgrade_all.sql (0037)' else 'OK' end
+  from (values
+    ('nobody can replace a stored photo directly',
+     exists (select 1 from pg_policy p
+             where p.polrelid = 'storage.objects'::regclass and p.polcmd in ('a', 'w', '*')
+               and (coalesce(pg_get_expr(p.polqual, p.polrelid), '') ~ '''(dm-)?photos'''
+                    or coalesce(pg_get_expr(p.polwithcheck, p.polrelid), '') ~ '''(dm-)?photos''')),
+     'A USER CAN OVERWRITE THEIR STORED PHOTOS, SKIPPING THE UPLOAD CHECKS'),
+    ('no leftover photo-storage policies',
+     (select count(*) from pg_policy p
+      where p.polrelid = 'storage.objects'::regclass
+        and (coalesce(pg_get_expr(p.polqual, p.polrelid), '') ~ '''(dm-)?photos'''
+             or coalesce(pg_get_expr(p.polwithcheck, p.polrelid), '') ~ '''(dm-)?photos''')
+        and p.polname not in ('read own photos', 'delete own photos', 'read photos in own chats')) > 0,
+     'AN OLD STORAGE POLICY IS STILL IN PLACE; CHECK Storage → Policies')
+  ) v(item, open, problem)
+
+  union all
+
   -- Cards saved before 0034 aren't rewritten; the app draws malformed ones
   -- safely (cleanRecipe). Not a hole, just worth knowing.
   select 13, 'data: older recipe cards',

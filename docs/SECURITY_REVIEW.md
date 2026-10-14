@@ -1,6 +1,6 @@
 # NiblGo security review: brief for the outside test
 
-State as of 13 October 2026: database migrations through `0036`, edge
+State as of 14 October 2026: database migrations through `0037`, edge
 functions as in `supabase/functions/`. SECURITY.md has the detail behind each
 line here; docs/OPERATIONS.md covers logs, backups and access.
 
@@ -100,7 +100,8 @@ Outside the code (they can't be checked from the repository, so confirm them
 before the test; docs/DEPLOY_SECURITY_UPDATE.md walks through all of them in
 order):
 
-- [ ] Migrations `0030` to `0036` run on production; `verify.sql` says PASS.
+- [ ] `supabase/upgrade_all.sql` run on production (all migrations, 0002 to
+      0037); `verify.sql` says PASS.
 - [ ] Edge functions deployed at the current version (all seven), with
       `sweep-storage --no-verify-jwt` and its daily Cron job using
       `x-sweep-secret`.

@@ -6,6 +6,9 @@
 #   supabase/tests/run_security.sh upgrade [ref]   schema.sql as of a git ref
 #                                                  (default HEAD), then every
 #                                                  migration numbered 0030 and up
+#   supabase/tests/run_security.sh legacy          the oldest schema.sql, rewound
+#                                                  to before any migration, then
+#                                                  upgrade_all.sql
 #
 # Needs Postgres 16 binaries (initdb, pg_ctl, psql). Run as a user that can
 # start Postgres, or as root (it switches to the postgres user).
@@ -29,7 +32,15 @@ as_pg "$PGBIN/pg_ctl -D $WORK/data -o '-p $PORT -k $WORK -c listen_addresses=' -
 psql_run() { as_pg "$PGBIN/psql -X -q -h $WORK -p $PORT -d postgres -v ON_ERROR_STOP=1 $*"; }
 
 psql_run -f "$WORK/src/tests/supabase_sim.sql" >/dev/null 2>&1
-if [ "$MODE" = upgrade ]; then
+if [ "$MODE" = legacy ]; then
+  # The oldest schema.sql in git, rewound to before any migration, then the
+  # one-file upgrade in a single transaction (as the SQL Editor runs it).
+  git -C "$REPO" show 01e8904:supabase/schema.sql > "$WORK/schema-oldest.sql"
+  [ "$(id -u)" = 0 ] && chown postgres "$WORK/schema-oldest.sql"
+  psql_run -f "$WORK/schema-oldest.sql" >/dev/null 2>&1
+  psql_run -f "$WORK/src/tests/legacy_base.sql" >/dev/null 2>&1
+  psql_run -1 -f "$WORK/src/upgrade_all.sql" >/dev/null 2>&1 || { echo "upgrade_all.sql FAILED"; exit 1; }
+elif [ "$MODE" = upgrade ]; then
   git -C "$REPO" show "${2:-HEAD}":supabase/schema.sql > "$WORK/schema-head.sql"
   [ "$(id -u)" = 0 ] && chown postgres "$WORK/schema-head.sql"
   psql_run -f "$WORK/schema-head.sql" >/dev/null 2>&1
