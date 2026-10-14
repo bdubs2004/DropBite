@@ -1,10 +1,10 @@
 # Shipping the security update
 
-Everything from the security review (migrations 0030 to 0036, seven edge
+Everything from the security review (migrations 0030 to 0037, seven edge
 functions, settings, the website and the app), in the order that's safe. Do it
 top to bottom in one sitting. If you already did some steps after an earlier
-item, doing them again is harmless: every migration is safe to re-run, and
-redeploying a function just replaces it.
+item, doing them again is harmless: the database upgrade is safe to re-run,
+and redeploying a function just replaces it.
 
 Why this order: the functions expect the new database (the AI functions call
 `consume_ai_quota` with new limits, `notify-message` needs
@@ -30,24 +30,37 @@ expects the functions. Database first, then functions, then the app.
 
 ## 1. Database (SQL Editor)
 
-Open each file in `supabase/migrations/`, paste it into the SQL Editor and run
-it, **in this order**. Wait for "Success" before the next one. Always run the
-whole list, even the ones you ran before: a later one updates something an
-earlier one sets (0031 refines 0030's report handling), so running an older
-one again on its own would undo part of a newer one. Run in order, they end up
-exactly like a fresh install (the security suite checks that).
+Paste **`supabase/upgrade_all.sql`** into the SQL Editor and run it, once. That
+one file is every migration from 0002 to 0037 in order. It brings a database of
+any age up to date, including steps from long before the security work that
+may never have been run (like `0011_feedback.sql`): the ones you already have
+do nothing, the ones you missed are applied. It runs as one transaction, so if
+anything fails, nothing changes.
 
-| # | File | What it does |
-| --- | --- | --- |
-| 1 | `0030_rls_hardening.sql` | Locks down who can read and change what |
-| 2 | `0031_storage_hardening.sql` | Photo uploads only through the server; private DM photos |
-| 3 | `0032_chat_hardening.sql` | DM pushes once per message; one account per phone; group cap |
-| 4 | `0033_session_checks.sql` | Old tokens stop working after sign-out, deletion or a ban |
-| 5 | `0034_ai_limits.sql` | AI per-minute and app-wide limits; recipe cards must be well-formed |
-| 6 | `0035_abuse_limits.sql` | Spam limits, duplicate guards, no disguised names or staff handles |
-| 7 | `0036_retention.sql` | Reports outlive accounts; report copies cleared after 2 years |
+It was tested from four starting points: a database from the original schema
+with no migrations, one stopped before 0011, one stopped before 0030, and one
+already up to date. Every time, the result was identical to a fresh install
+and passed all 239 security checks. Running it twice is also fine.
 
-Two of them may print a **warning** rather than an error; both are fine:
+(Don't run the files in `supabase/migrations/` one by one any more: running an
+older one on its own can undo part of a newer one.)
+
+What's in it, for reference: 0002-0029 are the app's features as they were
+built (reports, DMs, blocks, feedback, nutrition, groups, collections, Activity
+and so on), and then the security work:
+
+| File | What it does |
+| --- | --- |
+| `0030_rls_hardening.sql` | Locks down who can read and change what |
+| `0031_storage_hardening.sql` | Photo uploads only through the server; private DM photos |
+| `0032_chat_hardening.sql` | DM pushes once per message; one account per phone; group cap |
+| `0033_session_checks.sql` | Old tokens stop working after sign-out, deletion or a ban |
+| `0034_ai_limits.sql` | AI per-minute and app-wide limits; recipe cards must be well-formed |
+| `0035_abuse_limits.sql` | Spam limits, duplicate guards, no disguised names or staff handles |
+| `0036_retention.sql` | Reports outlive accounts; report copies cleared after 2 years |
+| `0037_legacy_cleanup.sql` | Removes an old "update own photos" storage rule early databases kept, which let people replace their stored photos without the upload checks |
+
+It may print a **warning** or a notice rather than an error; these are fine:
 - 0033: "Session check NOT switched on". This means Supabase didn't let it
   change the API setting. Run this in the SQL Editor, then re-check with
   `verify.sql`:
@@ -57,6 +70,9 @@ Two of them may print a **warning** rather than an error; both are fine:
   ```
 - 0034: "Some recipe cards saved before 0034 are malformed". Old cards stay as
   they are; the app draws them safely; `verify.sql` says how many.
+- 0037: "Removed storage policy ...". That's the old photo rule going.
+- Other notices ("... already exists, skipping", "does not exist, skipping")
+  are the steps you already had.
 
 An actual **error** means stop: copy it and send it to me before going on.
 

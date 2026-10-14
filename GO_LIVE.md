@@ -121,8 +121,11 @@ nothing arrives, **Authentication → Logs** in Supabase says why.
 
 ### If your database already exists
 
-Don't re-run `schema.sql` — run whatever migrations came after it, in order,
-from `supabase/migrations/`:
+Don't re-run `schema.sql`. Paste **`supabase/upgrade_all.sql`** into the SQL
+Editor and run it once: it's every migration below, in order, in one
+transaction, and it works on a database of any age (the steps you already have
+do nothing). It's built from the files below by `node scripts/build-upgrade.js`;
+rebuild it after adding a migration. For reference, what each one adds:
 
 | File | What it adds |
 | --- | --- |
@@ -161,6 +164,7 @@ from `supabase/migrations/`:
 | `0034_ai_limits.sql` | **Security fix** — AI spend gets a per-minute and an app-wide daily limit; recipe cards must be well-formed, so one malformed card can't crash the app for everyone. Redeploy `format-recipe` and `lookup-nutrition` after it |
 | `0035_abuse_limits.sql` | **Security fix** — rate limits on everything people create, no double posts or comments, no disguised names, no staff-looking handles. Nothing to deploy with it |
 | `0036_retention.sql` | **Privacy fix** — reports outlive the reporter's account; feedback forgets a deleted account's handle; closed reports clear their copy of the reported content after 2 years. Redeploy `sweep-storage` (it runs the clean-up daily) |
+| `0037_legacy_cleanup.sql` | **Security fix** — removes an "update own photos" storage rule that databases set up from an early schema.sql kept, which let people replace their stored photos without the upload checks; comment rules written as on a fresh install |
 
 They are all safe to run twice, and so is `schema.sql` itself. What re-running
 `schema.sql` will **not** do is add a column to a table that already exists —
