@@ -26,7 +26,7 @@ expected_tables(name, policies) as (
 ),
 
 -- Columns added by later migrations. A table can exist and still be out of
--- date, which `create table if not exists` will not fix — that is what the
+-- date, which re-running schema.sql (it skips tables that exist) will not fix — that is what the
 -- files in supabase/migrations/ are for.
 expected_columns(tbl, col, fixed_by) as (
   values
