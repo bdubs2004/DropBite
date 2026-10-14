@@ -15,7 +15,7 @@ alter table public.recipes
 
 alter table public.recipes
   drop constraint if exists recipes_servings_range,
-  add  constraint recipes_servings_range check (servings between 1 and 100);
+  add  constraint recipes_servings_range check (servings between 1 and 100) not valid;
 
 -- Where the numbers came from, so the card can say so honestly:
 --   usda      — looked up in USDA FoodData Central
@@ -25,7 +25,7 @@ alter table public.recipes
   drop constraint if exists recipes_nutrition_source_allowed,
   add  constraint recipes_nutrition_source_allowed check (
     nutrition_source is null or nutrition_source in ('usda', 'estimated', 'demo')
-  );
+  ) not valid;
 
 -- Bounded like the other jsonb columns so a scripted client cannot store a
 -- blob here. Totals only; the keys are fixed.
@@ -34,7 +34,7 @@ alter table public.recipes
   add  constraint recipes_nutrition_bounded check (
     nutrition is null
     or (jsonb_typeof(nutrition) = 'object' and pg_column_size(nutrition) <= 2048)
-  );
+  ) not valid;
 
 -- Cache of USDA lookups, keyed by the normalised ingredient term.
 -- "chicken breast" is going to be looked up thousands of times; the USDA API

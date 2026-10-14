@@ -16,11 +16,11 @@ create table if not exists public.notifications (
 
 alter table public.notifications
   drop constraint if exists notifications_type_allowed,
-  add  constraint notifications_type_allowed check (type in ('like', 'comment', 'repost', 'share'));
+  add  constraint notifications_type_allowed check (type in ('like', 'comment', 'repost', 'share')) not valid;
 
 alter table public.notifications
   drop constraint if exists notifications_no_self,
-  add  constraint notifications_no_self check (user_id <> actor_id);
+  add  constraint notifications_no_self check (user_id <> actor_id) not valid;
 
 create index if not exists notifications_user_created_idx
   on public.notifications (user_id, created_at desc);

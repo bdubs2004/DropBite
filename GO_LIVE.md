@@ -165,6 +165,7 @@ rebuild it after adding a migration. For reference, what each one adds:
 | `0035_abuse_limits.sql` | **Security fix** — rate limits on everything people create, no double posts or comments, no disguised names, no staff-looking handles. Nothing to deploy with it |
 | `0036_retention.sql` | **Privacy fix** — reports outlive the reporter's account; feedback forgets a deleted account's handle; closed reports clear their copy of the reported content after 2 years. Redeploy `sweep-storage` (it runs the clean-up daily) |
 | `0037_legacy_cleanup.sql` | **Security fix** — removes an "update own photos" storage rule that databases set up from an early schema.sql kept, which let people replace their stored photos without the upload checks; comment rules written as on a fresh install |
+| `0038_validate_constraints.sql` | Checks each rule against existing rows (every migration now adds its rules NOT VALID, so re-running the migrations on a database in use never fails on data a later rule allowed) |
 
 They are all safe to run twice, and so is `schema.sql` itself. What re-running
 `schema.sql` will **not** do is add a column to a table that already exists —

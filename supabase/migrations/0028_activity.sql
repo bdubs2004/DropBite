@@ -18,7 +18,7 @@ alter table public.notifications
   add constraint notifications_type_allowed check (
     type in ('like', 'comment', 'repost', 'share', 'tag',
              'follow', 'follow_back', 'comment_like', 'reply')
-  );
+  ) not valid;
 
 alter table public.notifications add column if not exists pushed_at timestamptz;
 

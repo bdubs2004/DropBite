@@ -25,10 +25,12 @@ let out = `-- NiblGo: bring an existing database fully up to date (migrations ${
 --
 -- A fresh project doesn't need this: schema.sql already includes everything.
 
+begin;
 `;
 for (const f of files) {
   const sql = fs.readFileSync(path.join(dir, f), 'utf8').trimEnd();
   out += `\n-- ${'='.repeat(70)}\n-- ${f}\n-- ${'='.repeat(70)}\n\n${sql}\n`;
 }
+out += '\ncommit;\n';
 fs.writeFileSync(path.join(__dirname, '..', 'supabase', 'upgrade_all.sql'), out);
 console.log(`supabase/upgrade_all.sql: ${files.length} migrations (${first}-${last}), ${Math.round(out.length / 1024)} KB`);

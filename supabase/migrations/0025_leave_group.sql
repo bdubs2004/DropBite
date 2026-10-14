@@ -29,7 +29,7 @@ alter table public.messages
   add column if not exists kind text not null default 'message';
 alter table public.messages drop constraint if exists messages_kind_valid;
 alter table public.messages
-  add constraint messages_kind_valid check (kind in ('message', 'left'));
+  add constraint messages_kind_valid check (kind in ('message', 'left')) not valid;
 
 -- A "left" line carries no text or attachment; everything else still must.
 create or replace function public.message_not_empty()

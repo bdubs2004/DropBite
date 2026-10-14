@@ -71,7 +71,7 @@ create policy "author or tagged person removes a tag" on public.post_tags
 alter table public.notifications
   drop constraint if exists notifications_type_allowed,
   add  constraint notifications_type_allowed
-    check (type in ('like', 'comment', 'repost', 'share', 'tag'));
+    check (type in ('like', 'comment', 'repost', 'share', 'tag')) not valid;
 
 -- "X tagged you in a post": to the tagged person, from the post's author.
 -- One per post (untag + retag doesn't stack, thanks to the unique index).

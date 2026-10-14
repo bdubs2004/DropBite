@@ -20,4 +20,4 @@ alter table public.posts
       photo_width is not null and photo_height is not null
       and photo_width between 1 and 10000 and photo_height between 1 and 10000
     )
-  );
+  ) not valid;

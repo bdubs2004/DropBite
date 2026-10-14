@@ -59,7 +59,16 @@ supabase/tests/run_security.sh            # fresh install from schema.sql
 supabase/tests/run_security.sh upgrade    # committed schema + migrations 0030+
 supabase/tests/run_security.sh legacy     # the oldest schema.sql, rewound to before
                                           # any migration, then upgrade_all.sql
+supabase/tests/run_security.sh data       # a database in use, then upgrade_all.sql
+                                          # and schema.sql: no failure, no row changed
 ```
+
+`data` loads `realistic_data.sql`, every kind of row the app makes including
+the awkward ones (a "left the chat" line, messages whose shared post or
+profile was deleted, handles with capitals, photo-only comments), then runs
+`upgrade_all.sql` and `schema.sql` over it. It's how the 0007 rule tripping
+over "left the chat" lines was found; since then every migration adds its
+rules NOT VALID and 0038 validates them against existing rows.
 
 `legacy` is the one that matches a database first set up long ago: it starts
 from the oldest `schema.sql` in git with everything the migrations add taken

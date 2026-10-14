@@ -46,10 +46,10 @@ alter table public.reports
   drop constraint if exists reports_message_text_snapshot_check,
   add  constraint reports_message_text_snapshot_check check (
     message_text_snapshot is null or char_length(message_text_snapshot) <= 2000
-  );
+  ) not valid;
 
 alter table public.reports
   drop constraint if exists reports_message_image_url_snapshot_check,
   add  constraint reports_message_image_url_snapshot_check check (
     message_image_url_snapshot is null or char_length(message_image_url_snapshot) <= 1000
-  );
+  ) not valid;

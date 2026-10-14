@@ -20,7 +20,7 @@ alter table public.reports
   drop constraint if exists reports_comment_text_snapshot_check,
   add  constraint reports_comment_text_snapshot_check check (
     comment_text_snapshot is null or char_length(comment_text_snapshot) <= 2000
-  );
+  ) not valid;
 
 create index if not exists reports_comment_idx on public.reports (comment_id);
 
