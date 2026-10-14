@@ -10,69 +10,69 @@
 -- ------------------------------------------------------------ 1. bounds
 alter table public.users
   drop constraint if exists users_display_name_len,
-  add  constraint users_display_name_len check (char_length(display_name) between 1 and 50),
+  add  constraint users_display_name_len check (char_length(display_name) between 1 and 50) not valid,
   drop constraint if exists users_bio_len,
-  add  constraint users_bio_len check (bio is null or char_length(bio) <= 300),
+  add  constraint users_bio_len check (bio is null or char_length(bio) <= 300) not valid,
   drop constraint if exists users_avatar_emoji_len,
-  add  constraint users_avatar_emoji_len check (avatar_emoji is null or char_length(avatar_emoji) <= 8),
+  add  constraint users_avatar_emoji_len check (avatar_emoji is null or char_length(avatar_emoji) <= 8) not valid,
   drop constraint if exists users_timezone_len,
-  add  constraint users_timezone_len check (char_length(timezone) <= 64),
+  add  constraint users_timezone_len check (char_length(timezone) <= 64) not valid,
   -- Length is checked outside the pattern: Postgres caps regex repetition at
   -- 255, so {1,500} inside the pattern fails at runtime.
   drop constraint if exists users_avatar_url_https,
   add  constraint users_avatar_url_https check (
     avatar_url is null or (avatar_url ~ '^https://[^\s]+$' and char_length(avatar_url) <= 500)
-  );
+  ) not valid;
 
 alter table public.posts
   drop constraint if exists posts_photo_url_https,
   add  constraint posts_photo_url_https check (
     photo_url ~ '^https://[^\s]+$' and char_length(photo_url) <= 1000
-  ),
+  ) not valid,
   drop constraint if exists posts_blurb_len,
-  add  constraint posts_blurb_len check (char_length(blurb) <= 2000),
+  add  constraint posts_blurb_len check (char_length(blurb) <= 2000) not valid,
   drop constraint if exists posts_place_id_len,
-  add  constraint posts_place_id_len check (restaurant_place_id is null or char_length(restaurant_place_id) <= 255),
+  add  constraint posts_place_id_len check (restaurant_place_id is null or char_length(restaurant_place_id) <= 255) not valid,
   drop constraint if exists posts_restaurant_name_len,
-  add  constraint posts_restaurant_name_len check (restaurant_name is null or char_length(restaurant_name) <= 200),
+  add  constraint posts_restaurant_name_len check (restaurant_name is null or char_length(restaurant_name) <= 200) not valid,
   drop constraint if exists posts_lat_range,
-  add  constraint posts_lat_range check (lat is null or lat between -90 and 90),
+  add  constraint posts_lat_range check (lat is null or lat between -90 and 90) not valid,
   drop constraint if exists posts_lng_range,
-  add  constraint posts_lng_range check (lng is null or lng between -180 and 180);
+  add  constraint posts_lng_range check (lng is null or lng between -180 and 180) not valid;
 
 alter table public.recipes
   drop constraint if exists recipes_title_len,
-  add  constraint recipes_title_len check (char_length(title) between 1 and 120),
+  add  constraint recipes_title_len check (char_length(title) between 1 and 120) not valid,
   drop constraint if exists recipes_ingredients_bounded,
   add  constraint recipes_ingredients_bounded check (
     jsonb_typeof(ingredients) = 'array'
     and jsonb_array_length(ingredients) <= 50
     and pg_column_size(ingredients) <= 16384
-  ),
+  ) not valid,
   drop constraint if exists recipes_steps_bounded,
   add  constraint recipes_steps_bounded check (
     jsonb_typeof(steps) = 'array'
     and jsonb_array_length(steps) <= 50
     and pg_column_size(steps) <= 16384
-  ),
+  ) not valid,
   drop constraint if exists recipes_cook_time_range,
-  add  constraint recipes_cook_time_range check (cook_time_minutes is null or cook_time_minutes between 0 and 6000);
+  add  constraint recipes_cook_time_range check (cook_time_minutes is null or cook_time_minutes between 0 and 6000) not valid;
 
 alter table public.reactions
   drop constraint if exists reactions_type_allowed,
-  add  constraint reactions_type_allowed check (type in ('like'));
+  add  constraint reactions_type_allowed check (type in ('like')) not valid;
 
 alter table public.streaks
   drop constraint if exists streaks_current_range,
-  add  constraint streaks_current_range check (current_streak between 0 and 36500),
+  add  constraint streaks_current_range check (current_streak between 0 and 36500) not valid,
   drop constraint if exists streaks_longest_range,
-  add  constraint streaks_longest_range check (longest_streak between 0 and 36500),
+  add  constraint streaks_longest_range check (longest_streak between 0 and 36500) not valid,
   drop constraint if exists streaks_last_post_not_future,
   add  constraint streaks_last_post_not_future check (
     last_post_date is null or last_post_date <= (now() at time zone 'utc')::date + 1
-  ),
+  ) not valid,
   drop constraint if exists streaks_longest_gte_current,
-  add  constraint streaks_longest_gte_current check (longest_streak >= current_streak);
+  add  constraint streaks_longest_gte_current check (longest_streak >= current_streak) not valid;
 
 -- --------------------------------------------- 2. private follower lists
 -- Previously `follows` was readable by every signed-in user, so the private

@@ -2660,3 +2660,29 @@ alter table public.comments
 alter table public.comments drop constraint if exists comments_text_check;
 alter table public.comments
   add constraint comments_text_check check (char_length(text) <= 2000);
+
+
+-- ============================================== validate the rules (0038)
+-- Rules added NOT VALID above apply to new rows at once; this checks them
+-- against existing rows and marks them validated where every row fits (on a
+-- fresh install, all of them).
+do $$
+declare
+  r record;
+begin
+  for r in
+    select c.conrelid::regclass as tbl, c.conname
+    from pg_constraint c
+    where c.connamespace = 'public'::regnamespace
+      and c.contype in ('c', 'f')
+      and not c.convalidated
+    order by 1, 2
+  loop
+    begin
+      execute format('alter table %s validate constraint %I', r.tbl, r.conname);
+    exception when check_violation or foreign_key_violation then
+      raise warning 'Rule "%" on % holds for new rows; some older rows don''t meet it.', r.conname, r.tbl;
+    end;
+  end loop;
+end
+$$;

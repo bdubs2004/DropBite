@@ -8,7 +8,7 @@ do $$
 begin
   alter table public.conversations
     add constraint conversations_title_len
-    check (title is null or char_length(title) <= 60);
+    check (title is null or char_length(title) <= 60) not valid;
 exception
   when duplicate_object then null;
 end $$;

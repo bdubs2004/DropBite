@@ -41,7 +41,7 @@ alter table public.comments alter column text set default '';
 alter table public.comments alter column text set not null;
 alter table public.comments drop constraint if exists comments_not_empty;
 alter table public.comments
-  add constraint comments_not_empty check (char_length(text) > 0 or image_url is not null);
+  add constraint comments_not_empty check (char_length(text) > 0 or image_url is not null) not valid;
 alter table public.comments drop constraint if exists comments_text_check;
 alter table public.comments
-  add constraint comments_text_check check (char_length(text) <= 2000);
+  add constraint comments_text_check check (char_length(text) <= 2000) not valid;

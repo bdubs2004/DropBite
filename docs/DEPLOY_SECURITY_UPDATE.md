@@ -1,6 +1,6 @@
 # Shipping the security update
 
-Everything from the security review (migrations 0030 to 0037, seven edge
+Everything from the security review (migrations 0030 to 0038, seven edge
 functions, settings, the website and the app), in the order that's safe. Do it
 top to bottom in one sitting. If you already did some steps after an earlier
 item, doing them again is harmless: the database upgrade is safe to re-run,
@@ -31,7 +31,7 @@ expects the functions. Database first, then functions, then the app.
 ## 1. Database (SQL Editor)
 
 Paste **`supabase/upgrade_all.sql`** into the SQL Editor and run it, once. That
-one file is every migration from 0002 to 0037 in order. It brings a database of
+one file is every migration from 0002 to 0038 in order. It brings a database of
 any age up to date, including steps from long before the security work that
 may never have been run (like `0011_feedback.sql`): the ones you already have
 do nothing, the ones you missed are applied. It runs as one transaction, so if
@@ -40,7 +40,12 @@ anything fails, nothing changes.
 It was tested from four starting points: a database from the original schema
 with no migrations, one stopped before 0011, one stopped before 0030, and one
 already up to date. Every time, the result was identical to a fresh install
-and passed all 239 security checks. Running it twice is also fine.
+and passed all 239 security checks. It was also run over a database full of
+the app's real kinds of data ("left the chat" lines, messages whose shared
+post was deleted, handles with capitals, photo-only comments, every
+notification and report type): it succeeded and every row was unchanged.
+Running it twice is also fine, and if it ever fails part-way it changes
+nothing at all.
 
 (Don't run the files in `supabase/migrations/` one by one any more: running an
 older one on its own can undo part of a newer one.)
@@ -59,6 +64,7 @@ and so on), and then the security work:
 | `0035_abuse_limits.sql` | Spam limits, duplicate guards, no disguised names or staff handles |
 | `0036_retention.sql` | Reports outlive accounts; report copies cleared after 2 years |
 | `0037_legacy_cleanup.sql` | Removes an old "update own photos" storage rule early databases kept, which let people replace their stored photos without the upload checks |
+| `0038_validate_constraints.sql` | Checks every rule against the rows already there, and only warns (never fails) about older rows that don't fit |
 
 It may print a **warning** or a notice rather than an error; these are fine:
 - 0033: "Session check NOT switched on". This means Supabase didn't let it
@@ -71,6 +77,9 @@ It may print a **warning** or a notice rather than an error; these are fine:
 - 0034: "Some recipe cards saved before 0034 are malformed". Old cards stay as
   they are; the app draws them safely; `verify.sql` says how many.
 - 0037: "Removed storage policy ...". That's the old photo rule going.
+- 0038: "Rule ... holds for new rows; some older rows don't meet it". Some old
+  rows predate a rule; it still applies to everything new. Send me the name if
+  you'd like it looked at.
 - Other notices ("... already exists, skipping", "does not exist, skipping")
   are the steps you already had.
 

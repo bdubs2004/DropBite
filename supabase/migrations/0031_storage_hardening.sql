@@ -76,7 +76,7 @@ alter table public.messages
   add constraint messages_image_path_format check (
     image_path is null
     or image_path ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[0-9a-f]{32}\.jpg$'
-  );
+  ) not valid;
 
 create or replace function public.message_not_empty()
 returns trigger
