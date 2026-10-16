@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { hashPassword, verifyPassword } from '../../lib/demoPassword';
 import { cleanHandle, sameHandle } from '../../lib/handle';
+import { cleanHashtags, hashtagsForSearch } from '../../lib/hashtags';
 import { uid } from '../../lib/id';
 import { appVersion, platformName } from '../../lib/appInfo';
 import { clamp, clampOrNull, LIMITS } from '../../lib/limits';
@@ -178,6 +179,7 @@ export class MockService implements DataService {
   private hydrate(db: Db, post: Post, meId: string): Post {
     return {
       ...post,
+      hashtags: cleanHashtags(post.hashtags),
       user: db.users.find((u) => u.id === post.user_id),
       recipe: db.recipes.find((r) => r.post_id === post.id) ?? null,
       reaction_count: db.reactions.filter((r) => r.post_id === post.id).length,
@@ -497,12 +499,16 @@ export class MockService implements DataService {
     const me = await this.me();
     const q = query.trim().toLowerCase();
     if (!q) return [];
+    const { tags, only } = hashtagsForSearch(query);
     const blocked = this.blockedIds(db, me.id);
     return db.posts
       .filter((p) => {
         if (blocked.has(p.user_id)) return false;
+        const tagged = (p.hashtags ?? []).some((t) => tags.includes(t));
+        if (only) return tagged;
         const recipe = db.recipes.find((r) => r.post_id === p.id);
         return (
+          tagged ||
           p.blurb.toLowerCase().includes(q) ||
           (recipe?.title ?? '').toLowerCase().includes(q) ||
           // Ingredients are the structured asset; searching them is the point.
@@ -579,6 +585,7 @@ export class MockService implements DataService {
       restaurant_name: input.restaurant?.name ?? null,
       lat: input.restaurant?.lat ?? null,
       lng: input.restaurant?.lng ?? null,
+      hashtags: cleanHashtags(input.hashtags),
       created_at: new Date().toISOString(),
     };
     db.posts.push(post);

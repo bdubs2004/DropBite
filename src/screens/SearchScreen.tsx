@@ -4,14 +4,18 @@ import {
   ActivityIndicator,
   FlatList,
   Pressable,
+  ScrollView,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '../components/Avatar';
 import { PostThumb } from '../components/PostThumb';
+import { RollingHint } from '../components/RollingHint';
 import { Input, Muted, ScreenTitle } from '../components/ui';
+import { ALL_HASHTAGS, normalizeHashtag, SEARCH_EXAMPLES } from '../lib/hashtags';
 import { openPostFeed } from '../lib/postFeed';
 import {
   addRecentSearch,
@@ -33,13 +37,16 @@ type Tab = 'dishes' | 'people';
 const GRID_COLUMNS = photoGrid.columns;
 const GRID_GAP = photoGrid.gap;
 const DEBOUNCE_MS = 250;
+// What the empty search bar rolls through, greyed out.
+const HINTS = SEARCH_EXAMPLES.map((t) => `#${t}`);
 
 /**
  * Search people and dishes across the whole app.
  *
- * Dishes match on the description, the recipe title, or an ingredient — the
- * structured ingredient data is what makes "chicken" or "gochujang" find
- * things the caption never mentioned.
+ * Dishes match on the description, the recipe title, an ingredient, or a
+ * hashtag — the structured ingredient data is what makes "chicken" or
+ * "gochujang" find things the caption never mentioned. "#mexican" searches
+ * hashtags only.
  */
 export function SearchScreen({ navigation }: any) {
   const styles = useStyles();
@@ -47,6 +54,7 @@ export function SearchScreen({ navigation }: any) {
   const svc = getDataService();
   const { hiddenIds } = useApp();
   const insets = useSafeAreaInsets();
+  const focused = useIsFocused();
 
   const [tab, setTab] = useState<Tab>('dishes');
   // Two fully independent searches: each tab keeps its own query and its own
@@ -78,6 +86,14 @@ export function SearchScreen({ navigation }: any) {
 
   const query = tab === 'dishes' ? dishQuery : peopleQuery;
   const setQuery = (t: string) => (tab === 'dishes' ? setDishQuery(t) : setPeopleQuery(t));
+
+  // The example the empty bar is showing; Return on an empty bar searches it.
+  const hint = useRef(HINTS[0]);
+  // Typing "#": the tags that start with what's typed so far.
+  const typingTag = tab === 'dishes' && dishQuery.trim().startsWith('#');
+  const tagSuggestions = typingTag
+    ? ALL_HASHTAGS.filter((t) => t.startsWith(normalizeHashtag(dishQuery)))
+    : [];
 
   // Recents are what the screen shows before you have typed anything: opened
   // profiles on the People tab, searched dish terms on the Dishes tab.
@@ -161,7 +177,8 @@ export function SearchScreen({ navigation }: any) {
     return [...visible, ...Array(GRID_COLUMNS - remainder).fill(null)];
   })();
 
-  const hasQuery = query.trim().length > 0;
+  // A lone "#" isn't a search yet: the tag suggestions are showing.
+  const hasQuery = query.trim().replace(/^#/, '').length > 0;
   const count = tab === 'dishes' ? posts.length : people.length;
 
   const header = (
@@ -173,17 +190,31 @@ export function SearchScreen({ navigation }: any) {
           <Input
             ref={inputRef}
             testID="search-input"
-            placeholder={
-              tab === 'dishes'
-                ? 'Search dishes and ingredients'
-                : 'Search people by name or handle'
+            // Dishes shows a rolling hint instead (below).
+            placeholder={tab === 'dishes' ? '' : 'Search people by name or handle'}
+            accessibilityLabel={
+              tab === 'dishes' ? 'Search dishes, ingredients and hashtags' : 'Search people'
             }
             value={query}
             onChangeText={setQuery}
+            onSubmitEditing={() => {
+              if (tab === 'dishes' && !dishQuery.trim()) setDishQuery(hint.current);
+            }}
+            returnKeyType="search"
             autoCapitalize="none"
             autoCorrect={false}
             style={{ paddingRight: 42 }}
           />
+          {tab === 'dishes' && query.length === 0 ? (
+            <RollingHint
+              prefix="Search"
+              items={HINTS}
+              active={focused}
+              onChange={(h) => (hint.current = h)}
+              style={styles.hint}
+              textStyle={styles.hintText}
+            />
+          ) : null}
           {query.length > 0 ? (
             <Pressable
               testID="search-clear"
@@ -201,6 +232,14 @@ export function SearchScreen({ navigation }: any) {
         <TabButton label="Dishes" active={tab === 'dishes'} onPress={() => setTab('dishes')} />
         <TabButton label="People" active={tab === 'people'} onPress={() => setTab('people')} />
       </View>
+      {tagSuggestions.length > 0 ? (
+        <HashtagChips
+          testID="search-tag-suggestions"
+          tags={tagSuggestions}
+          onPick={(t) => setDishQuery(`#${t}`)}
+          active={normalizeHashtag(dishQuery)}
+        />
+      ) : null}
       {hasQuery && !searching ? (
         <Muted style={{ marginTop: spacing.sm }}>
           {count} {tab === 'dishes' ? 'dish' : 'person'}
@@ -210,46 +249,57 @@ export function SearchScreen({ navigation }: any) {
     </View>
   );
 
+  const browseTags =
+    tab === 'dishes' && !typingTag ? (
+      <View testID="search-browse-tags" style={styles.browse}>
+        <Text style={styles.recentsTitle}>Browse hashtags</Text>
+        <HashtagChips tags={SEARCH_EXAMPLES} onPick={(t) => setDishQuery(`#${t}`)} />
+      </View>
+    ) : null;
+
   const empty = !hasQuery ? (
     // Dishes tab: offer back the terms you searched before.
     tab === 'dishes' && recentTerms.length > 0 ? (
-      <View testID="search-recent-terms" style={styles.recents}>
-        <View style={styles.recentsHead}>
-          <Text style={styles.recentsTitle}>Recent searches</Text>
-          <Pressable
-            testID="recent-terms-clear-all"
-            onPress={async () => {
-              await clearRecentTerms();
-              loadRecents();
-            }}
-            hitSlop={8}
-          >
-            <Text style={styles.recentsClear}>Clear all</Text>
-          </Pressable>
-        </View>
-        {recentTerms.map((term) => (
-          <Pressable
-            key={term}
-            testID={`recent-term-${term}`}
-            style={styles.termRow}
-            onPress={() => setDishQuery(term)}
-          >
-            <Ionicons name="search" size={17} color={colors.cocoaFaint} />
-            <Text style={styles.termText} numberOfLines={1}>
-              {term}
-            </Text>
+      <View>
+        {browseTags}
+        <View testID="search-recent-terms" style={styles.recents}>
+          <View style={styles.recentsHead}>
+            <Text style={styles.recentsTitle}>Recent searches</Text>
             <Pressable
-              testID={`recent-term-remove-${term}`}
+              testID="recent-terms-clear-all"
               onPress={async () => {
-                await removeRecentTerm(term);
+                await clearRecentTerms();
                 loadRecents();
               }}
-              hitSlop={10}
+              hitSlop={8}
             >
-              <Ionicons name="close" size={17} color={colors.cocoaFaint} />
+              <Text style={styles.recentsClear}>Clear all</Text>
             </Pressable>
-          </Pressable>
-        ))}
+          </View>
+          {recentTerms.map((term) => (
+            <Pressable
+              key={term}
+              testID={`recent-term-${term}`}
+              style={styles.termRow}
+              onPress={() => setDishQuery(term)}
+            >
+              <Ionicons name="search" size={17} color={colors.cocoaFaint} />
+              <Text style={styles.termText} numberOfLines={1}>
+                {term}
+              </Text>
+              <Pressable
+                testID={`recent-term-remove-${term}`}
+                onPress={async () => {
+                  await removeRecentTerm(term);
+                  loadRecents();
+                }}
+                hitSlop={10}
+              >
+                <Ionicons name="close" size={17} color={colors.cocoaFaint} />
+              </Pressable>
+            </Pressable>
+          ))}
+        </View>
       </View>
     ) : // Profile recents are people you looked up, so they belong on the People tab.
     tab === 'people' && recents.length > 0 ? (
@@ -293,13 +343,16 @@ export function SearchScreen({ navigation }: any) {
         ))}
       </View>
     ) : (
-      <View style={styles.empty}>
-        <Ionicons name={tab === 'dishes' ? 'restaurant-outline' : 'people-outline'} size={40} color={colors.cocoaFaint} />
-        <Muted style={styles.emptyText}>
-          {tab === 'dishes'
-            ? 'Search for a dish or an ingredient, like chicken, pancakes, or gochujang'
-            : 'Search for someone by name or handle'}
-        </Muted>
+      <View>
+        {browseTags}
+        <View style={styles.empty}>
+          <Ionicons name={tab === 'dishes' ? 'restaurant-outline' : 'people-outline'} size={40} color={colors.cocoaFaint} />
+          <Muted style={styles.emptyText}>
+            {tab === 'dishes'
+              ? 'Search for a dish, an ingredient or a hashtag, like chicken, gochujang, or #mexican'
+              : 'Search for someone by name or handle'}
+          </Muted>
+        </View>
       </View>
     )
   ) : searching ? (
@@ -307,7 +360,9 @@ export function SearchScreen({ navigation }: any) {
   ) : (
     <View style={styles.empty}>
       <Muted style={styles.emptyText}>
-        Nothing matched “{query.trim()}”. Try a different word
+        {typingTag
+          ? `No dishes with ${query.trim()} yet`
+          : `Nothing matched “${query.trim()}”. Try a different word`}
       </Muted>
     </View>
   );
@@ -386,6 +441,42 @@ export function SearchScreen({ navigation }: any) {
   );
 }
 
+/** A row of tappable #tags that scrolls sideways. */
+function HashtagChips({
+  tags,
+  onPick,
+  active,
+  testID,
+}: {
+  tags: string[];
+  onPick: (tag: string) => void;
+  active?: string;
+  testID?: string;
+}) {
+  const styles = useStyles();
+  return (
+    <ScrollView
+      testID={testID}
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      contentContainerStyle={styles.chipRow}
+      style={styles.chipScroll}
+    >
+      {tags.map((t) => (
+        <Pressable
+          key={t}
+          testID={`search-hashtag-${t}`}
+          onPress={() => onPick(t)}
+          style={[styles.chip, active === t && styles.chipOn]}
+        >
+          <Text style={[styles.chipText, active === t && styles.chipTextOn]}>#{t}</Text>
+        </Pressable>
+      ))}
+    </ScrollView>
+  );
+}
+
 function TabButton({
   label,
   active,
@@ -444,6 +535,29 @@ const useStyles = makeStyles((colors, { shadowSoft }) => ({
   termText: { flex: 1, fontFamily: fonts.bold, fontSize: 15, color: colors.cocoa },
   name: { fontFamily: fonts.bold, fontSize: 15.5, color: colors.cocoa },
   bio: { fontFamily: fonts.semi, fontSize: 12.5, color: colors.cocoaFaint, marginTop: 2 },
+  hint: {
+    position: 'absolute',
+    left: spacing.lg + 1.5,
+    right: 42,
+    top: 0,
+    // The Input's own bottom margin.
+    bottom: spacing.md,
+  },
+  hintText: { fontFamily: fonts.semi, fontSize: 16, color: colors.cocoaFaint },
+  browse: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, marginBottom: spacing.sm },
+  chipScroll: { marginHorizontal: -spacing.lg, marginTop: spacing.sm },
+  chipRow: { gap: 8, paddingHorizontal: spacing.lg },
+  chip: {
+    backgroundColor: colors.card,
+    borderRadius: radius.pill,
+    borderWidth: 1.5,
+    borderColor: colors.creamDark,
+    paddingHorizontal: 13,
+    paddingVertical: 7,
+  },
+  chipOn: { backgroundColor: colors.amber, borderColor: colors.amber },
+  chipText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.amberDark },
+  chipTextOn: { color: colors.white },
   clearBtn: {
     position: 'absolute',
     right: 12,

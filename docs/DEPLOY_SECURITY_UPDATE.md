@@ -31,7 +31,7 @@ expects the functions. Database first, then functions, then the app.
 ## 1. Database (SQL Editor)
 
 Paste **`supabase/upgrade_all.sql`** into the SQL Editor and run it, once. That
-one file is every migration from 0002 to 0038 in order. It brings a database of
+one file is every migration from 0002 to 0039 in order. It brings a database of
 any age up to date, including steps from long before the security work that
 may never have been run (like `0011_feedback.sql`): the ones you already have
 do nothing, the ones you missed are applied. It runs as one transaction, so if
@@ -40,7 +40,7 @@ anything fails, nothing changes.
 It was tested from four starting points: a database from the original schema
 with no migrations, one stopped before 0011, one stopped before 0030, and one
 already up to date. Every time, the result was identical to a fresh install
-and passed all 239 security checks. It was also run over a database full of
+and passed all 256 security checks. It was also run over a database full of
 the app's real kinds of data ("left the chat" lines, messages whose shared
 post was deleted, handles with capitals, photo-only comments, every
 notification and report type): it succeeded and every row was unchanged.
@@ -65,6 +65,7 @@ and so on), and then the security work:
 | `0036_retention.sql` | Reports outlive accounts; report copies cleared after 2 years |
 | `0037_legacy_cleanup.sql` | Removes an old "update own photos" storage rule early databases kept, which let people replace their stored photos without the upload checks |
 | `0038_validate_constraints.sql` | Checks every rule against the rows already there, and only warns (never fails) about older rows that don't fit |
+| `0039_hashtags.sql` | Hashtags on posts (a feature, not a fix): up to 5 per post, only from the app's list |
 
 It may print a **warning** or a notice rather than an error; these are fine:
 - 0033: "Session check NOT switched on". This means Supabase didn't let it

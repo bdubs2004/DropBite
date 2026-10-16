@@ -41,7 +41,8 @@ expected_columns(tbl, col, fixed_by) as (
     ('reports',      'comment_id',            '0013_report_comments_and_accounts.sql'),
     ('reports',      'comment_text_snapshot', '0013_report_comments_and_accounts.sql'),
     ('comments',     'image_url',             '0015_comment_photos.sql'),
-    ('comments',     'parent_id',             '0016_comment_replies.sql')
+    ('comments',     'parent_id',             '0016_comment_replies.sql'),
+    ('posts',        'hashtags',              '0039_hashtags.sql')
 ),
 
 -- Functions the policies call. A missing one breaks every policy that uses it.
@@ -74,7 +75,9 @@ expected_triggers(name, tbl, fixed_by) as (
          ('comments_check_photo_links', 'comments', '0031_storage_hardening.sql'),
          ('messages_check_photo_links', 'messages', '0031_storage_hardening.sql'),
          -- One account per phone for pushes (0032).
-         ('push_token_one_account', 'push_tokens', '0032_chat_hardening.sql')
+         ('push_token_one_account', 'push_tokens', '0032_chat_hardening.sql'),
+         -- Hashtags come from the list (0039).
+         ('posts_check_hashtags', 'posts', '0039_hashtags.sql')
 ),
 
 -- Three storage policies by design, and deliberately no INSERT or UPDATE
@@ -352,6 +355,25 @@ checks(grp, item, status) as (
         and p.polname not in ('read own photos', 'delete own photos', 'read photos in own chats')) > 0,
      'AN OLD STORAGE POLICY IS STILL IN PLACE; CHECK Storage → Policies')
   ) v(item, open, problem)
+
+  union all
+
+  -- The hashtag list (0039). Read through query_to_xml so this one query still
+  -- runs on a database that doesn't have the table yet.
+  select 17, 'hashtags: the list people pick from',
+    case
+      when to_regclass('public.hashtags') is null then 'MISSING — run 0039_hashtags.sql'
+      when not (select relrowsecurity from pg_class where oid = to_regclass('public.hashtags'))
+        then 'NO ROW-LEVEL SECURITY — run 0039_hashtags.sql'
+      when has_table_privilege('authenticated', 'public.hashtags', 'INSERT')
+        or has_table_privilege('authenticated', 'public.hashtags', 'UPDATE')
+        or has_table_privilege('authenticated', 'public.hashtags', 'DELETE')
+        then 'USERS CAN ADD THEIR OWN TAGS TO THE LIST — run 0039_hashtags.sql'
+      else (select case when n = 53 then 'OK (53 tags)'
+                        else 'HAS ' || n || ' TAGS, EXPECTED 53 — run 0039_hashtags.sql' end
+            from (select (xpath('//n/text()',
+                    query_to_xml('select count(*) as n from public.hashtags', false, false, '')))[1]::text::int as n) c)
+    end
 
   union all
 

@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { StackActions, useNavigation } from '@react-navigation/native';
 import { LOCATION_TAGGING_ENABLED } from '../config';
 import { relativeTime } from '../lib/time';
 import { useApp } from '../state/AppContext';
@@ -55,6 +56,7 @@ function PostCardView({
 }) {
   const styles = useStyles();
   const colors = useColors();
+  const navigation = useNavigation<any>();
   const [showRecipe, setShowRecipe] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -417,6 +419,27 @@ function PostCardView({
           {post.blurb}
         </Text>
 
+        {/* Hashtags sit under the caption, never inside it: the words stay
+            exactly as written. Each opens every dish with that tag. */}
+        {post.hashtags?.length ? (
+          <Text testID="post-hashtags" style={styles.hashtags}>
+            {post.hashtags.map((tag, i) => (
+              <React.Fragment key={tag}>
+                {i > 0 ? '  ' : null}
+                <Text
+                  testID={`post-hashtag-${tag}`}
+                  style={styles.hashtag}
+                  onPress={() => navigation.dispatch(StackActions.push('Hashtag', { tag }))}
+                  suppressHighlighting
+                  accessibilityRole="link"
+                >
+                  #{tag}
+                </Text>
+              </React.Fragment>
+            ))}
+          </Text>
+        ) : null}
+
         {post.recipe ? (
           <Pressable
             testID="post-recipe-toggle"
@@ -595,6 +618,15 @@ const useStyles = makeStyles((colors, { shadow }) => ({
   blurbHandle: {
     fontFamily: fonts.bold,
     color: colors.cocoa,
+  },
+  hashtags: {
+    marginTop: 4,
+    fontSize: 14.5,
+    lineHeight: 21,
+  },
+  hashtag: {
+    fontFamily: fonts.bold,
+    color: colors.amberDark,
   },
   recipeToggle: {
     marginTop: spacing.md,

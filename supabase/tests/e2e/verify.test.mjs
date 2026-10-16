@@ -380,6 +380,22 @@ check('…but B can\'t tag himself (or anyone) on A\'s post', !!r.error, ok_(r),
 r = await D.sb.from('post_tags').delete().eq('post_id', POST).eq('user_id', D.id).select();
 check('Dana removes herself from the tag', r.data?.length === 1, rows(r), '1 row');
 
+// Hashtags (from the list only, up to 5; everyone can search them).
+r = await A.sb.from('posts').update({ hashtags: ['greek', 'healthy'] }).eq('id', POST).select('hashtags');
+check('A adds #greek #healthy to her post', r.data?.[0]?.hashtags?.join(' ') === 'greek healthy', ok_(r), 'ok');
+r = await B.sb.from('posts').select('id').overlaps('hashtags', ['greek']).eq('id', POST);
+check('…B finds it by searching #greek', r.data?.length === 1, rows(r), '1 row');
+r = await B.sb.from('posts').update({ hashtags: ['expensive'] }).eq('id', POST).select();
+check('…but B can\'t change A\'s hashtags', !r.data?.length, rows(r), 'denied (0 rows changed)');
+r = await A.sb.from('posts').update({ hashtags: ['freecrypto'] }).eq('id', POST).select();
+check('a hashtag that isn\'t on the list is refused', !!r.error, ok_(r), 'denied');
+r = await A.sb.from('posts').update({ hashtags: ['greek', 'healthy', 'budget', 'spicy', 'vegan', 'keto'] }).eq('id', POST).select();
+check('more than 5 hashtags are refused', !!r.error, ok_(r), 'denied');
+r = await B.sb.from('hashtags').insert({ tag: 'freecrypto', category: 'vibe' });
+check('B can\'t add his own tag to the list', !!r.error, ok_(r), 'denied');
+r = await C.sb.from('posts').select('id').overlaps('hashtags', ['greek']);
+check('signed out, searching a hashtag finds nothing', !r.data?.length, rows(r), 'none');
+
 // Likes, comments, replies, comment likes, follows.
 r = await B.sb.from('reactions').insert({ post_id: POST, user_id: B.id });
 check('B likes A\'s post', !r.error, ok_(r), 'ok');
