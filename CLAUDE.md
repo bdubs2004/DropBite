@@ -29,7 +29,9 @@ A mobile-first, photo-first social app where users post meals in slots (breakfas
 Explicitly OUT of scope for MVP: ads, payments/premium tier, restaurant menu selection, restaurant claiming/dashboard, recipe book compilation, feed algorithm.
 
 Since first draft the owner has pulled several of these in deliberately: **DMs**,
-**comments**, and **nutrition estimates** all shipped. Nutrition takes its
+**comments**, **nutrition estimates** and **hashtags** all shipped. Hashtags come
+from a fixed list (`src/lib/hashtags.ts`, mirrored in migration 0039) rather than
+free text, so the tag data stays clean and searchable. Nutrition takes its
 numbers from USDA FoodData Central rather than from the model, which is the only
 version of the feature worth having — see `supabase/functions/lookup-nutrition`.
 

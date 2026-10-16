@@ -22,6 +22,7 @@ import { cleanHandle, unreservedBase } from '../../lib/handle';
 import { clamp, clampOrNull, LIMITS } from '../../lib/limits';
 import { cleanRecipe } from '../../lib/recipeData';
 import { collectionNameProblem, tidyCollectionName } from '../../lib/collectionName';
+import { cleanHashtags, hashtagsForSearch } from '../../lib/hashtags';
 import { sanitizeSearchTerm } from '../../lib/searchTerm';
 import { daysBetween, localDateString } from '../../lib/time';
 import { DataService } from '../types';
@@ -130,18 +131,20 @@ export class SupabaseService implements DataService {
     leave: false,
     photoSize: false,
     activity: false,
+    hashtags: false,
   };
   private capsLoaded: Promise<void> | null = null;
   private loadCaps(): Promise<void> {
     if (!this.capsLoaded) {
       this.capsLoaded = (async () => {
-        const [tags, shares, reactions, leave, photoSize, activity] = await Promise.all([
+        const [tags, shares, reactions, leave, photoSize, activity, hashtags] = await Promise.all([
           this.sb.from('post_tags').select('post_id').limit(1),
           this.sb.from('messages').select('shared_user_id').limit(1),
           this.sb.from('message_reactions').select('message_id').limit(1),
           this.sb.from('conversations').select('is_group').limit(1),
           this.sb.from('posts').select('photo_width').limit(1),
           this.sb.from('notifications').select('pushed_at').limit(1),
+          this.sb.from('posts').select('hashtags').limit(1),
         ]);
         // All of them failing is a network problem, not a schema answer:
         // try again on the next call rather than switching everything off.
@@ -151,7 +154,8 @@ export class SupabaseService implements DataService {
           reactions.error &&
           leave.error &&
           photoSize.error &&
-          activity.error
+          activity.error &&
+          hashtags.error
         ) {
           this.capsLoaded = null;
           return;
@@ -163,6 +167,7 @@ export class SupabaseService implements DataService {
           leave: !leave.error,
           photoSize: !photoSize.error,
           activity: !activity.error,
+          hashtags: !hashtags.error,
         };
       })().catch(() => {
         this.capsLoaded = null;
@@ -548,6 +553,7 @@ export class SupabaseService implements DataService {
       reposted_by_me: (row.reposts ?? []).some((r: any) => r.user_id === meId),
       saved_by_me: (row.saved_posts ?? []).some((r: any) => r.user_id === meId),
       tagged: (row.post_tags ?? []).map((t: any) => t.users as User).filter(Boolean),
+      hashtags: cleanHashtags(row.hashtags),
     };
   }
 
@@ -673,12 +679,36 @@ export class SupabaseService implements DataService {
 
   async searchPosts(query: string): Promise<Post[]> {
     const meId = await this.myId();
+    const { tags, only } = hashtagsForSearch(query);
+
+    // "#mexican" (or "#mex", still typing): posts carrying that tag, nothing else.
+    if (only) {
+      if (!tags.length || !this.caps.hashtags) return [];
+      const { data } = await this.sb
+        .from('posts')
+        .select(this.POST_SELECT)
+        .overlaps('hashtags', tags)
+        .order('created_at', { ascending: false })
+        .limit(60);
+      return ((data ?? []) as any[]).map((row) => this.hydrateRow(row, meId));
+    }
+
     const term = sanitizeSearchTerm(query);
     if (!term) return [];
 
-    // Two queries rather than one: PostgREST can't OR across a joined table,
-    // so match blurbs directly and recipe titles/ingredients via recipes.
-    const [byBlurb, byRecipe] = await Promise.all([
+    // Separate queries rather than one: PostgREST can't OR across a joined
+    // table, so match blurbs directly, recipe titles/ingredients via recipes,
+    // and (when the word is a tag, like "chinese") posts tagged with it.
+    const byTag =
+      tags.length && this.caps.hashtags
+        ? this.sb
+            .from('posts')
+            .select(this.POST_SELECT)
+            .overlaps('hashtags', tags)
+            .order('created_at', { ascending: false })
+            .limit(60)
+        : Promise.resolve({ data: [] as any[] });
+    const [byBlurb, byRecipe, tagged] = await Promise.all([
       this.sb
         .from('posts')
         .select(this.POST_SELECT)
@@ -690,10 +720,12 @@ export class SupabaseService implements DataService {
         .select('post_id')
         .or(`title.ilike.%${term}%,ingredients.cs.[{"item":"${term}"}]`)
         .limit(60),
+      byTag,
     ]);
 
     const rows = new Map<string, any>();
     for (const r of (byBlurb.data ?? []) as any[]) rows.set(r.id, r);
+    for (const r of (tagged.data ?? []) as any[]) rows.set(r.id, r);
 
     const recipePostIds = ((byRecipe.data ?? []) as any[])
       .map((r) => r.post_id)
@@ -891,6 +923,10 @@ export class SupabaseService implements DataService {
         restaurant_name: input.restaurant?.name ?? null,
         lat: input.restaurant?.lat ?? null,
         lng: input.restaurant?.lng ?? null,
+        // Only on a database with migration 0039, or the insert would fail.
+        ...(this.caps.hashtags && input.hashtags?.length
+          ? { hashtags: cleanHashtags(input.hashtags) }
+          : {}),
       })
       .select()
       .single();

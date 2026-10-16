@@ -45,6 +45,14 @@ insert into public.posts (id, user_id, meal_slot, photo_url, blurb, photo_width,
    'https://proj.supabase.co/storage/v1/object/public/photos/a0000000-0000-4000-8000-000000000002/aaaa0000aaaa0000aaaa0000aaaa0002.jpg', '', null, null),
   ('b0000000-0000-4000-8000-000000000003', 'a0000000-0000-4000-8000-000000000004', 'snack',
    'https://proj.supabase.co/storage/v1/object/public/photos/a0000000-0000-4000-8000-000000000004/aaaa0000aaaa0000aaaa0000aaaa0004.jpg', 'about to be deleted', 800, 800);
+-- Hashtags (0039), where the database has them.
+do $$
+begin
+  if exists (select 1 from information_schema.columns
+             where table_schema = 'public' and table_name = 'posts' and column_name = 'hashtags') then
+    update public.posts set hashtags = '{homemade,comfortfood}' where id = 'b0000000-0000-4000-8000-000000000001';
+  end if;
+end $$;
 insert into public.recipes (post_id, title, ingredients, steps, cook_time_minutes, ai_generated, user_edited, servings, nutrition, nutrition_source) values
   ('b0000000-0000-4000-8000-000000000001', 'Garlic chicken',
    '[{"item":"chicken thighs","quantity":2,"unit":""},{"item":"garlic","quantity":"3","unit":"cloves","grams":9,"fdc_id":1104647,"nutrition":{"calories":13,"protein_g":0.6}}]',

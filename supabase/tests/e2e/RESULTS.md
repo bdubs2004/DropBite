@@ -1,10 +1,10 @@
 # End-to-end security verification: last run
 
-Run 2026-10-14 03:18 UTC with `supabase/tests/e2e/run.sh`: Postgres 16 + schema.sql, Supabase Auth v2.177.0, PostgREST 12.2.3, the seven edge functions on Deno, supabase-js as the client. Storage is a stand-in that authorizes through the same storage.objects policies (gateway.mjs).
+Run 2026-10-16 18:08 UTC with `supabase/tests/e2e/run.sh`: Postgres 16 + schema.sql, Supabase Auth v2.177.0, PostgREST 12.2.3, the seven edge functions on Deno, supabase-js as the client. Storage is a stand-in that authorizes through the same storage.objects policies (gateway.mjs).
 
 User A owns the data; User B is a separate, unrelated account; User C is signed out.
 
-**110 of 110 checks passed.**
+**117 of 117 checks passed.**
 
 ## 1. User B requests User A's private messages
 
@@ -27,7 +27,7 @@ User A owns the data; User B is a separate, unrelated account; User C is signed 
 | B renames it | denied (0 rows changed) | 0 row(s) | PASS |
 | B deletes it | denied (0 rows deleted) | 0 row(s) | PASS |
 | B adds a post to it | denied (error) | error: new row violates row-level security policy for table "collection_posts" | PASS |
-| afterwards A's collection is exactly as it was | owner A, name "Weeknight dinners" | {"id":"7f27d947-90dd-4275-99f4-9472d42b23bb","user_id":"4d940e9e-e92f-4fca-a99a-72e89361c79c","name":"Weeknight dinners"} | PASS |
+| afterwards A's collection is exactly as it was | owner A, name "Weeknight dinners" | {"id":"e898d95c-36dc-4994-ab38-89acb91e67aa","user_id":"6bbc6515-2726-4051-a665-d7092ba4bb1b","name":"Weeknight dinners"} | PASS |
 | B reads A's saved posts (the private list) | denied (0 rows) | 0 row(s) | PASS |
 | B clears A's saved posts | denied (0 rows) | 0 row(s) | PASS |
 | control: A still sees her saved post | 1 row | 1 row(s) | PASS |
@@ -41,7 +41,7 @@ User A owns the data; User B is a separate, unrelated account; User C is signed 
 | B deletes A's post | denied (0 rows deleted) | 0 row(s) | PASS |
 | B posts as A (user_id = A) | denied (error) | error: Upload photos with the app. | PASS |
 | B edits A's profile | denied (0 rows changed) | 0 row(s) | PASS |
-| afterwards A's post is untouched | unchanged | {"blurb":"Alice's garlic chicken","user_id":"4d940e9e-e92f-4fca-a99a-72e89361c79c"} | PASS |
+| afterwards A's post is untouched | unchanged | {"blurb":"Alice's garlic chicken","user_id":"6bbc6515-2726-4051-a665-d7092ba4bb1b"} | PASS |
 | control: A edits her own post | 1 row changed | 1 row(s) | PASS |
 
 ## 4. User B tries to get User A's private photos
@@ -143,6 +143,13 @@ User A owns the data; User B is a separate, unrelated account; User C is signed 
 | …and everyone can see who is tagged | Dana listed | 1 row(s) | PASS |
 | …but B can't tag himself (or anyone) on A's post | denied | error: new row violates row-level security policy for table "post_tags" | PASS |
 | Dana removes herself from the tag | 1 row | 1 row(s) | PASS |
+| A adds #greek #healthy to her post | ok | ok | PASS |
+| …B finds it by searching #greek | 1 row | 1 row(s) | PASS |
+| …but B can't change A's hashtags | denied (0 rows changed) | 0 row(s) | PASS |
+| a hashtag that isn't on the list is refused | denied | error: Pick hashtags from the list. | PASS |
+| more than 5 hashtags are refused | denied | error: A post can have up to 5 hashtags. | PASS |
+| B can't add his own tag to the list | denied | error: permission denied for table hashtags | PASS |
+| signed out, searching a hashtag finds nothing | none | 0 row(s) | PASS |
 | B likes A's post | ok | ok | PASS |
 | …A gets a like notification | from B | checked | PASS |
 | …and a push for it goes to Alice's phone | a push to Alice | "Bob liked your post" | PASS |

@@ -50,6 +50,7 @@ import { NotificationsScreen } from './src/screens/NotificationsScreen';
 import { ReportScreen } from './src/screens/ReportScreen';
 import { ActivityScreen } from './src/screens/ActivityScreen';
 import { SearchScreen } from './src/screens/SearchScreen';
+import { HashtagScreen } from './src/screens/HashtagScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { TagPeopleScreen } from './src/screens/TagPeopleScreen';
 import { TaggedPostsScreen } from './src/screens/TaggedPostsScreen';
@@ -428,6 +429,7 @@ function Root() {
       <Stack.Screen name="Activity" component={ActivityScreen} />
       <Stack.Screen name="Collection" component={CollectionScreen} />
       <Stack.Screen name="TaggedPosts" component={TaggedPostsScreen} />
+      <Stack.Screen name="Hashtag" component={HashtagScreen} />
       <Stack.Screen
         name="AddToCollection"
         component={AddToCollectionScreen}

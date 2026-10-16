@@ -72,6 +72,8 @@ export interface Post {
   restaurant_name: string | null;
   lat: number | null;
   lng: number | null;
+  /** Up to 5 tags from the list in src/lib/hashtags.ts, in the order picked. */
+  hashtags?: string[];
   created_at: string;
   /** Display-only engagement counts (comments/shares/reposts land in Phase 2) */
   comment_count?: number;
@@ -367,4 +369,6 @@ export interface NewPostInput {
   recipe?: Omit<Recipe, 'id' | 'post_id'> | null;
   /** People to tag in the post. */
   tag_user_ids?: string[];
+  /** Hashtags from the list (src/lib/hashtags.ts). */
+  hashtags?: string[];
 }

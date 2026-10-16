@@ -1016,6 +1016,49 @@ select qa.fact('retention', 'an open report keeps its copy however old',
 select qa.check('retention', 'only the server can clear reports', 'mallory',
   $q$select count(*) from (select public.redact_closed_reports(interval '0')) s$q$, 'error');
 
+-- =======================================================================
+-- 22. Hashtags
+-- =======================================================================
+-- Up to 5 per post, only from the list (0039). The list itself is read-only.
+select qa.check('hashtags', 'tag your own post from the list', 'mallory',
+  $q$update public.posts set hashtags = '{mexican,budget}' where id = '10000000-0000-4000-8000-0000000000d4'$q$, 'rows:1');
+select qa.check('hashtags', 'a tag that isn''t on the list', 'mallory',
+  $q$update public.posts set hashtags = '{freecrypto}' where id = '10000000-0000-4000-8000-0000000000d4'$q$, 'error:Pick hashtags from the list');
+select qa.check('hashtags', 'a slur or a link dressed up as a tag', 'mallory',
+  $q$update public.posts set hashtags = array['visit-my-site.com'] where id = '10000000-0000-4000-8000-0000000000d4'$q$, 'error:Pick hashtags from the list');
+select qa.check('hashtags', 'more than 5 tags', 'mallory',
+  $q$update public.posts set hashtags = '{mexican,budget,spicy,vegan,keto,brunch}' where id = '10000000-0000-4000-8000-0000000000d4'$q$, 'error:A post can have up to 5 hashtags');
+select qa.check('hashtags', 'the same tag over and over (to rank higher)', 'mallory',
+  $q$update public.posts set hashtags = '{mexican,mexican,mexican}' where id = '10000000-0000-4000-8000-0000000000d4'$q$, 'error:Each hashtag can only be added once');
+select qa.check('hashtags', 'a new post with a tag off the list', 'mallory',
+  format($q$insert into public.posts (user_id, meal_slot, photo_url, hashtags) values (%L, 'dinner', 'https://x.supabase.co/storage/v1/object/public/photos/dddddddd-0000-4000-8000-000000000004/d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4.jpg', '{freecrypto}')$q$, :mallory),
+  'error:Pick hashtags from the list');
+select qa.check('hashtags', 'a new post with tags from the list', 'mallory',
+  format($q$insert into public.posts (user_id, meal_slot, photo_url, hashtags) values (%L, 'dinner', 'https://x.supabase.co/storage/v1/object/public/photos/dddddddd-0000-4000-8000-000000000004/d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4.jpg', '{chinese,healthy}')$q$, :mallory),
+  'rows:1');
+select qa.check('hashtags', 'no tags at all (null) just means none', 'mallory',
+  $q$update public.posts set hashtags = null where id = '10000000-0000-4000-8000-0000000000d4'$q$, 'rows:1');
+select qa.check('hashtags', 'tag someone else''s post', 'mallory',
+  $q$update public.posts set hashtags = '{expensive}' where id = '10000000-0000-4000-8000-0000000000a1'$q$, 'denied');
+select qa.check('hashtags', 'add your own tag to the list', 'mallory',
+  $q$insert into public.hashtags (tag, category) values ('freecrypto', 'vibe')$q$, 'denied');
+select qa.check('hashtags', 'take a tag off the list', 'mallory',
+  $q$delete from public.hashtags where tag = 'mexican'$q$, 'denied');
+select qa.check('hashtags', 'rename a tag on the list', 'mallory',
+  $q$update public.hashtags set tag = 'freecrypto' where tag = 'mexican'$q$, 'denied');
+select qa.check('hashtags', 'anyone signed in can read the list', 'bob',
+  $q$select count(*) from public.hashtags$q$, 'rows:53');
+-- Alice tags her dinner; Bob finds it by the tag, Eve (who Alice blocked) doesn't.
+update public.posts set hashtags = '{chinese,budget}' where id = '10000000-0000-4000-8000-0000000000a1';
+select qa.check('hashtags', 'search a tag and find the post', 'bob',
+  $q$select count(*) from public.posts where hashtags && '{chinese}' and id = '10000000-0000-4000-8000-0000000000a1'$q$, 'rows:1');
+select qa.check('hashtags', 'someone you blocked can''t find you through a tag', 'eve',
+  $q$select count(*) from public.posts where hashtags && '{chinese}' and id = '10000000-0000-4000-8000-0000000000a1'$q$, 'rows:0');
+select qa.fact('hashtags', 'tag search uses the index, not a scan of every post',
+  $q$select (count(*) > 0)::text from pg_indexes where tablename = 'posts' and indexname = 'posts_hashtags_idx'$q$, 'true');
+select qa.fact('hashtags', 'older posts without tags are untouched',
+  $q$select count(*)::text from public.posts where hashtags = '{}' and id = '10000000-0000-4000-8000-0000000000b2'$q$, '1');
+
 -- ------------------------------------------------------------- report
 \echo
 \echo '================ results ================'

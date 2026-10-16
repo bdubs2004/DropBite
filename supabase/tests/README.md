@@ -39,7 +39,7 @@ Linux only (it downloads Linux builds of PostgREST and Supabase Auth, cached in
 
 ## rls_attack_test.sql: start here
 
-The main suite: 239 checks, self-asserting (it ends with an error if any fail).
+The main suite: 256 checks, self-asserting (it ends with an error if any fail).
 Six separate accounts sign in the way the API does it, with their own tokens,
 and an attacker with a normal account (Mallory, who follows the victim and has
 her own posts and a DM with her) tries to read, change or delete other people's
