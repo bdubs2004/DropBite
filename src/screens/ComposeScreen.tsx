@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CollectionPicker } from '../components/CollectionPicker';
-import { HashtagPicker } from '../components/HashtagPicker';
+import { HashtagField } from '../components/HashtagField';
 import { PostSuccessOverlay } from '../components/PostSuccessOverlay';
 import { TagPeoplePicker } from '../components/TagPeoplePicker';
 import { NutritionPanel } from '../components/NutritionPanel';
@@ -88,7 +88,6 @@ export function ComposeScreen({ navigation }: any) {
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
   // Hashtags from the list, so the dish turns up in Search.
   const [hashtags, setHashtags] = useState<string[]>([]);
-  const [hashtagsOpen, setHashtagsOpen] = useState(false);
 
   const hasPhoto = Boolean(photoUri || photoEmoji);
   const previewFrame = photoFrame(photoSize?.width, photoSize?.height);
@@ -512,37 +511,10 @@ export function ComposeScreen({ navigation }: any) {
           </>
         )}
 
-        {/* 6: hashtags (optional) */}
+        {/* 6: hashtags (optional), an area of their own: never mixed into the
+            description, which stays exactly as written */}
         <Text style={styles.stepLabel}>Hashtags</Text>
-        <Pressable
-          testID="compose-hashtags"
-          onPress={() => setHashtagsOpen(true)}
-          style={styles.collectionRow}
-          accessibilityLabel="Add hashtags"
-        >
-          <Text style={styles.hashIcon}>#</Text>
-          <Text
-            style={[styles.collectionText, !hashtags.length && { color: colors.cocoaFaint }]}
-            numberOfLines={1}
-          >
-            {hashtags.length
-              ? hashtags.map((t) => `#${t}`).join(' ')
-              : 'Add hashtags like #healthy or #budget'}
-          </Text>
-          <Ionicons name="chevron-forward" size={18} color={colors.cocoaFaint} />
-        </Pressable>
-        <Modal
-          visible={hashtagsOpen}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setHashtagsOpen(false)}
-        >
-          <HashtagPicker
-            selected={hashtags}
-            onChangeSelected={setHashtags}
-            onClose={() => setHashtagsOpen(false)}
-          />
-        </Modal>
+        <HashtagField selected={hashtags} onChange={setHashtags} />
 
         {/* 7: tag people (optional) */}
         <Text style={styles.stepLabel}>Tag people</Text>
@@ -685,13 +657,6 @@ const useStyles = makeStyles((colors) => ({
     paddingVertical: 14,
   },
   collectionText: { flex: 1, fontFamily: fonts.semi, fontSize: 15, color: colors.cocoa },
-  hashIcon: {
-    width: 20,
-    textAlign: 'center',
-    fontFamily: fonts.bold,
-    fontSize: 19,
-    color: colors.amberDark,
-  },
   stepLabel: {
     fontFamily: fonts.bold,
     fontSize: 12.5,
