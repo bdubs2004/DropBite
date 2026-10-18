@@ -22,7 +22,9 @@ import { cleanHandle, unreservedBase } from '../../lib/handle';
 import { clamp, clampOrNull, LIMITS } from '../../lib/limits';
 import { cleanRecipe } from '../../lib/recipeData';
 import { collectionNameProblem, tidyCollectionName } from '../../lib/collectionName';
-import { cleanHashtags, hashtagsForSearch } from '../../lib/hashtags';
+import { cleanHashtags } from '../../lib/hashtags';
+import { cleanPriceLevel } from '../../lib/price';
+import { combineSearch, hasSearch, SearchFilters } from '../../lib/searchQuery';
 import { sanitizeSearchTerm } from '../../lib/searchTerm';
 import { daysBetween, localDateString } from '../../lib/time';
 import { DataService } from '../types';
@@ -132,20 +134,23 @@ export class SupabaseService implements DataService {
     photoSize: false,
     activity: false,
     hashtags: false,
+    priceLevel: false,
   };
   private capsLoaded: Promise<void> | null = null;
   private loadCaps(): Promise<void> {
     if (!this.capsLoaded) {
       this.capsLoaded = (async () => {
-        const [tags, shares, reactions, leave, photoSize, activity, hashtags] = await Promise.all([
-          this.sb.from('post_tags').select('post_id').limit(1),
-          this.sb.from('messages').select('shared_user_id').limit(1),
-          this.sb.from('message_reactions').select('message_id').limit(1),
-          this.sb.from('conversations').select('is_group').limit(1),
-          this.sb.from('posts').select('photo_width').limit(1),
-          this.sb.from('notifications').select('pushed_at').limit(1),
-          this.sb.from('posts').select('hashtags').limit(1),
-        ]);
+        const [tags, shares, reactions, leave, photoSize, activity, hashtags, priceLevel] =
+          await Promise.all([
+            this.sb.from('post_tags').select('post_id').limit(1),
+            this.sb.from('messages').select('shared_user_id').limit(1),
+            this.sb.from('message_reactions').select('message_id').limit(1),
+            this.sb.from('conversations').select('is_group').limit(1),
+            this.sb.from('posts').select('photo_width').limit(1),
+            this.sb.from('notifications').select('pushed_at').limit(1),
+            this.sb.from('posts').select('hashtags').limit(1),
+            this.sb.from('posts').select('price_level').limit(1),
+          ]);
         // All of them failing is a network problem, not a schema answer:
         // try again on the next call rather than switching everything off.
         if (
@@ -155,7 +160,8 @@ export class SupabaseService implements DataService {
           leave.error &&
           photoSize.error &&
           activity.error &&
-          hashtags.error
+          hashtags.error &&
+          priceLevel.error
         ) {
           this.capsLoaded = null;
           return;
@@ -168,6 +174,7 @@ export class SupabaseService implements DataService {
           photoSize: !photoSize.error,
           activity: !activity.error,
           hashtags: !hashtags.error,
+          priceLevel: !priceLevel.error,
         };
       })().catch(() => {
         this.capsLoaded = null;
@@ -554,6 +561,7 @@ export class SupabaseService implements DataService {
       saved_by_me: (row.saved_posts ?? []).some((r: any) => r.user_id === meId),
       tagged: (row.post_tags ?? []).map((t: any) => t.users as User).filter(Boolean),
       hashtags: cleanHashtags(row.hashtags),
+      price_level: cleanPriceLevel(row.price_level),
     };
   }
 
@@ -677,44 +685,41 @@ export class SupabaseService implements DataService {
     return (data ?? []).map((row: any) => this.hydrateRow(row, meId));
   }
 
-  async searchPosts(query: string): Promise<Post[]> {
+  async searchPosts(query: string, filters: SearchFilters = {}): Promise<Post[]> {
     const meId = await this.myId();
-    const { tags, only } = hashtagsForSearch(query);
+    const s = combineSearch(query, filters);
+    if (!hasSearch(s)) return [];
+    // A database without 0039/0040 can't answer a hashtag or price question.
+    if ((s.tags.length || s.tagPrefix.length) && !this.caps.hashtags) return [];
+    if (s.prices.length && !this.caps.priceLevel) return [];
 
-    // "#mexican" (or "#mex", still typing): posts carrying that tag, nothing else.
-    if (only) {
-      if (!tags.length || !this.caps.hashtags) return [];
-      const { data } = await this.sb
-        .from('posts')
-        .select(this.POST_SELECT)
-        .overlaps('hashtags', tags)
-        .order('created_at', { ascending: false })
-        .limit(60);
+    // The filters, applied to every query below.
+    const filtered = (q: any) => {
+      if (s.tags.length) q = q.contains('hashtags', s.tags);
+      if (s.tagPrefix.length) q = q.overlaps('hashtags', s.tagPrefix);
+      if (s.prices.length) q = q.in('price_level', s.prices);
+      if (s.slots.length) q = q.in('meal_slot', s.slots);
+      return q;
+    };
+    const posts = () => this.sb.from('posts').select(this.POST_SELECT);
+    const newest = (q: any) => q.order('created_at', { ascending: false }).limit(60);
+
+    const term = sanitizeSearchTerm(s.softTag ?? s.text);
+    // Only filters ("budget meals", or Price picked by hand): one query.
+    if (!term) {
+      const { data } = await newest(filtered(posts()));
       return ((data ?? []) as any[]).map((row) => this.hydrateRow(row, meId));
     }
 
-    const term = sanitizeSearchTerm(query);
-    if (!term) return [];
-
     // Separate queries rather than one: PostgREST can't OR across a joined
     // table, so match blurbs directly, recipe titles/ingredients via recipes,
-    // and (when the word is a tag, like "chinese") posts tagged with it.
+    // and (for a lone tag word like "chinese") posts tagged with it.
     const byTag =
-      tags.length && this.caps.hashtags
-        ? this.sb
-            .from('posts')
-            .select(this.POST_SELECT)
-            .overlaps('hashtags', tags)
-            .order('created_at', { ascending: false })
-            .limit(60)
+      s.softTag && this.caps.hashtags
+        ? newest(filtered(posts().overlaps('hashtags', [s.softTag])))
         : Promise.resolve({ data: [] as any[] });
     const [byBlurb, byRecipe, tagged] = await Promise.all([
-      this.sb
-        .from('posts')
-        .select(this.POST_SELECT)
-        .ilike('blurb', `%${term}%`)
-        .order('created_at', { ascending: false })
-        .limit(60),
+      newest(filtered(posts().ilike('blurb', `%${term}%`))),
       this.sb
         .from('recipes')
         .select('post_id')
@@ -731,10 +736,7 @@ export class SupabaseService implements DataService {
       .map((r) => r.post_id)
       .filter((id) => !rows.has(id));
     if (recipePostIds.length > 0) {
-      const { data: extra } = await this.sb
-        .from('posts')
-        .select(this.POST_SELECT)
-        .in('id', recipePostIds);
+      const { data: extra } = await filtered(posts().in('id', recipePostIds));
       for (const r of (extra ?? []) as any[]) rows.set(r.id, r);
     }
 
@@ -926,6 +928,10 @@ export class SupabaseService implements DataService {
         // Only on a database with migration 0039, or the insert would fail.
         ...(this.caps.hashtags && input.hashtags?.length
           ? { hashtags: cleanHashtags(input.hashtags) }
+          : {}),
+        // Only on a database with migration 0040.
+        ...(this.caps.priceLevel && cleanPriceLevel(input.price_level)
+          ? { price_level: cleanPriceLevel(input.price_level) }
           : {}),
       })
       .select()

@@ -39,7 +39,7 @@ Linux only (it downloads Linux builds of PostgREST and Supabase Auth, cached in
 
 ## rls_attack_test.sql: start here
 
-The main suite: 256 checks, self-asserting (it ends with an error if any fail).
+The main suite: 266 checks, self-asserting (it ends with an error if any fail).
 Six separate accounts sign in the way the API does it, with their own tokens,
 and an attacker with a normal account (Mallory, who follows the victim and has
 her own posts and a DM with her) tries to read, change or delete other people's
@@ -56,7 +56,7 @@ that actually succeeds look refused, which once hid a real hole here.
 
 ```bash
 supabase/tests/run_security.sh            # fresh install from schema.sql
-supabase/tests/run_security.sh upgrade    # committed schema + migrations 0030+
+supabase/tests/run_security.sh upgrade    # committed schema + every migration from 0030
 supabase/tests/run_security.sh legacy     # the oldest schema.sql, rewound to before
                                           # any migration, then upgrade_all.sql
 supabase/tests/run_security.sh data       # a database in use, then upgrade_all.sql

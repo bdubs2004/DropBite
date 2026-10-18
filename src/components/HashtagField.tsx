@@ -12,8 +12,8 @@ import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
 
 /**
  * The Hashtags area of a new post, on the page itself rather than in a
- * popup: what you've picked (tap to take off), a box to find a tag, and the
- * list a group at a time (Cuisine, Diet, Price, ...). Up to MAX_HASHTAGS.
+ * popup: what you've picked (tap to take off), then the list to pick from
+ * (HashtagBrowser). Up to MAX_HASHTAGS.
  */
 export function HashtagField({
   selected,
@@ -24,15 +24,7 @@ export function HashtagField({
 }) {
   const styles = useStyles();
   const colors = useColors();
-  const [group, setGroup] = useState(HASHTAG_GROUPS[0].title);
-  const [query, setQuery] = useState('');
   const [full, setFull] = useState(false);
-
-  const term = normalizeHashtag(query);
-  // Typing searches every group; otherwise one group at a time.
-  const options = term
-    ? ALL_HASHTAGS.filter((t) => t.includes(term))
-    : HASHTAG_GROUPS.find((g) => g.title === group)?.tags ?? [];
 
   const toggle = (tag: string) => {
     const next = toggleHashtag(selected, tag);
@@ -67,6 +59,43 @@ export function HashtagField({
         </Text>
       ) : null}
 
+      <HashtagBrowser
+        selected={selected}
+        onToggle={toggle}
+        dimOthers={selected.length >= MAX_HASHTAGS}
+      />
+    </View>
+  );
+}
+
+/**
+ * The hashtag list to pick from: a box to find a tag across every group, or
+ * one group at a time (Cuisine, Diet, Cooking, Vibe). Used by a new post's
+ * Hashtags area and by the Hashtags filter in Search.
+ */
+export function HashtagBrowser({
+  selected,
+  onToggle,
+  dimOthers = false,
+}: {
+  selected: string[];
+  onToggle: (tag: string) => void;
+  /** Fade the tags not picked (no room for more). */
+  dimOthers?: boolean;
+}) {
+  const styles = useStyles();
+  const colors = useColors();
+  const [group, setGroup] = useState(HASHTAG_GROUPS[0].title);
+  const [query, setQuery] = useState('');
+
+  const term = normalizeHashtag(query);
+  // Typing searches every group; otherwise one group at a time.
+  const options = term
+    ? ALL_HASHTAGS.filter((t) => t.includes(term))
+    : HASHTAG_GROUPS.find((g) => g.title === group)?.tags ?? [];
+
+  return (
+    <View>
       <View style={styles.searchBox}>
         <Ionicons name="search" size={16} color={colors.cocoaFaint} />
         <TextInput
@@ -119,13 +148,13 @@ export function HashtagField({
             <Pressable
               key={tag}
               testID={`hashtag-option-${tag}`}
-              onPress={() => toggle(tag)}
+              onPress={() => onToggle(tag)}
               accessibilityRole="button"
               accessibilityState={{ selected: on }}
               style={[
                 styles.chip,
                 on && styles.chipOn,
-                !on && selected.length >= MAX_HASHTAGS && { opacity: 0.45 },
+                !on && dimOthers && { opacity: 0.45 },
               ]}
             >
               <Text style={[styles.chipText, on && styles.chipTextOn]}>#{tag}</Text>

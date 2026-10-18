@@ -65,7 +65,10 @@ elif [ "$MODE" = upgrade ]; then
   git -C "$REPO" show "${2:-HEAD}":supabase/schema.sql > "$WORK/schema-head.sql"
   [ "$(id -u)" = 0 ] && chown postgres "$WORK/schema-head.sql"
   psql_run -f "$WORK/schema-head.sql" >/dev/null 2>&1
-  for f in "$WORK"/src/migrations/003*.sql; do psql_run -f "$f" >/dev/null 2>&1; done
+  for f in "$WORK"/src/migrations/[0-9][0-9][0-9][0-9]_*.sql; do
+    n=$(basename "$f"); n=$((10#${n%%_*}))
+    [ "$n" -ge 30 ] && psql_run -f "$f" >/dev/null 2>&1
+  done
 else
   psql_run -f "$WORK/src/schema.sql" >/dev/null 2>&1
 fi

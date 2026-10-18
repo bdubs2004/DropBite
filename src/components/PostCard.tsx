@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { StackActions, useNavigation } from '@react-navigation/native';
 import { LOCATION_TAGGING_ENABLED } from '../config';
+import { priceSymbol } from '../lib/price';
 import { relativeTime } from '../lib/time';
 import { useApp } from '../state/AppContext';
 import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
@@ -419,11 +420,22 @@ function PostCardView({
           {post.blurb}
         </Text>
 
-        {/* Hashtags sit under the caption, never inside it: the words stay
-            exactly as written. Each opens every dish with that tag. */}
-        {post.hashtags?.length ? (
+        {/* What it cost and the hashtags sit under the caption, never inside
+            it: the words stay exactly as written. Each tag opens every dish
+            with that tag. */}
+        {post.hashtags?.length || post.price_level ? (
           <Text testID="post-hashtags" style={styles.hashtags}>
-            {post.hashtags.map((tag, i) => (
+            {post.price_level ? (
+              <Text
+                testID="post-price"
+                style={styles.price}
+                accessibilityLabel={`Cost ${priceSymbol(post.price_level)} to make`}
+              >
+                {priceSymbol(post.price_level)}
+              </Text>
+            ) : null}
+            {post.price_level && post.hashtags?.length ? '  ·  ' : null}
+            {(post.hashtags ?? []).map((tag, i) => (
               <React.Fragment key={tag}>
                 {i > 0 ? '  ' : null}
                 <Text
@@ -627,6 +639,11 @@ const useStyles = makeStyles((colors, { shadow }) => ({
   hashtag: {
     fontFamily: fonts.bold,
     color: colors.amberDark,
+  },
+  price: {
+    fontFamily: fonts.bold,
+    color: colors.cocoaSoft,
+    letterSpacing: 0.5,
   },
   recipeToggle: {
     marginTop: spacing.md,

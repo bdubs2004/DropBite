@@ -12,11 +12,15 @@ import {
 import { useIsFocused } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '../components/Avatar';
+import { HashtagBrowser } from '../components/HashtagField';
 import { PostThumb } from '../components/PostThumb';
+import { PricePicker } from '../components/PricePicker';
 import { RollingHint } from '../components/RollingHint';
 import { Input, Muted, ScreenTitle } from '../components/ui';
 import { ALL_HASHTAGS, normalizeHashtag, SEARCH_EXAMPLES } from '../lib/hashtags';
 import { openPostFeed } from '../lib/postFeed';
+import { PriceLevel, priceSymbol } from '../lib/price';
+import { combineSearch, hasSearch } from '../lib/searchQuery';
 import {
   addRecentSearch,
   addRecentTerm,
@@ -37,16 +41,32 @@ type Tab = 'dishes' | 'people';
 const GRID_COLUMNS = photoGrid.columns;
 const GRID_GAP = photoGrid.gap;
 const DEBOUNCE_MS = 250;
-// What the empty search bar rolls through, greyed out.
-const HINTS = SEARCH_EXAMPLES.map((t) => `#${t}`);
+// What the empty search bar rolls through, greyed out: hashtags, and a few
+// of the plain-words searches it understands ("budget meals" means $).
+const HINTS = [
+  '#chinese',
+  'budget meals',
+  '#healthy',
+  'cheap dinner',
+  '#mediterranean',
+  'fancy date night',
+  '#comfortfood',
+  '$ breakfast',
+  '#vegan',
+  'cheap mexican',
+];
 
 /**
  * Search people and dishes across the whole app.
  *
  * Dishes match on the description, the recipe title, an ingredient, or a
  * hashtag — the structured ingredient data is what makes "chicken" or
- * "gochujang" find things the caption never mentioned. "#mexican" searches
- * hashtags only.
+ * "gochujang" find things the caption never mentioned. Words are read
+ * smartly (src/lib/searchQuery.ts): "budget meals" means dishes marked $,
+ * "cheap mexican" adds #mexican, "breakfast" means breakfast posts.
+ *
+ * Two filters sit under the bar, Price ($ / $$ / $$$) and Hashtags; they
+ * work on their own or together with what's typed.
  */
 export function SearchScreen({ navigation }: any) {
   const styles = useStyles();
@@ -61,6 +81,10 @@ export function SearchScreen({ navigation }: any) {
   // results, and only the active tab's source is queried. Typing in one never
   // touches the other, so there is zero overlap between people and dishes.
   const [dishQuery, setDishQuery] = useState('');
+  // The Price and Hashtags filters (Dishes only), and which panel is open.
+  const [filterPrices, setFilterPrices] = useState<PriceLevel[]>([]);
+  const [filterTags, setFilterTags] = useState<string[]>([]);
+  const [panel, setPanel] = useState<null | 'price' | 'tags'>(null);
   const [peopleQuery, setPeopleQuery] = useState('');
   const [people, setPeople] = useState<User[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
@@ -132,10 +156,11 @@ export function SearchScreen({ navigation }: any) {
   // Search only the active tab's source — never both. Dishes never returns
   // people, people never returns dishes.
   const run = useCallback(
-    async (which: Tab, text: string) => {
+    async (which: Tab, text: string, prices: PriceLevel[], tags: string[]) => {
       const term = text.trim();
       const mine = ++seq.current;
-      if (!term) {
+      const filtered = which === 'dishes' && (prices.length > 0 || tags.length > 0);
+      if (!term && !filtered) {
         if (which === 'dishes') setPosts([]);
         else setPeople([]);
         setSearching(false);
@@ -144,7 +169,7 @@ export function SearchScreen({ navigation }: any) {
       setSearching(true);
       try {
         if (which === 'dishes') {
-          const p = await svc.searchPosts(term);
+          const p = await svc.searchPosts(term, { prices, tags });
           if (mine !== seq.current) return;
           setPosts(p);
         } else {
@@ -166,9 +191,9 @@ export function SearchScreen({ navigation }: any) {
   // Debounce so typing doesn't fire a query per keystroke. Re-runs on tab
   // switch too, so each tab shows results for its own query.
   useEffect(() => {
-    const t = setTimeout(() => run(tab, query), DEBOUNCE_MS);
+    const t = setTimeout(() => run(tab, query, filterPrices, filterTags), DEBOUNCE_MS);
     return () => clearTimeout(t);
-  }, [tab, query, run]);
+  }, [tab, query, filterPrices, filterTags, run]);
 
   const gridData: (Post | null)[] = (() => {
     const visible = posts.filter((p) => !hiddenIds.has(p.id));
@@ -177,8 +202,23 @@ export function SearchScreen({ navigation }: any) {
     return [...visible, ...Array(GRID_COLUMNS - remainder).fill(null)];
   })();
 
+  // What the search comes to, filters included ("budget meals" is a $ filter).
+  const understood = combineSearch(dishQuery, { prices: filterPrices, tags: filterTags });
   // A lone "#" isn't a search yet: the tag suggestions are showing.
-  const hasQuery = query.trim().replace(/^#/, '').length > 0;
+  const hasQuery =
+    tab === 'dishes' ? hasSearch(understood) : query.trim().length > 0;
+  const filterCount = filterPrices.length + filterTags.length;
+  const toggleFilterTag = (t: string) =>
+    setFilterTags((cur) => (cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]));
+  // Words that became filters, said back so the smart reading isn't a mystery:
+  // "budget mexican dinner" → "$ · #mexican · dinner".
+  const readBack = [
+    understood.prices.map(priceSymbol).join(' or '),
+    ...understood.tags.map((t) => `#${t}`),
+    understood.softTag ? `#${understood.softTag} or "${understood.softTag}"` : '',
+    ...understood.slots,
+    understood.text ? `“${understood.text}”` : '',
+  ].filter(Boolean);
   const count = tab === 'dishes' ? posts.length : people.length;
 
   const header = (
@@ -232,6 +272,73 @@ export function SearchScreen({ navigation }: any) {
         <TabButton label="Dishes" active={tab === 'dishes'} onPress={() => setTab('dishes')} />
         <TabButton label="People" active={tab === 'people'} onPress={() => setTab('people')} />
       </View>
+      {tab === 'dishes' ? (
+        <View style={styles.filterRow}>
+          <FilterToggle
+            testID="filter-price"
+            icon="$"
+            label={filterPrices.length ? `Price · ${filterPrices.map(priceSymbol).join(' ')}` : 'Price'}
+            on={filterPrices.length > 0}
+            open={panel === 'price'}
+            onPress={() => setPanel(panel === 'price' ? null : 'price')}
+          />
+          <FilterToggle
+            testID="filter-tags"
+            icon="#"
+            label={filterTags.length ? `Hashtags · ${filterTags.length}` : 'Hashtags'}
+            on={filterTags.length > 0}
+            open={panel === 'tags'}
+            onPress={() => setPanel(panel === 'tags' ? null : 'tags')}
+          />
+          {filterCount > 0 ? (
+            <Pressable
+              testID="filter-clear"
+              onPress={() => {
+                setFilterPrices([]);
+                setFilterTags([]);
+              }}
+              hitSlop={8}
+              style={styles.filterClear}
+            >
+              <Text style={styles.recentsClear}>Clear</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+      {tab === 'dishes' && panel === 'price' ? (
+        <View testID="filter-price-panel" style={styles.panel}>
+          <Text style={styles.panelTitle}>What it cost to make</Text>
+          <PricePicker testID="filter-price-pick" multi value={filterPrices} onChange={setFilterPrices} />
+        </View>
+      ) : null}
+      {tab === 'dishes' && panel === 'tags' ? (
+        <View testID="filter-tags-panel" style={styles.panel}>
+          {filterTags.length ? (
+            <View style={styles.pickedTags}>
+              {filterTags.map((t) => (
+                <Pressable
+                  key={t}
+                  testID={`filter-tag-${t}`}
+                  onPress={() => toggleFilterTag(t)}
+                  style={[styles.chip, styles.chipOn, styles.chipWithX]}
+                  accessibilityLabel={`Remove #${t}`}
+                >
+                  <Text style={[styles.chipText, styles.chipTextOn]}>#{t}</Text>
+                  <Ionicons name="close" size={14} color={colors.white} />
+                </Pressable>
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.panelTitle}>Dishes with every hashtag you pick</Text>
+          )}
+          <HashtagBrowser selected={filterTags} onToggle={toggleFilterTag} />
+        </View>
+      ) : null}
+      {tab === 'dishes' && readBack.length > 0 && !(readBack.length === 1 && understood.text) ? (
+        <Text testID="search-understood" style={styles.understood} numberOfLines={2}>
+          Showing {readBack.join(' · ')}
+        </Text>
+      ) : null}
       {tagSuggestions.length > 0 ? (
         <HashtagChips
           testID="search-tag-suggestions"
@@ -253,7 +360,12 @@ export function SearchScreen({ navigation }: any) {
     tab === 'dishes' && !typingTag ? (
       <View testID="search-browse-tags" style={styles.browse}>
         <Text style={styles.recentsTitle}>Browse hashtags</Text>
-        <HashtagChips tags={SEARCH_EXAMPLES} onPick={(t) => setDishQuery(`#${t}`)} />
+        <HashtagChips
+          tags={SEARCH_EXAMPLES}
+          onPick={(t) => {
+            setFilterTags((cur) => (cur.includes(t) ? cur : [...cur, t]));
+          }}
+        />
       </View>
     ) : null;
 
@@ -349,7 +461,7 @@ export function SearchScreen({ navigation }: any) {
           <Ionicons name={tab === 'dishes' ? 'restaurant-outline' : 'people-outline'} size={40} color={colors.cocoaFaint} />
           <Muted style={styles.emptyText}>
             {tab === 'dishes'
-              ? 'Search for a dish, an ingredient or a hashtag, like chicken, gochujang, or #mexican'
+              ? 'Search a dish, an ingredient or a hashtag, or just say it, like budget meals or cheap mexican'
               : 'Search for someone by name or handle'}
           </Muted>
         </View>
@@ -362,7 +474,9 @@ export function SearchScreen({ navigation }: any) {
       <Muted style={styles.emptyText}>
         {typingTag
           ? `No dishes with ${query.trim()} yet`
-          : `Nothing matched “${query.trim()}”. Try a different word`}
+          : query.trim()
+            ? `Nothing matched “${query.trim()}”. Try a different word or fewer filters`
+            : 'No dishes match those filters yet'}
       </Muted>
     </View>
   );
@@ -438,6 +552,43 @@ export function SearchScreen({ navigation }: any) {
         />
       )}
     </View>
+  );
+}
+
+/** One of the filter buttons under the search bar (Price, Hashtags). */
+function FilterToggle({
+  icon,
+  label,
+  on,
+  open,
+  onPress,
+  testID,
+}: {
+  icon: string;
+  label: string;
+  on: boolean;
+  open: boolean;
+  onPress: () => void;
+  testID: string;
+}) {
+  const styles = useStyles();
+  const colors = useColors();
+  return (
+    <Pressable
+      testID={testID}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ expanded: open, selected: on }}
+      style={[styles.toggle, on && styles.toggleOn]}
+    >
+      <Text style={[styles.toggleIcon, on && styles.toggleTextOn]}>{icon}</Text>
+      <Text style={[styles.toggleText, on && styles.toggleTextOn]}>{label}</Text>
+      <Ionicons
+        name={open ? 'chevron-up' : 'chevron-down'}
+        size={14}
+        color={on ? colors.white : colors.cocoaSoft}
+      />
+    </Pressable>
   );
 }
 
@@ -535,6 +686,48 @@ const useStyles = makeStyles((colors, { shadowSoft }) => ({
   termText: { flex: 1, fontFamily: fonts.bold, fontSize: 15, color: colors.cocoa },
   name: { fontFamily: fonts.bold, fontSize: 15.5, color: colors.cocoa },
   bio: { fontFamily: fonts.semi, fontSize: 12.5, color: colors.cocoaFaint, marginTop: 2 },
+  filterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  toggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: colors.card,
+    borderRadius: radius.pill,
+    borderWidth: 1.5,
+    borderColor: colors.creamDark,
+    paddingHorizontal: 13,
+    paddingVertical: 7,
+  },
+  toggleOn: { backgroundColor: colors.amber, borderColor: colors.amber },
+  toggleIcon: { fontFamily: fonts.display, fontSize: 15, color: colors.amberDark },
+  toggleText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.cocoaSoft },
+  toggleTextOn: { color: colors.white },
+  filterClear: { marginLeft: 'auto', paddingHorizontal: 4 },
+  panel: {
+    backgroundColor: colors.card,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginTop: spacing.sm,
+  },
+  panelTitle: {
+    fontFamily: fonts.semi,
+    fontSize: 13,
+    color: colors.cocoaFaint,
+    marginBottom: spacing.sm,
+  },
+  pickedTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chipWithX: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  understood: {
+    fontFamily: fonts.semi,
+    fontSize: 13,
+    color: colors.amberDark,
+    marginTop: spacing.sm,
+  },
   hint: {
     position: 'absolute',
     left: spacing.lg + 1.5,

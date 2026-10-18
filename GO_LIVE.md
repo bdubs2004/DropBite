@@ -167,6 +167,7 @@ rebuild it after adding a migration. For reference, what each one adds:
 | `0037_legacy_cleanup.sql` | **Security fix** — removes an "update own photos" storage rule that databases set up from an early schema.sql kept, which let people replace their stored photos without the upload checks; comment rules written as on a fresh install |
 | `0038_validate_constraints.sql` | Checks each rule against existing rows (every migration now adds its rules NOT VALID, so re-running the migrations on a database in use never fails on data a later rule allowed) |
 | `0039_hashtags.sql` | Hashtags on posts: up to 5 per post from a fixed list (also in `src/lib/hashtags.ts`), searchable. Run it before shipping the app build that has the hashtag picker |
+| `0040_price_level.sql` | What a dish cost to make ($ / $$ / $$$) on posts, for the Price filter in Search. Replaces the four price hashtags (posts that had them get the matching price) |
 
 They are all safe to run twice, and so is `schema.sql` itself. What re-running
 `schema.sql` will **not** do is add a column to a table that already exists —

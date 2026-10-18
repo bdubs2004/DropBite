@@ -2707,31 +2707,27 @@ with list(tag, category, position) as (values
   ('pescatarian', 'diet', 26),
   ('glutenfree', 'diet', 27),
   ('dairyfree', 'diet', 28),
-  ('budget', 'price', 29),
-  ('cheapeats', 'price', 30),
-  ('splurge', 'price', 31),
-  ('expensive', 'price', 32),
-  ('homemade', 'cooking', 33),
-  ('takeout', 'cooking', 34),
-  ('mealprep', 'cooking', 35),
-  ('quickandeasy', 'cooking', 36),
-  ('onepot', 'cooking', 37),
-  ('airfryer', 'cooking', 38),
-  ('slowcooker', 'cooking', 39),
-  ('grilled', 'cooking', 40),
-  ('baked', 'cooking', 41),
-  ('streetfood', 'cooking', 42),
-  ('comfortfood', 'vibe', 43),
-  ('spicy', 'vibe', 44),
-  ('sweettooth', 'vibe', 45),
-  ('dessert', 'vibe', 46),
-  ('seafood', 'vibe', 47),
-  ('brunch', 'vibe', 48),
-  ('datenight', 'vibe', 49),
-  ('latenight', 'vibe', 50),
-  ('gameday', 'vibe', 51),
-  ('familydinner', 'vibe', 52),
-  ('leftovers', 'vibe', 53)
+  ('homemade', 'cooking', 29),
+  ('takeout', 'cooking', 30),
+  ('mealprep', 'cooking', 31),
+  ('quickandeasy', 'cooking', 32),
+  ('onepot', 'cooking', 33),
+  ('airfryer', 'cooking', 34),
+  ('slowcooker', 'cooking', 35),
+  ('grilled', 'cooking', 36),
+  ('baked', 'cooking', 37),
+  ('streetfood', 'cooking', 38),
+  ('comfortfood', 'vibe', 39),
+  ('spicy', 'vibe', 40),
+  ('sweettooth', 'vibe', 41),
+  ('dessert', 'vibe', 42),
+  ('seafood', 'vibe', 43),
+  ('brunch', 'vibe', 44),
+  ('datenight', 'vibe', 45),
+  ('latenight', 'vibe', 46),
+  ('gameday', 'vibe', 47),
+  ('familydinner', 'vibe', 48),
+  ('leftovers', 'vibe', 49)
 ),
 saved as (
   insert into public.hashtags (tag, category, position)
@@ -2786,6 +2782,40 @@ revoke all on function public.check_post_hashtags() from public, anon, authentic
 drop trigger if exists posts_check_hashtags on public.posts;
 create trigger posts_check_hashtags before insert or update of hashtags on public.posts
   for each row execute function public.check_post_hashtags();
+
+
+-- ===================================================== price level (0040)
+-- $, $$ or $$$: what a dish cost to make (optional). Replaces the price
+-- hashtags; Search filters on it.
+-- 1. The column ---------------------------------------------------------------------------------
+alter table public.posts add column if not exists price_level smallint;
+alter table public.posts drop constraint if exists posts_price_level_range;
+alter table public.posts
+  add constraint posts_price_level_range check (price_level between 1 and 3) not valid;
+do $$
+begin
+  alter table public.posts validate constraint posts_price_level_range;
+exception when check_violation then
+  raise warning 'Rule "posts_price_level_range" holds for new posts; some older ones don''t meet it.';
+end
+$$;
+create index if not exists posts_price_level_idx on public.posts (price_level)
+  where price_level is not null;
+
+-- 2. Price hashtags become price levels ---------------------------------------------------------
+update public.posts
+set price_level = coalesce(price_level,
+      case when hashtags && '{budget,cheapeats}' then 1 else 3 end),
+    hashtags = array(select t from unnest(hashtags) with ordinality u(t, n)
+                     where t not in ('budget', 'cheapeats', 'splurge', 'expensive')
+                     order by n)
+where hashtags && '{budget,cheapeats,splurge,expensive}';
+
+delete from public.hashtags where tag in ('budget', 'cheapeats', 'splurge', 'expensive');
+-- Close the gap they left in the list's order (0039's list is the same).
+update public.hashtags h set position = o.n
+from (select tag, row_number() over (order by position, tag) as n from public.hashtags) o
+where o.tag = h.tag and h.position <> o.n;
 
 
 -- ============================================== validate the rules (0038)
