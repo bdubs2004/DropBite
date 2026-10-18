@@ -115,6 +115,17 @@ export interface DataService {
    * filters picked by hand.
    */
   searchPosts(query: string, filters?: SearchFilters): Promise<Post[]>;
+
+  // analytics (migration 0041; src/lib/analytics.ts decides when). Never
+  // throw: recording must not get in the way of the app.
+  logEvent(name: 'session_started' | 'recipe_viewed' | 'invite_sent', postId?: string): Promise<void>;
+  /** Posts by other people that came on screen (up to 50). */
+  logPostViews(postIds: string[]): Promise<void>;
+  /**
+   * The invite code typed at sign-up (a friend's handle). Once per account,
+   * within 7 days of signing up. 'error' when it couldn't be sent (try later).
+   */
+  claimReferral(handle: string): Promise<'ok' | 'already' | 'not_found' | 'self' | 'too_late' | 'error'>;
   /** People to discover, each with a few recent posts and follow state. */
   getDiscoverPeople(): Promise<DiscoverPerson[]>;
   createPost(input: NewPostInput): Promise<Post>;

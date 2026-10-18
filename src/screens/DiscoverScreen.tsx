@@ -14,6 +14,7 @@ import { Avatar } from '../components/Avatar';
 import { PostThumb } from '../components/PostThumb';
 import { Button, Muted, ScreenTitle } from '../components/ui';
 import { openPostFeed } from '../lib/postFeed';
+import { inviteFriends } from '../lib/share';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
 import { fonts, radius, spacing, makeStyles, useColors, photoGrid } from '../theme';
@@ -36,7 +37,7 @@ export function DiscoverScreen({ navigation }: any) {
   const styles = useStyles();
   const colors = useColors();
   const svc = getDataService();
-  const { refreshFeed, hiddenIds } = useApp();
+  const { refreshFeed, hiddenIds, user } = useApp();
   const insets = useSafeAreaInsets();
 
   const [tab, setTab] = useState<Tab>('dishes');
@@ -221,7 +222,17 @@ export function DiscoverScreen({ navigation }: any) {
             />
           )}
           ListEmptyComponent={
-            <Muted style={styles.empty}>No one new to show yet. Invite your friends to join.</Muted>
+            <View>
+              <Muted style={styles.empty}>No one new to show yet. Invite your friends to join.</Muted>
+              {user?.handle ? (
+                <Button
+                  testID="discover-invite"
+                  title="Invite friends"
+                  onPress={() => inviteFriends(user.handle)}
+                  style={{ alignSelf: 'center', marginTop: spacing.md }}
+                />
+              ) : null}
+            </View>
           }
         />
       )}

@@ -37,6 +37,9 @@ tag data stays clean and searchable; price is its own column (`posts.price_level
 $ filter): see `src/lib/searchQuery.ts`. Nutrition takes its
 numbers from USDA FoodData Central rather than from the model, which is the only
 version of the feature worth having — see `supabase/functions/lookup-nutrition`.
+KPIs go to Power BI from first-party analytics (migration 0041, `src/lib/analytics.ts`,
+`docs/ANALYTICS.md`): a private `analytics` schema the app writes only through
+checked RPCs, reporting views with ids and counts only, and no third-party SDK.
 
 ## Recommended Stack (Adjust Only With Good Reason)
 

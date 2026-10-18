@@ -149,6 +149,14 @@ Deno.serve(async (req: Request) => {
       console.error('format-recipe: reply repeated the instructions; dropped');
       return json({ error: 'unparseable' }, 502, cors);
     }
+    // Analytics (0041): a card was made. Only here, after success, so failed or
+    // refused calls never count; and never in the way of the reply.
+    const { error: logErr } = await admin.rpc('log_server_event', {
+      target: userId,
+      event_name: 'recipe_generated',
+      event_detail: card.is_recipe ? 'card' : 'blank',
+    });
+    if (logErr) console.error('analytics: recipe_generated not recorded', logErr.message);
     return json(card, 200, cors);
   } catch (e) {
     console.error('format-recipe failed', e);

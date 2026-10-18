@@ -378,6 +378,28 @@ checks(grp, item, status) as (
 
   union all
 
+  -- Analytics (0041): there, private to the app's users, and readable by the
+  -- Power BI role through the reporting views only.
+  select 18, 'analytics: ' || item,
+    case when open then problem || ' — run upgrade_all.sql (0041)' else 'OK' end
+  from (values
+    ('the reporting views are in place',
+     to_regclass('analytics.dim_users') is null or to_regclass('analytics.kpi_daily') is null
+     or to_regprocedure('public.log_event(text, uuid)') is null,
+     'MISSING'),
+    ('signed-in users can''t read or write analytics directly',
+     to_regnamespace('analytics') is not null
+     and (has_schema_privilege('authenticated', 'analytics', 'USAGE') or has_schema_privilege('anon', 'analytics', 'USAGE')),
+     'THE APP''S USERS CAN REACH THE ANALYTICS SCHEMA'),
+    ('the Power BI role reads reports only',
+     not exists (select 1 from pg_roles where rolname = 'analytics_reader')
+     or (to_regclass('analytics.events') is not null and has_table_privilege('analytics_reader', 'analytics.events', 'SELECT'))
+     or has_table_privilege('analytics_reader', 'public.users', 'SELECT'),
+     'THE POWER BI ROLE IS MISSING OR CAN SEE MORE THAN THE REPORTS')
+  ) v(item, open, problem)
+
+  union all
+
   -- Cards saved before 0034 aren't rewritten; the app draws malformed ones
   -- safely (cleanRecipe). Not a hole, just worth knowing.
   select 13, 'data: older recipe cards',

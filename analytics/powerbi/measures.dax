@@ -1,0 +1,126 @@
+// NiblGo KPI measures for Power BI Desktop.
+//
+// How to add them all at once: Power BI Desktop → DAX query view (left rail) →
+// paste this whole file → click "Update model with changes" at the top.
+// docs/ANALYTICS.md has the full setup; the definitions (what "active",
+// "activated" and "D7" mean) live in the database views, so every measure
+// here just counts what those views already decided.
+//
+// Needs: the tables loaded and renamed without the "analytics " prefix
+// (dim_users, fact_activity_days, fact_posts, fact_interactions, fact_events,
+// fact_post_views, fact_referrals, kpi_weekly), the 'Calendar' table, and the
+// relationships in docs/ANALYTICS.md. Put a report filter is_test = False on
+// dim_users so test accounts never count.
+
+DEFINE
+	// ---------------------------------------------------------------- dates
+	// The day the numbers are "as of": today, or the end of a date slicer.
+	MEASURE 'Calendar'[As of date] = MAX ( 'Calendar'[Date] )
+
+	// ---------------------------------------------------------- acquisition
+	MEASURE 'dim_users'[Total signups] = COUNTROWS ( 'dim_users' )
+	MEASURE 'dim_users'[Signups] =
+		CALCULATE ( COUNTROWS ( 'dim_users' ), USERELATIONSHIP ( 'Calendar'[Date], 'dim_users'[signup_date] ) )
+	MEASURE 'dim_users'[New signups (7 days)] =
+		VAR d = [As of date]
+		RETURN CALCULATE (
+			COUNTROWS ( 'dim_users' ),
+			USERELATIONSHIP ( 'Calendar'[Date], 'dim_users'[signup_date] ),
+			FILTER ( ALL ( 'Calendar'[Date] ), 'Calendar'[Date] > d - 7 && 'Calendar'[Date] <= d )
+		)
+	MEASURE 'dim_users'[Verified rate] =
+		DIVIDE ( CALCULATE ( COUNTROWS ( 'dim_users' ), 'dim_users'[verified] = TRUE () ), COUNTROWS ( 'dim_users' ) )
+
+	// ------------------------------------------------------------ activation
+	// Of people who signed up at least 7 days ago, the share who posted a meal
+	// within 7 days (younger sign-ups are blank in the view, so they're left out).
+	MEASURE 'dim_users'[Activation rate] =
+		DIVIDE (
+			CALCULATE ( COUNTROWS ( 'dim_users' ), 'dim_users'[activated_7d] = TRUE () ),
+			CALCULATE ( COUNTROWS ( 'dim_users' ), NOT ISBLANK ( 'dim_users'[activated_7d] ) )
+		)
+	MEASURE 'dim_users'[Median hours to first post] = MEDIAN ( 'dim_users'[hours_to_first_post] )
+	MEASURE 'dim_users'[Viewed another meal rate] =
+		DIVIDE ( CALCULATE ( COUNTROWS ( 'dim_users' ), 'dim_users'[viewed_other_meal] = TRUE () ), COUNTROWS ( 'dim_users' ) )
+
+	// ------------------------------------------------------------ engagement
+	MEASURE 'fact_activity_days'[DAU] = DISTINCTCOUNT ( 'fact_activity_days'[user_id] )
+	MEASURE 'fact_activity_days'[WAU] =
+		VAR d = [As of date]
+		RETURN CALCULATE (
+			DISTINCTCOUNT ( 'fact_activity_days'[user_id] ),
+			FILTER ( ALL ( 'Calendar'[Date] ), 'Calendar'[Date] > d - 7 && 'Calendar'[Date] <= d )
+		)
+	MEASURE 'fact_posts'[Meals posted] = COUNTROWS ( 'fact_posts' )
+	MEASURE 'fact_posts'[Meals posted (7 days)] =
+		VAR d = [As of date]
+		RETURN CALCULATE (
+			COUNTROWS ( 'fact_posts' ),
+			FILTER ( ALL ( 'Calendar'[Date] ), 'Calendar'[Date] > d - 7 && 'Calendar'[Date] <= d )
+		)
+	MEASURE 'fact_posts'[Posts per active user] = DIVIDE ( [Meals posted (7 days)], [WAU] )
+	MEASURE 'fact_events'[Recipe cards generated] =
+		CALCULATE ( COUNTROWS ( 'fact_events' ), 'fact_events'[name] = "recipe_generated" )
+	MEASURE 'fact_interactions'[Saves] = CALCULATE ( COUNTROWS ( 'fact_interactions' ), 'fact_interactions'[kind] = "save" )
+	MEASURE 'fact_interactions'[Likes] = CALCULATE ( COUNTROWS ( 'fact_interactions' ), 'fact_interactions'[kind] = "like" )
+	MEASURE 'fact_interactions'[Comments] = CALCULATE ( COUNTROWS ( 'fact_interactions' ), 'fact_interactions'[kind] = "comment" )
+	MEASURE 'fact_interactions'[Interactions] = COUNTROWS ( 'fact_interactions' )
+	// People who saved a post with a recipe card, over people who opened a recipe
+	// on someone else's post, in the dates selected.
+	MEASURE 'fact_interactions'[Recipe save rate] =
+		DIVIDE (
+			CALCULATE ( DISTINCTCOUNT ( 'fact_interactions'[user_id] ), 'fact_interactions'[kind] = "recipe_save" ),
+			CALCULATE ( DISTINCTCOUNT ( 'fact_events'[user_id] ), 'fact_events'[name] = "recipe_viewed" )
+		)
+	// Of the week's active users, the share who posted at least one meal (kpi_weekly).
+	MEASURE 'kpi_weekly'[Weekly posting rate] = DIVIDE ( SUM ( 'kpi_weekly'[posting_users] ), SUM ( 'kpi_weekly'[active_users] ) )
+
+	// ------------------------------------------------------------- retention
+	// Only cohorts old enough to be measured count (the view leaves the rest blank).
+	MEASURE 'dim_users'[D1 retention] =
+		DIVIDE (
+			CALCULATE ( COUNTROWS ( 'dim_users' ), 'dim_users'[d1_retained] = TRUE () ),
+			CALCULATE ( COUNTROWS ( 'dim_users' ), NOT ISBLANK ( 'dim_users'[d1_retained] ) )
+		)
+	MEASURE 'dim_users'[D7 retention] =
+		DIVIDE (
+			CALCULATE ( COUNTROWS ( 'dim_users' ), 'dim_users'[d7_retained] = TRUE () ),
+			CALCULATE ( COUNTROWS ( 'dim_users' ), NOT ISBLANK ( 'dim_users'[d7_retained] ) )
+		)
+	MEASURE 'dim_users'[D30 retention] =
+		DIVIDE (
+			CALCULATE ( COUNTROWS ( 'dim_users' ), 'dim_users'[d30_retained] = TRUE () ),
+			CALCULATE ( COUNTROWS ( 'dim_users' ), NOT ISBLANK ( 'dim_users'[d30_retained] ) )
+		)
+	MEASURE 'dim_users'[Stranger D7 retention] = CALCULATE ( [D7 retention], 'dim_users'[relationship] = "independent" )
+	MEASURE 'dim_users'[Repeat posting rate] =
+		DIVIDE (
+			CALCULATE ( COUNTROWS ( 'dim_users' ), 'dim_users'[repeat_poster] = TRUE () ),
+			CALCULATE ( COUNTROWS ( 'dim_users' ), 'dim_users'[post_count] >= 1 )
+		)
+	// Active last week and this week, over active this week (kpi_weekly).
+	MEASURE 'kpi_weekly'[Weekly returning rate] = DIVIDE ( SUM ( 'kpi_weekly'[returning_users] ), SUM ( 'kpi_weekly'[active_users] ) )
+
+	// ---------------------------------------------------------------- growth
+	MEASURE 'fact_events'[Invites sent] = CALCULATE ( COUNTROWS ( 'fact_events' ), 'fact_events'[name] = "invite_sent" )
+	MEASURE 'fact_referrals'[Referral signups] = COUNTROWS ( 'fact_referrals' )
+	MEASURE 'dim_users'[Referral signup rate] =
+		DIVIDE (
+			CALCULATE (
+				COUNTROWS ( 'dim_users' ),
+				'dim_users'[acquisition_source] = "referral",
+				USERELATIONSHIP ( 'Calendar'[Date], 'dim_users'[signup_date] )
+			),
+			[Signups]
+		)
+
+	// ------------------------------------------------------------ the funnel
+	MEASURE 'dim_users'[Funnel 1 signed up] = COUNTROWS ( 'dim_users' )
+	MEASURE 'dim_users'[Funnel 2 verified email] = CALCULATE ( COUNTROWS ( 'dim_users' ), 'dim_users'[verified] = TRUE () )
+	MEASURE 'dim_users'[Funnel 3 viewed a meal] = CALCULATE ( COUNTROWS ( 'dim_users' ), 'dim_users'[viewed_other_meal] = TRUE () )
+	MEASURE 'dim_users'[Funnel 4 first post] = CALCULATE ( COUNTROWS ( 'dim_users' ), 'dim_users'[post_count] >= 1 )
+	MEASURE 'dim_users'[Funnel 5 came back] = CALCULATE ( COUNTROWS ( 'dim_users' ), 'dim_users'[came_back] = TRUE () )
+	MEASURE 'dim_users'[Funnel 6 repeat post] = CALCULATE ( COUNTROWS ( 'dim_users' ), 'dim_users'[repeat_poster] = TRUE () )
+
+EVALUATE
+	{ [Total signups] }

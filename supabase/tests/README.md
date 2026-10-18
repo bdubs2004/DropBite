@@ -44,7 +44,7 @@ Linux only (it downloads Linux builds of PostgREST and Supabase Auth, cached in
 
 ## rls_attack_test.sql: start here
 
-The main suite: 266 checks, self-asserting (it ends with an error if any fail).
+The main suite: 287 checks, self-asserting (it ends with an error if any fail).
 Six separate accounts sign in the way the API does it, with their own tokens,
 and an attacker with a normal account (Mallory, who follows the victim and has
 her own posts and a DM with her) tries to read, change or delete other people's
@@ -137,6 +137,22 @@ edge function for real against a stand-in Supabase that records each call:
 no token, the publishable key or a forged token gets 401 with nothing touched,
 a user id in the request is never taken as identity, and only the server can
 run the sweep.
+
+Section 24 covers analytics (migration 0041): the app can't read or write the
+`analytics` schema at all, records only as the signed-in person with known
+event names, can't log a server-only event, own and blocked posts don't count
+as views, a referral is claimed once, not for yourself and not weeks later,
+and the Power BI reader role sees the reporting views but no profile, email or
+message, and no view has such a column.
+
+## analytics_test.sql
+
+The KPI definitions, checked against a handful of people with known sign-up
+and activity dates (33 checks, run by `run_security.sh` after the main suite):
+activation within or after 7 days, the D1/D7/D30 window edges, cohorts too
+young to measure left blank, day boundaries in each person's own time zone
+(including an invalid one), sources from labels and referrals, and test
+accounts left out of `kpi_daily` and `kpi_weekly`.
 
 ## reports_test.sql
 

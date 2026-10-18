@@ -185,6 +185,7 @@ rebuild it after adding a migration. For reference, what each one adds:
 | `0038_validate_constraints.sql` | Checks each rule against existing rows (every migration now adds its rules NOT VALID, so re-running the migrations on a database in use never fails on data a later rule allowed) |
 | `0039_hashtags.sql` | Hashtags on posts: up to 5 per post from a fixed list (also in `src/lib/hashtags.ts`), searchable. Run it before shipping the app build that has the hashtag picker |
 | `0040_price_level.sql` | What a dish cost to make ($ / $$ / $$$) on posts, for the Price filter in Search. Replaces the four price hashtags (posts that had them get the matching price) |
+| `0041_analytics.sql` | Usage analytics for the KPIs in Power BI: app opens, posts seen, recipes opened, invites and referrals, in a private `analytics` schema the API doesn't expose, plus reporting views and a read-only `analytics_reader` role. Redeploy `format-recipe` after it. Setup in [docs/ANALYTICS.md](docs/ANALYTICS.md) |
 
 They are all safe to run twice, and so is `schema.sql` itself. What re-running
 `schema.sql` will **not** do is add a column to a table that already exists —

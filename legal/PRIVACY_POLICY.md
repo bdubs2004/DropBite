@@ -1,6 +1,6 @@
 # NiblGo Privacy Policy
 
-**Last updated: 13 October 2026** · **Effective: 13 October 2026**
+**Last updated: 18 October 2026** · **Effective: 25 October 2026**
 
 NiblGo is a photo-first app for sharing meals with friends. This policy explains
 what we collect, why, who we share it with, and what you can make us do about it.
@@ -16,9 +16,12 @@ Questions, requests, or complaints: **privacy@niblgo.com**.
 
 - We collect what you give us — your account details and what you post — plus a
   small amount about how you use the app.
-- **We show no ads, we run no analytics or tracking SDKs, and we never sell your
-  data.** There is no advertising identifier, no third-party tracker, and no
-  cross-app or cross-site tracking of any kind in NiblGo.
+- **We show no ads, we use no third-party analytics or tracking SDKs, and we
+  never sell your data.** There is no advertising identifier, no third-party
+  tracker, and no cross-app or cross-site tracking of any kind in NiblGo. We do
+  keep our own simple record of how the app is used (section 2), only to
+  understand and improve NiblGo; it stays with us and is deleted with your
+  account.
 - Your meal photos are stored in a **public bucket**: anyone with the direct
   link can view an image, whether or not they use NiblGo. Do not post pictures
   you would not want seen outside the app.
@@ -52,6 +55,7 @@ Questions, requests, or complaints: **privacy@niblgo.com**.
 | --- | --- |
 | Your time zone | Set at sign-up so mealtime reminders arrive at sensible local times |
 | Your posting streak | Derived from your own posting dates |
+| How you use the app | When you open the app, which posts by other people appeared on your screen, which recipes on other people's posts you opened, recipe cards you made, invites you shared, and the invite code you entered at sign-up. Linked to your account and used only to understand and improve NiblGo (for example, how many people come back after a week). We look at it in reporting software on our own computers, as account ids, dates and counts, never with your name, email or what you wrote. Never used for ads or shared with anyone else |
 | App version and platform | **Attached only to feedback and bug reports you choose to send.** Not collected otherwise |
 | Server logs | Our hosting provider records standard request logs, including IP address, for security and reliability |
 
@@ -67,7 +71,7 @@ These are removed when you delete the app.
 
 Location data (the "where you ate" feature is disabled), contacts, health data,
 advertising identifiers, biometrics, or payment details. NiblGo has no ads, no
-in-app purchases, and no analytics.
+in-app purchases, and no third-party analytics.
 
 ---
 
@@ -209,6 +213,7 @@ longer.
 | Data | Kept |
 | --- | --- |
 | Account, posts, photos, messages | Until you delete them or delete your account |
+| How you use the app (app opens, posts you saw, recipes opened, invites) | Until you delete your account |
 | Reports and reported-content copies | While relevant to safety: the copy of the reported content is kept for 2 years after the report is closed, so repeat behaviour is visible, and then deleted. The record that a report was made, and its outcome, stays |
 | Feedback and bug reports | While relevant to the problem reported (no longer linked to you once your account is deleted) |
 | Server logs | As retained by our hosting provider |

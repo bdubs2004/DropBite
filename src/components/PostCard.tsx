@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { StackActions, useNavigation } from '@react-navigation/native';
 import { LOCATION_TAGGING_ENABLED } from '../config';
+import { analytics } from '../lib/analytics';
 import { priceSymbol } from '../lib/price';
 import { relativeTime } from '../lib/time';
 import { useApp } from '../state/AppContext';
@@ -455,7 +456,11 @@ function PostCardView({
         {post.recipe ? (
           <Pressable
             testID="post-recipe-toggle"
-            onPress={() => setShowRecipe((v) => !v)}
+            onPress={() => {
+              // Analytics: a recipe opened on someone else's post.
+              if (!showRecipe && !isMine) analytics().recipeViewed(post.id);
+              setShowRecipe((v) => !v);
+            }}
             style={styles.recipeToggle}
             accessibilityLabel={`Recipe: ${post.recipe.title}`}
           >

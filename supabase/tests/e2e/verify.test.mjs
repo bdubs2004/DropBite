@@ -295,6 +295,10 @@ let st1 = (await stats()).anthropic;
 check('A asks for 8 recipe cards in a row (limit 6 a minute)', codes.slice(0, 6).every((c) => c === '200') && codes.slice(6).every((c) => c.startsWith('429')),
   codes.join(', '), '6 × 200, then 429 rate_limited');
 check('the AI provider was called only for the allowed ones', st1 - st0 === 6, `${st1 - st0} calls`, '6 calls (refused requests cost nothing)');
+const recorded = async (who) => (await fetch(`${URL_}/__analytics?user=${who.id}`)).json();
+let an = await recorded(A);
+check('analytics: the 6 cards made are recorded, the 2 refused ones aren\'t', an.events.recipe_generated === 6,
+  `${an.events.recipe_generated ?? 0} recorded`, '6');
 const nut = await A.sb.functions.invoke('lookup-nutrition', { body: { ingredients: [{ item: 'garlic', quantity: '3', unit: 'cloves' }] } });
 const nutStatus = nut.error?.context?.status ?? 200;
 check('nutrition shares the same allowance', nutStatus === 429, `HTTP ${nutStatus}`, '429 (rate limited)');
@@ -486,6 +490,37 @@ check('Dana posts, then deletes her own post', !p2.error && r.data?.length === 1
 r = await A.sb.from('blocks').insert({ blocker_id: A.id, blocked_id: B.id });
 const hidden = await B.sb.from('posts').select('id').eq('id', POST);
 check('A blocks B, and B no longer sees her posts', !r.error && hidden.data?.length === 0, `${ok_(r)}; B sees ${rows(hidden)}`, 'ok; 0 rows');
+
+// ============================================================ 13. analytics
+heading('13. Analytics: recorded as the app does it, private to everyone else');
+r = await A.sb.rpc('log_event', { event_name: 'session_started' });
+an = await recorded(A);
+check('A opens the app: one visit recorded for A', !r.error && an.events.session_started === 1, `${ok_(r)}; ${an.events.session_started ?? 0}`, 'ok; 1');
+r = await D.sb.rpc('log_post_views', { post_ids: [POST] });
+const again = await D.sb.rpc('log_post_views', { post_ids: [POST] });
+check('Dana sees A\'s post: recorded once, however often she sees it', r.data === 1 && again.data === 0 && (await recorded(D)).postViews === 1,
+  `${r.data}, then ${again.data}`, '1, then 0');
+r = await A.sb.rpc('log_post_views', { post_ids: [POST] });
+check('A seeing her own post isn\'t a view', r.data === 0, String(r.data), '0');
+r = await B.sb.rpc('log_post_views', { post_ids: [POST] });
+check('B, whom A blocked, seeing her post isn\'t recorded', r.data === 0, String(r.data), '0');
+r = await B.sb.rpc('log_event', { event_name: 'purchase_made' });
+check('an event the app doesn\'t have is refused', !!r.error, ok_(r), 'refused');
+r = await B.sb.rpc('log_server_event', { target: A.id, event_name: 'recipe_generated' });
+check('B can\'t record anything for A (server-only call)', !!r.error, ok_(r), 'refused');
+r = await C.sb.rpc('log_event', { event_name: 'session_started' });
+check('signed out, nothing can be recorded', !!r.error, ok_(r), 'refused');
+r = await B.sb.schema('analytics').from('events').select('*');
+check('the analytics schema isn\'t reachable through the API', !!r.error && !r.data?.length, ok_(r), 'refused');
+r = await B.sb.rpc('log_event', { event_name: 'invite_sent' });
+check('B shares an invite', !r.error && (await recorded(B)).events.invite_sent === 1, ok_(r), 'ok');
+const G = await signUp('gina');
+r = await G.sb.rpc('claim_referral', { inviter_handle: '@Bob' });
+const twice = await G.sb.rpc('claim_referral', { inviter_handle: 'alice' });
+an = await recorded(G);
+check('Gina signs up with Bob\'s handle as her invite code: Bob gets the referral, once',
+  r.data === 'ok' && twice.data === 'already' && an.referrer === B.id && an.dim?.acquisition_source === 'referral',
+  `${r.data}, then ${twice.data}; source ${an.dim?.acquisition_source}`, 'ok, then already; source referral');
 
 // ======================================================= 12. password reset
 heading('12. Password reset, through the real email');

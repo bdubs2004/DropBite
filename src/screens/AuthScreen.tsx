@@ -15,6 +15,7 @@ import { Button, Input, Muted } from '../components/ui';
 import { LIMITS } from '../lib/limits';
 import { isReservedHandle } from '../lib/handle';
 import { passwordMeetsAll } from '../lib/passwordRules';
+import { clearInvite, rememberInvite } from '../lib/pendingInvite';
 import { clearPendingAuth, rememberPendingAuth } from '../lib/pendingAuth';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
@@ -58,6 +59,8 @@ export function AuthScreen() {
   const [password, setPassword] = useState('');
   const [handle, setHandle] = useState('');
   const [displayName, setDisplayName] = useState('');
+  // Optional: the friend's handle that invited them (analytics, 0041).
+  const [inviteCode, setInviteCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Set once sign-up succeeds but the account still needs confirming.
@@ -148,16 +151,27 @@ export function AuthScreen() {
           setError('That handle is reserved. Pick another one.');
           return;
         }
-        const result = await svc.signUp({
-          email,
-          password,
-          handle,
-          display_name: displayName,
-        });
+        // Kept before signing up, so it's there whenever the new account's
+        // session arrives (AppContext claims it): right away, or after email
+        // confirmation on a later launch.
+        if (inviteCode.trim()) await rememberInvite(inviteCode);
+        let result: Awaited<ReturnType<typeof svc.signUp>>;
+        try {
+          result = await svc.signUp({
+            email,
+            password,
+            handle,
+            display_name: displayName,
+          });
+        } catch (e) {
+          await clearInvite();
+          throw e;
+        }
         // The email already has an account. Move them to sign in with the
         // address kept, and say so warmly instead of pretending an email went
         // out.
         if (result.status === 'already_exists') {
+          await clearInvite();
           setMode('signin');
           setPassword('');
           setError(
@@ -370,6 +384,16 @@ export function AuthScreen() {
                 autoCapitalize="none"
                 autoCorrect={false}
                 maxLength={LIMITS.handle}
+              />
+              <Input
+                testID="signup-invite"
+                label="Invite code (optional)"
+                placeholder="A friend's @handle"
+                value={inviteCode}
+                onChangeText={setInviteCode}
+                autoCapitalize="none"
+                autoCorrect={false}
+                maxLength={31}
               />
             </>
           ) : null}

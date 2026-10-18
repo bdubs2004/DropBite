@@ -745,6 +745,37 @@ export class SupabaseService implements DataService {
       .map((row) => this.hydrateRow(row, meId));
   }
 
+  // ------------------------------------------------------------ analytics
+  // Recorded through functions that act as the signed-in person (0041). A
+  // database without them, or no network, just means nothing is recorded.
+
+  async logEvent(name: 'session_started' | 'recipe_viewed' | 'invite_sent', postId?: string): Promise<void> {
+    try {
+      await this.sb.rpc('log_event', { event_name: name, event_post: postId ?? null });
+    } catch {
+      // Never in the way.
+    }
+  }
+
+  async logPostViews(postIds: string[]): Promise<void> {
+    if (!postIds.length) return;
+    try {
+      await this.sb.rpc('log_post_views', { post_ids: postIds.slice(0, 50) });
+    } catch {
+      // Never in the way.
+    }
+  }
+
+  async claimReferral(handle: string): Promise<'ok' | 'already' | 'not_found' | 'self' | 'too_late' | 'error'> {
+    try {
+      const { data, error } = await this.sb.rpc('claim_referral', { inviter_handle: handle });
+      if (error) return 'error';
+      return ['ok', 'already', 'not_found', 'self', 'too_late'].includes(data) ? data : 'error';
+    } catch {
+      return 'error';
+    }
+  }
+
   async getDiscoverPeople(): Promise<DiscoverPerson[]> {
     const meId = await this.myId();
     // People you already follow aren't "discoveries": leave them out in the

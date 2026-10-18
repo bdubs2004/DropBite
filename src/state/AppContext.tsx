@@ -9,7 +9,9 @@ import React, {
   useState,
 } from 'react';
 import { AppState as RNAppState } from 'react-native';
+import { analytics } from '../lib/analytics';
 import { clearPendingAuth } from '../lib/pendingAuth';
+import { clearInvite, readInvite } from '../lib/pendingInvite';
 import { registerPushToken } from '../lib/push';
 import { clearRecentSearches, clearRecentTerms } from '../lib/recentSearches';
 import { getDataService } from '../services';
@@ -114,6 +116,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
     const sub = RNAppState.addEventListener('change', async (state) => {
       if (state !== 'active' || !userRef.current) return;
+      // Back in the app: a new visit, if it's been a while (analytics).
+      analytics().sessionStart();
       try {
         if (await svc.sessionEnded()) forgetAccount();
       } catch {
@@ -125,6 +129,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       sub.remove();
     };
   }, [svc, forgetAccount]);
+
+  // Analytics: on while signed in. Signing in counts as opening the app, and
+  // an invite code typed at sign-up is claimed once there's a session.
+  useEffect(() => {
+    const tracker = analytics();
+    tracker.setSignedIn(!!user);
+    if (!user) return;
+    tracker.sessionStart();
+    let alive = true;
+    (async () => {
+      const code = await readInvite();
+      if (!code || !alive) return;
+      const result = await svc.claimReferral(code);
+      // Anything but a failed send is final (a wrong handle won't get righter).
+      if (result !== 'error') await clearInvite();
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [user?.id, svc]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const refreshMe = useCallback(async () => {
     const u = await svc.getCurrentUser();
