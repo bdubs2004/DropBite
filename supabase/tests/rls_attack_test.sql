@@ -378,7 +378,7 @@ select qa.fact('schema', 'signed in, only the functions the app needs are callab
      join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'public' and p.prokind = 'f' and p.prorettype <> 'trigger'::regtype
        and has_function_privilege('authenticated', p.oid, 'execute')$q$,
-  'can_reply_under,check_request,conversation_has_block,follow_counts,get_post_preview,is_blocked_pair,is_conversation_member,leave_conversation,plain_text_ok,recipe_ingredients_ok,recipe_nutrition_ok,recipe_steps_ok,start_conversation,start_group_conversation');
+  'can_reply_under,check_request,claim_referral,conversation_has_block,follow_counts,get_post_preview,is_blocked_pair,is_conversation_member,leave_conversation,log_event,log_post_views,plain_text_ok,recipe_ingredients_ok,recipe_nutrition_ok,recipe_steps_ok,start_conversation,start_group_conversation');
 
 -- =======================================================================
 -- 2. Profiles
@@ -974,6 +974,11 @@ insert into public.messages (conversation_id, sender_id, text) values
 insert into public.push_tokens (user_id, token) values ('2e2e2e2e-0000-4000-8000-000000000021', 'ExponentPushToken[zed]');
 insert into public.feedback (user_id, kind, message, handle_snapshot) values
   ('2e2e2e2e-0000-4000-8000-000000000021', 'bug', 'zed feedback', 'zed');
+-- And analytics (0041): an app open, a post he saw, a label, who invited him.
+insert into analytics.events (user_id, name) values ('2e2e2e2e-0000-4000-8000-000000000021', 'session_started');
+insert into analytics.post_views (user_id, post_id) values ('2e2e2e2e-0000-4000-8000-000000000021', '10000000-0000-4000-8000-0000000000a1');
+insert into analytics.user_labels (user_id, relationship) values ('2e2e2e2e-0000-4000-8000-000000000021', 'acquaintance');
+insert into analytics.referrals (new_user_id, referrer_user_id) values ('2e2e2e2e-0000-4000-8000-000000000021', 'aaaaaaaa-0000-4000-8000-000000000001');
 insert into public.reports (reporter_id, post_id, reported_user_id, reason) values
   ('2e2e2e2e-0000-4000-8000-000000000021', '10000000-0000-4000-8000-0000000000b2', 'bbbbbbbb-0000-4000-8000-000000000002', 'spam');
 insert into public.reports (id, reporter_id, comment_id, reported_user_id, reason, comment_text_snapshot) values
@@ -1084,6 +1089,94 @@ select qa.check('price', 'filter by $ and #chinese together', 'bob',
   $q$select count(*) from public.posts where price_level = 1 and hashtags @> '{chinese}' and id = '10000000-0000-4000-8000-0000000000a1'$q$, 'rows:1');
 select qa.check('price', 'someone you blocked can''t find you through a price filter', 'eve',
   $q$select count(*) from public.posts where price_level = 1 and id = '10000000-0000-4000-8000-0000000000a1'$q$, 'rows:0');
+
+-- =======================================================================
+-- 24. Analytics (0041)
+-- =======================================================================
+-- Signed-in users record their own app opens and views through functions;
+-- they can't read or write the analytics schema, and the Power BI reader can
+-- read the reporting views and nothing else.
+create function qa.analytics_count(who uuid, ev text) returns bigint language sql security definer
+set search_path = '' as $$
+  select count(*) from analytics.events where user_id = who and name = ev;
+$$;
+create function qa.log_and_count(ev text) returns bigint language plpgsql as $$
+begin
+  perform public.log_event(ev);
+  return qa.analytics_count(auth.uid(), ev);
+end $$;
+create function qa.claim_twice(first text, second text) returns bigint language plpgsql as $$
+declare a text; b text;
+begin
+  a := public.claim_referral(first);
+  b := public.claim_referral(second);
+  return case when a = 'ok' and b = 'already' then 1 else 0 end;
+end $$;
+-- Run `sql` as the Power BI reader: 'ok' or the error.
+create function qa.as_reader(sql text) returns text language plpgsql as $$
+begin
+  begin
+    execute 'set local role analytics_reader';
+    execute sql;
+    raise exception using errcode = 'QA001', message = 'ok';
+  exception
+    when sqlstate 'QA001' then return 'ok';
+    when others then return 'error:' || sqlerrm;
+  end;
+end $$;
+grant execute on function qa.analytics_count(uuid, text), qa.log_and_count(text), qa.claim_twice(text, text) to authenticated;
+
+select qa.check('analytics', 'read the analytics tables directly', 'mallory',
+  $q$select count(*) from analytics.events$q$, 'denied');
+select qa.check('analytics', 'read the reporting views from the app', 'mallory',
+  $q$select count(*) from analytics.dim_users$q$, 'denied');
+select qa.check('analytics', 'write an event straight into the table', 'mallory',
+  format($q$insert into analytics.events (user_id, name) values (%L, 'session_started')$q$, :alice), 'denied');
+select qa.check('analytics', 'label yourself (or anyone) by hand from the app', 'mallory',
+  $q$select count(*) from (select analytics.label('mallory', is_test => true)) x$q$, 'denied');
+select qa.check('analytics', 'record your own app open', 'mallory',
+  $q$select qa.log_and_count('session_started')$q$, 'rows:1');
+select qa.check('analytics', 'record an event with a made-up name', 'mallory',
+  $q$select qa.log_and_count('purchase_made')$q$, 'error:Unknown event');
+select qa.check('analytics', 'record a server-only event (a recipe card made) from the app', 'mallory',
+  format($q$select count(*) from (select public.log_server_event(%L, 'recipe_generated')) x$q$, :alice), 'error');
+select qa.fact('analytics', 'the app''s recording functions take no person: they act as whoever is signed in',
+  $q$select string_agg(p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')', ', ' order by p.proname)
+     from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname in ('log_event', 'log_post_views', 'claim_referral')$q$,
+  'claim_referral(inviter_handle text), log_event(event_name text, event_post uuid), log_post_views(post_ids uuid[])');
+select qa.check('analytics', 'record seeing posts: other people''s count, your own and made-up ones don''t', 'mallory',
+  $q$select public.log_post_views(array['10000000-0000-4000-8000-0000000000a1', '10000000-0000-4000-8000-0000000000b2',
+     '10000000-0000-4000-8000-0000000000d4', '10000000-0000-4000-8000-00000000ffff']::uuid[])$q$, 'rows:2');
+select qa.check('analytics', 'someone you blocked doesn''t get a view of your post recorded', 'eve',
+  $q$select public.log_post_views(array['10000000-0000-4000-8000-0000000000a1']::uuid[])$q$, 'rows:0');
+select qa.check('analytics', 'flood the view log (more than 50 at once)', 'mallory',
+  $q$select public.log_post_views(array_fill('10000000-0000-4000-8000-0000000000a1'::uuid, array[51]))$q$, 'error:Too many posts');
+select qa.check('analytics', 'name who invited you, then try to change it', 'mallory',
+  $q$select qa.claim_twice('Alice', 'bob')$q$, 'rows:1');
+select qa.check('analytics', 'name yourself as your inviter', 'mallory',
+  $q$select (public.claim_referral('@mallory') = 'self')::int$q$, 'rows:1');
+update public.users set created_at = now() - interval '30 days' where id = 'ffffffff-0000-4000-8000-000000000006';
+select qa.check('analytics', 'name an inviter long after signing up', 'dave',
+  $q$select (public.claim_referral('alice') = 'too_late')::int$q$, 'rows:1');
+select qa.fact('analytics', 'the Power BI reader can read the reporting views',
+  $q$select qa.as_reader('select count(*) from analytics.dim_users, analytics.kpi_daily')$q$, 'ok');
+select qa.fact('analytics', 'the Power BI reader can''t read profiles (handles, names)',
+  $q$select left(qa.as_reader('select count(*) from public.users'), 23)$q$, 'error:permission denied');
+select qa.fact('analytics', 'the Power BI reader can''t read messages',
+  $q$select left(qa.as_reader('select count(*) from public.messages'), 23)$q$, 'error:permission denied');
+select qa.fact('analytics', 'the Power BI reader can''t read emails (auth.users)',
+  $q$select left(qa.as_reader('select count(*) from auth.users'), 23)$q$, 'error:permission denied');
+select qa.fact('analytics', 'the Power BI reader can''t read the raw tables or the handle list',
+  $q$select left(qa.as_reader('select count(*) from analytics.events'), 23) || ' / ' || left(qa.as_reader('select count(*) from analytics.label_overview'), 23)$q$,
+  'error:permission denied / error:permission denied');
+select qa.fact('analytics', 'nothing the reader sees has an email, handle, name, caption or message column',
+  $q$select coalesce(string_agg(table_name || '.' || column_name, ', '), '(none)') from information_schema.columns
+     where table_schema = 'analytics'
+       and has_table_privilege('analytics_reader', format('%I.%I', table_schema, table_name), 'select')
+       and column_name ~ '(email|handle|display|blurb|caption|message|text|bio|body)'$q$, '(none)');
+select qa.fact('analytics', 'the reporting views all run',
+  $q$select ((select count(*) from analytics.kpi_daily) > 0 and (select count(*) from analytics.kpi_weekly) >= 0
+            and (select count(*) from analytics.dim_users) > 0)::text$q$, 'true');
 
 -- ------------------------------------------------------------- report
 \echo

@@ -9,6 +9,7 @@ import {
   RefreshControl,
   Text,
   View,
+  ViewToken,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -17,6 +18,7 @@ import { LogoLockup } from '../components/Logo';
 import { useZooming } from '../components/PinchZoom';
 import { PostCard } from '../components/PostCard';
 import { Muted } from '../components/ui';
+import { analytics } from '../lib/analytics';
 import { HeaderScrollState, nextHeaderState } from '../lib/autoHideHeader';
 import { usePostActions } from '../lib/usePostActions';
 import { getDataService } from '../services';
@@ -62,6 +64,18 @@ export function FeedScreen({ navigation }: any) {
   } = usePostActions(navigation, refreshFeed);
 
   const listRef = useRef<FlatList<any>>(null);
+  // Analytics: posts by other people that were really on screen (most of the
+  // card showing), not just rendered ahead of the scroll.
+  const meRef = useRef(user?.id);
+  meRef.current = user?.id;
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    analytics().postsViewed(
+      viewableItems
+        .map((v) => v.item as Post)
+        .filter((p) => p && p.user_id !== meRef.current)
+        .map((p) => p.id),
+    );
+  }).current;
 
   // Auto-hiding header: slides completely off the screen as you scroll down
   // and comes back as soon as you scroll up a little, so the feed gets the
@@ -243,6 +257,8 @@ export function FeedScreen({ navigation }: any) {
         data={feed}
         keyExtractor={(p) => p.id}
         renderItem={renderPost}
+        viewabilityConfig={VIEWABILITY}
+        onViewableItemsChanged={onViewableItemsChanged}
         contentContainerStyle={{
           paddingTop: insets.top + HEADER_HEIGHT + spacing.md,
           paddingBottom: 120,
@@ -291,6 +307,8 @@ export function FeedScreen({ navigation }: any) {
 
 /** Height of the header bar below the safe-area inset. */
 const HEADER_HEIGHT = 58;
+// A post counts as seen once most of it has been on screen.
+const VIEWABILITY = { itemVisiblePercentThreshold: 60, minimumViewTime: 500 };
 
 const useStyles = makeStyles((colors) => ({
   root: {

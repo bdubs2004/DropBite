@@ -521,6 +521,21 @@ export class MockService implements DataService {
       .map((p) => this.hydrate(db, p, me.id));
   }
 
+  // ------------------------------------------------------------ analytics
+  // Demo mode records nothing: there's no one to report to.
+
+  async logEvent(): Promise<void> {}
+
+  async logPostViews(): Promise<void> {}
+
+  async claimReferral(handle: string): Promise<'ok' | 'already' | 'not_found' | 'self' | 'too_late' | 'error'> {
+    const db = await this.load();
+    const me = await this.me();
+    const inviter = db.users.find((u) => sameHandle(u.handle, handle.trim().replace(/^@/, '')));
+    if (!inviter) return 'not_found';
+    return inviter.id === me.id ? 'self' : 'ok';
+  }
+
   async getDiscoverPeople(): Promise<DiscoverPerson[]> {
     const db = await this.load();
     const me = await this.me();

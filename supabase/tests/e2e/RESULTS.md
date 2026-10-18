@@ -1,10 +1,10 @@
 # End-to-end security verification: last run
 
-Run 2026-10-18 04:08 UTC with `supabase/tests/e2e/run.sh`: Postgres 16 + schema.sql, Supabase Auth v2.177.0, PostgREST 12.2.3, the seven edge functions on Deno, supabase-js as the client. Storage is a stand-in that authorizes through the same storage.objects policies (gateway.mjs).
+Run 2026-10-18 17:41 UTC with `supabase/tests/e2e/run.sh`: Postgres 16 + schema.sql, Supabase Auth v2.177.0, PostgREST 12.2.3, the seven edge functions on Deno, supabase-js as the client. Storage is a stand-in that authorizes through the same storage.objects policies (gateway.mjs).
 
 User A owns the data; User B is a separate, unrelated account; User C is signed out.
 
-**137 of 137 checks passed.**
+**148 of 148 checks passed.**
 
 ## 1. User B requests User A's private messages
 
@@ -27,7 +27,7 @@ User A owns the data; User B is a separate, unrelated account; User C is signed 
 | B renames it | denied (0 rows changed) | 0 row(s) | PASS |
 | B deletes it | denied (0 rows deleted) | 0 row(s) | PASS |
 | B adds a post to it | denied (error) | error: new row violates row-level security policy for table "collection_posts" | PASS |
-| afterwards A's collection is exactly as it was | owner A, name "Weeknight dinners" | {"id":"487ed4fc-f8d7-434d-90a1-f4b196d69c71","user_id":"4d51f131-934a-46a8-831f-64ae3b586b05","name":"Weeknight dinners"} | PASS |
+| afterwards A's collection is exactly as it was | owner A, name "Weeknight dinners" | {"id":"1a55c8ca-07f3-4d46-94b6-c63e11ab8728","user_id":"11e6d333-9745-4926-b4fe-615f4845d06b","name":"Weeknight dinners"} | PASS |
 | B reads A's saved posts (the private list) | denied (0 rows) | 0 row(s) | PASS |
 | B clears A's saved posts | denied (0 rows) | 0 row(s) | PASS |
 | control: A still sees her saved post | 1 row | 1 row(s) | PASS |
@@ -41,7 +41,7 @@ User A owns the data; User B is a separate, unrelated account; User C is signed 
 | B deletes A's post | denied (0 rows deleted) | 0 row(s) | PASS |
 | B posts as A (user_id = A) | denied (error) | error: Upload photos with the app. | PASS |
 | B edits A's profile | denied (0 rows changed) | 0 row(s) | PASS |
-| afterwards A's post is untouched | unchanged | {"blurb":"Alice's garlic chicken","user_id":"4d51f131-934a-46a8-831f-64ae3b586b05"} | PASS |
+| afterwards A's post is untouched | unchanged | {"blurb":"Alice's garlic chicken","user_id":"11e6d333-9745-4926-b4fe-615f4845d06b"} | PASS |
 | control: A edits her own post | 1 row changed | 1 row(s) | PASS |
 
 ## 4. User B tries to get User A's private photos
@@ -106,6 +106,7 @@ User A owns the data; User B is a separate, unrelated account; User C is signed 
 | --- | --- | --- | --- |
 | A asks for 8 recipe cards in a row (limit 6 a minute) | 6 × 200, then 429 rate_limited | 200, 200, 200, 200, 200, 200, 429 rate_limited, 429 rate_limited | PASS |
 | the AI provider was called only for the allowed ones | 6 calls (refused requests cost nothing) | 6 calls | PASS |
+| analytics: the 6 cards made are recorded, the 2 refused ones aren't | 6 | 6 recorded | PASS |
 | nutrition shares the same allowance | 429 (rate limited) | HTTP 429 | PASS |
 | an oversized blurb (2,001 characters) | rejected (400), no AI call | HTTP 400, 0 AI calls | PASS |
 | a blurb that gets the model to repeat its instructions | dropped (502), instructions never returned | HTTP 502 {"error":"unparseable"} | PASS |
@@ -182,6 +183,21 @@ User A owns the data; User B is a separate, unrelated account; User C is signed 
 | Dana sends feedback | ok | ok | PASS |
 | Dana posts, then deletes her own post | ok; 1 deleted | ok; 1 row(s) deleted | PASS |
 | A blocks B, and B no longer sees her posts | ok; 0 rows | ok; B sees 0 row(s) | PASS |
+
+## 13. Analytics: recorded as the app does it, private to everyone else
+
+| Check | Expected | Got | |
+| --- | --- | --- | --- |
+| A opens the app: one visit recorded for A | ok; 1 | ok; 1 | PASS |
+| Dana sees A's post: recorded once, however often she sees it | 1, then 0 | 1, then 0 | PASS |
+| A seeing her own post isn't a view | 0 | 0 | PASS |
+| B, whom A blocked, seeing her post isn't recorded | 0 | 0 | PASS |
+| an event the app doesn't have is refused | refused | error: Unknown event | PASS |
+| B can't record anything for A (server-only call) | refused | error: permission denied for function log_server_event | PASS |
+| signed out, nothing can be recorded | refused | error: permission denied for function log_event | PASS |
+| the analytics schema isn't reachable through the API | refused | error: The schema must be one of the following: public | PASS |
+| B shares an invite | ok | ok | PASS |
+| Gina signs up with Bob's handle as her invite code: Bob gets the referral, once | ok, then already; source referral | ok, then already; source referral | PASS |
 
 ## 12. Password reset, through the real email
 

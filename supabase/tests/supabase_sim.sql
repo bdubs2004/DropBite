@@ -37,6 +37,8 @@ create table if not exists auth.users (
   id uuid primary key default gen_random_uuid(),
   email text,
   raw_user_meta_data jsonb not null default '{}'::jsonb,
+  -- When the email was confirmed (null until then), as Supabase Auth keeps it.
+  email_confirmed_at timestamptz,
   banned_until timestamptz,
   deleted_at timestamptz
 );

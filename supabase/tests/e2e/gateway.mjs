@@ -263,6 +263,24 @@ https.createServer(
       if (url.pathname.startsWith('/storage/v1/')) return await storage(req, res, url);
       if (url.pathname.startsWith('/__fakes/')) return await fakes(req, res, url);
       if (url.pathname === '/__stats') return send(res, 200, { ...stats, files: files.size });
+      // Test-only window onto what analytics (0041) recorded for one person:
+      // the app can't read this schema, so the checks look here instead.
+      if (url.pathname === '/__analytics') {
+        const who = url.searchParams.get('user');
+        const q = (sql) => pool.query(sql, [who]).then((r) => r.rows);
+        const [events, views, referral, dim] = await Promise.all([
+          q('select name, count(*)::int as n from analytics.events where user_id = $1 group by name'),
+          q('select count(*)::int as n from analytics.post_views where user_id = $1'),
+          q('select referrer_user_id from analytics.referrals where new_user_id = $1'),
+          q('select acquisition_source, referred_by, verified, post_count from analytics.dim_users where user_id = $1'),
+        ]);
+        return send(res, 200, {
+          events: Object.fromEntries(events.map((e) => [e.name, e.n])),
+          postViews: views[0]?.n ?? 0,
+          referrer: referral[0]?.referrer_user_id ?? null,
+          dim: dim[0] ?? null,
+        });
+      }
       const fn = url.pathname.match(/^\/functions\/v1\/([a-z-]+)/)?.[1];
       if (fn && FUNCTIONS[fn]) {
         // Supabase's gateway refuses a function call without a valid JWT

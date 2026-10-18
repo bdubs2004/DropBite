@@ -1,5 +1,6 @@
 import { Platform, Share } from 'react-native';
 import { Post } from '../types';
+import { analytics } from './analytics';
 
 export type ShareResult = 'shared' | 'copied' | 'failed';
 
@@ -36,4 +37,35 @@ export async function sharePost(post: Post, link?: string): Promise<ShareResult>
   } catch {
     return 'failed';
   }
+}
+
+/**
+ * Invite friends: the share sheet with a short note and the person's handle,
+ * which the friend types as their invite code when signing up (that's how the
+ * referral is recorded). A completed share counts as an invite sent.
+ */
+export async function inviteFriends(handle: string): Promise<ShareResult> {
+  const message =
+    `I'm on NiblGo, where friends share what they're eating. Add me: @${handle}\n` +
+    `Use @${handle} as your invite code when you sign up. https://niblgo.com`;
+  let result: ShareResult = 'failed';
+  try {
+    if (Platform.OS === 'web') {
+      const nav: any = typeof navigator !== 'undefined' ? navigator : undefined;
+      if (nav?.share) {
+        await nav.share({ title: 'Join me on NiblGo', text: message });
+        result = 'shared';
+      } else if (nav?.clipboard?.writeText) {
+        await nav.clipboard.writeText(message);
+        result = 'copied';
+      }
+    } else {
+      const res = await Share.share({ title: 'Join me on NiblGo', message });
+      result = res.action === Share.dismissedAction ? 'failed' : 'shared';
+    }
+  } catch {
+    result = 'failed';
+  }
+  if (result !== 'failed') analytics().inviteSent();
+  return result;
 }

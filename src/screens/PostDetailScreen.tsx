@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useZooming } from '../components/PinchZoom';
 import { PostCard } from '../components/PostCard';
 import { Muted } from '../components/ui';
+import { analytics } from '../lib/analytics';
 import { feedWindow, takePosts } from '../lib/postFeed';
 import { usePostActions } from '../lib/usePostActions';
 import { getDataService } from '../services';
@@ -85,8 +86,17 @@ export function PostDetailScreen({ navigation, route }: any) {
 
   // The posts currently on screen, so a refresh only re-pulls those.
   const onScreen = useRef<string[]>([postId]);
+  const meRef = useRef(user?.id);
+  meRef.current = user?.id;
   const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
     onScreen.current = viewableItems.map((v) => (v.item as Post).id);
+    // Analytics: posts by other people that came on screen.
+    analytics().postsViewed(
+      viewableItems
+        .map((v) => v.item as Post)
+        .filter((p) => p && p.user_id !== meRef.current)
+        .map((p) => p.id),
+    );
   }).current;
 
   // `showSpinner` only for the very first load of a single post: a focus

@@ -74,3 +74,8 @@ else
 fi
 as_pg "$PGBIN/psql -X -h $WORK -p $PORT -d postgres -v ON_ERROR_STOP=1 -f $WORK/src/tests/rls_attack_test.sql" \
   | grep -E '^ (PASS|FAIL) |passed|^ +[0-9]+ \| +[0-9]+|ERROR'
+# The KPI definitions (analytics, 0041) against people with known dates, on the
+# same database; rolled back afterwards.
+echo "analytics KPIs:"
+as_pg "$PGBIN/psql -X -h $WORK -p $PORT -d postgres -v ON_ERROR_STOP=1 -f $WORK/src/tests/analytics_test.sql" 2>&1 \
+  | grep -E '^ (PASS|FAIL) |passed|^ +[0-9]+ \| +[0-9]+|ERROR'
