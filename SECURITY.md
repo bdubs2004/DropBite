@@ -414,7 +414,8 @@ than `Math.random`.
       was turned off for testing. In the same place, keep **Secure email
       change** on.
 - [ ] Authentication → URL Configuration: **Site URL** `https://niblgo.com`;
-      **Redirect URLs** exactly `niblgo://reset` and
+      **Redirect URLs** exactly `https://niblgo.com/auth/reset`,
+      `niblgo://reset` (app builds before the reset page) and
       `https://niblgo.com/auth/confirm`. No wildcards, and remove any
       `localhost` or `exp://` entries left from testing.
 - [ ] Authentication → Rate Limits: keep sign-ups and sign-ins at 30 per 5

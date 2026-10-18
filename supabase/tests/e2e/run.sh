@@ -80,11 +80,19 @@ export DATABASE_URL="postgres://supabase_auth_admin@127.0.0.1:$PGPORT/postgres?s
 export GOTRUE_DB_DATABASE_URL="$DATABASE_URL" GOTRUE_DB_NAMESPACE=auth
 export GOTRUE_API_HOST=127.0.0.1 PORT=$AUTHPORT
 export API_EXTERNAL_URL="https://127.0.0.1:$GATEPORT/auth/v1" GOTRUE_SITE_URL="https://niblgo.com"
-export GOTRUE_URI_ALLOW_LIST="niblgo://reset,https://niblgo.com/auth/confirm"
+export GOTRUE_URI_ALLOW_LIST="https://niblgo.com/auth/reset,niblgo://reset,https://niblgo.com/auth/confirm"
 export GOTRUE_JWT_SECRET="$JWT_SECRET" GOTRUE_JWT_EXP=3600 GOTRUE_JWT_AUD=authenticated
 export GOTRUE_JWT_DEFAULT_GROUP_NAME=authenticated GOTRUE_JWT_ADMIN_ROLES=service_role
 export GOTRUE_MAILER_AUTOCONFIRM=true GOTRUE_EXTERNAL_EMAIL_ENABLED=true GOTRUE_DISABLE_SIGNUP=false
 export GOTRUE_RATE_LIMIT_EMAIL_SENT=1000 GOTRUE_LOG_LEVEL=error
+# Auth's emails (password resets) go to a local catcher, smtp_sink.mjs, which
+# saves each one for the checks to open. Nothing leaves the machine.
+SMTPPORT=${SMTPPORT:-2525}
+export GOTRUE_SMTP_HOST=127.0.0.1 GOTRUE_SMTP_PORT=$SMTPPORT GOTRUE_SMTP_USER=e2e GOTRUE_SMTP_PASS=e2e
+export GOTRUE_SMTP_ADMIN_EMAIL=no-reply@niblgo.com GOTRUE_SMTP_SENDER_NAME=NiblGo GOTRUE_SMTP_MAX_FREQUENCY=1ms
+# As on hosted Supabase, the links in Auth's emails point at /auth/v1/verify.
+export GOTRUE_MAILER_URLPATHS_RECOVERY=/auth/v1/verify GOTRUE_MAILER_URLPATHS_CONFIRMATION=/auth/v1/verify
+export GOTRUE_MAILER_URLPATHS_INVITE=/auth/v1/verify GOTRUE_MAILER_URLPATHS_EMAIL_CHANGE=/auth/v1/verify
 "$CACHE/auth/auth" migrate >"$WORK/auth-migrate.log" 2>&1 || { cat "$WORK/auth-migrate.log"; exit 1; }
 
 log "the rest of the platform (supabase_sim.sql), then schema.sql"
@@ -112,6 +120,7 @@ server-port = $RESTPORT
 server-host = "127.0.0.1"
 EOF
 "$CACHE/postgrest" "$WORK/postgrest.conf" >"$WORK/postgrest.log" 2>&1 & PIDS+=($!)
+E2E_SMTP_PORT=$SMTPPORT E2E_MAIL_DIR="$WORK/mail" node "$HERE/smtp_sink.mjs" >"$WORK/smtp.log" 2>&1 & PIDS+=($!)
 "$CACHE/auth/auth" serve >"$WORK/auth.log" 2>&1 & PIDS+=($!)
 
 export E2E_JWT_SECRET="$JWT_SECRET" E2E_DB_URL="postgres://postgres@127.0.0.1:$PGPORT/postgres"

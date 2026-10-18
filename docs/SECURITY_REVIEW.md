@@ -34,7 +34,7 @@ hosts the legal pages, the email-confirmation page and shared-post previews.
 private copy of the whole backend (real Supabase Auth, real PostgREST, the
 seven edge functions) and attacks it through the app's own front door with
 User A (owns the data), User B (an unrelated account) and User C (signed out):
-122 checks (86 attacks and 36 everyday features), every one with an expected and an actual result, in
+133 checks (89 attacks and 44 everyday features), every one with an expected and an actual result, in
 `supabase/tests/e2e/RESULTS.md`. The table below is the database-level detail.
 
 Every database claim below is a check in `supabase/tests/rls_attack_test.sql`
@@ -48,7 +48,7 @@ things on the live project.
 | Data access (RLS) | RLS on every table; users can read, change or delete only what's theirs or public; ids can't be swapped to reach other rows; no self-granted roles; definer functions pinned and answering only about the caller | Suite sections 1-12 |
 | Photo storage | Uploads only through `upload-photo` (real JPEG, metadata stripped, path and random name chosen by the server, hourly cap); DM photos private to chat members via short-lived signed links; links must be real uploads; orphans swept daily | Sections 13-16; `npm run test:jpeg`, `test:upload`, `test:sweep` |
 | DMs and groups | Members only, for messages, members, photos and reactions; leaving ends access to all of it; pushes only for your own fresh message, once, to that chat; one account per phone for pushes; groups capped at 32 | Sections 8, 17; `test:notify` |
-| Sessions and sign-in | A token dies with its session (sign-out, deletion, ban), checked on every API request; one generic sign-in error; confirm and reset links only sign in the phone that asked; exact redirect allowlist | Section 18; PostgREST end-to-end run (SECURITY.md); `test:authlink` |
+| Sessions and sign-in | A token dies with its session (sign-out, deletion, ban), checked on every API request; one generic sign-in error; confirm and reset links only sign in the phone that asked; reset links work once, can't be sent to another site, and don't reveal who has an account; exact redirect allowlist | Section 18; end-to-end section 12 (a real reset email, followed through); `test:authlink` |
 | Secrets and functions | Only the publishable key ships (history, bundle and logs scanned); every function verifies the session with Supabase Auth and takes identity only from it | `.gitleaks.toml` scan; `npm run test:functions` |
 | AI | Signed in only; per-person-per-day, per-minute and app-wide daily limits; size caps and timeouts; no tools; the reply is rebuilt into a fixed schema and dropped if it repeats the prompt; nutrition numbers from USDA, never the model | Section 19; `test:ai`, `test:recipedata` |
 | Abuse | Rate limits on everything people create; duplicate guards; no disguised names (control and direction-flipping characters); no staff-looking handles; malformed recipe cards refused and drawn safely; hashtags only from a fixed list (nothing typed freely ends up under a post), at most 5; price only $ to $$$ | Sections 19-20, 22-23; `test:handle`, `test:hashtags` |
@@ -91,8 +91,6 @@ Decided on purpose, and documented so they aren't reported as surprises:
 
 In code, deliberately deferred:
 
-- **Password reset** isn't set up (the reset deep link is guarded, but the
-  flow hasn't been finished or tested end to end).
 - **Moderation extras** from MODERATION.md: a published appeals contact, an
   appeals path, and auto-hiding a post past a report threshold.
 
@@ -122,7 +120,7 @@ order):
 ## Re-running everything
 
 ```bash
-npm run test:e2e                          # 122 end-to-end checks, Users A, B and C (Linux)
+npm run test:e2e                          # 133 end-to-end checks, Users A, B and C (Linux)
 supabase/tests/run_security.sh            # 266 database checks, fresh install
 supabase/tests/run_security.sh upgrade    # the same, on an upgraded database
 npm test                                  # app and function unit tests

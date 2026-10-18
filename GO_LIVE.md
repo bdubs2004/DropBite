@@ -105,10 +105,12 @@ up:
    (custom SMTP starts you at 30; 100 is comfortable for launch).
 5. Supabase → **Authentication → URL Configuration → Redirect URLs** → make
    sure these are listed, or the links land on the homepage instead of the app:
-   - `niblgo://reset` (password reset opens the app to set a new password)
+   - `https://niblgo.com/auth/reset` (password reset: the page opens the app
+     to set a new password)
+   - `niblgo://reset` (the same, for app builds from before that page)
    - `https://niblgo.com/auth/confirm` (sign-up confirmation)
 
-   List exactly these two and nothing broader: no `*` or `**` wildcards, and
+   List exactly these three and nothing broader: no `*` or `**` wildcards, and
    remove testing leftovers like `localhost` or `exp://`. Supabase sends a
    link wherever the request asks if it matches this list, so a loose entry
    lets someone have a confirmation or reset link carry its session to their
@@ -116,8 +118,15 @@ up:
 
 **Check it:** tap "Forgot password?" in the app with an account's email. The
 email should arrive within a minute (look in spam the first time), and tapping
-its link on the phone should open NiblGo on the "Set a new password" screen. If
-nothing arrives, **Authentication → Logs** in Supabase says why.
+its link on the phone should open niblgo.com/auth/reset, then NiblGo on the
+"Set a new password" screen. If nothing arrives, **Authentication → Logs** in
+Supabase says why; if custom SMTP is on and something's wrong, turning it off
+puts everything back as it was while you look.
+
+Custom SMTP carries every Auth email, confirmations included, so a mistake in
+it (most often: the domain isn't **Verified** in Resend yet, or the sender
+address isn't on that domain) stops sign-up confirmations too. Set it up in
+the order above and test straight away.
 
 ### If your database already exists
 
