@@ -448,15 +448,35 @@ text-decoration:none;font-weight:700;font-size:16px;padding:13px 26px;border-rad
 
 // --- Password-reset landing page -------------------------------------------
 //
-// Reset emails send the user to https://niblgo.com/auth/reset (config.ts
-// PASSWORD_RESET_URL). Supabase checks the link and redirects here with a
-// short-lived session in the fragment; this page passes it on to the app
-// (niblgo://reset#...), which asks for the new password. The page itself never
-// sees a password and never sends the fragment anywhere.
+// The reset email (Supabase template, see GO_LIVE.md "Auth emails") links to
+// https://niblgo.com/auth/reset#token_hash=...&type=recovery. Nothing about
+// opening that link uses the reset up: an email scanner or link preview that
+// fetches it first, or a second tap, changes nothing. Only when the person taps
+// the button does this page swap the code for a short-lived session at
+// Supabase (POST /auth/v1/verify) and hand it to the app (niblgo://reset#...),
+// which asks for the new password. Every app build understands that hand-off.
+//
+// An older-style link that already carries the session (the default template's
+// {{ .ConfirmationURL }}, redirected here) still works: it goes straight on.
+//
+// The Supabase URL and publishable key are baked in from .env, like the
+// worker's; both are public (they ship inside the app).
 writeAuthReset();
 
 function writeAuthReset() {
-  const html = `<!doctype html>
+  const env = readDotEnv(path.join(ROOT, '.env'));
+  const supaUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || env.EXPO_PUBLIC_SUPABASE_URL || '';
+  const supaKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+  const html = resetPageHtml(supaUrl, supaKey);
+  fs.mkdirSync(path.join(OUT, 'auth'), { recursive: true });
+  fs.writeFileSync(path.join(OUT, 'auth', 'reset.html'), html);
+  console.log(
+    `  (static)              -> website/auth/reset.html${supaUrl && supaKey ? ' (Supabase baked in)' : ' (NO .env keys: reset links will not work)'}`,
+  );
+}
+
+function resetPageHtml(supaUrl, supaKey) {
+  return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -479,20 +499,32 @@ box-shadow:0 10px 30px rgba(61,43,31,.08)}
 .logo{width:64px;height:64px;border-radius:16px;margin-bottom:14px}
 h1{font-size:26px;letter-spacing:-.4px;margin:.2em 0 .4em}
 p{color:#4A3728;margin:.5em 0}
-.btn{display:inline-block;margin-top:18px;background:var(--amber);color:#fff;
-text-decoration:none;font-weight:700;font-size:16px;padding:13px 26px;border-radius:999px}
+.btn{display:inline-block;margin-top:18px;background:var(--amber);color:#fff;border:0;cursor:pointer;
+text-decoration:none;font:inherit;font-weight:700;font-size:16px;padding:13px 26px;border-radius:999px}
 .btn:active{opacity:.85}
+.btn[disabled]{opacity:.6;cursor:default}
 .muted{color:var(--cocoa-soft);font-size:14px;margin-top:18px}
 </style>
 </head>
 <body>
 <main class="card">
   <img class="logo" src="/icon.png" alt="NiblGo">
-  <div id="ok">
+  <div id="ok" hidden>
     <h1>Set a new password</h1>
     <p>Tap below to open NiblGo and choose your new password.</p>
-    <a id="openBtn" class="btn" href="niblgo://reset">Open NiblGo</a>
-    <p class="muted">Open this on the phone where you asked for the reset. On a computer? Open the email on your phone instead.</p>
+    <button id="goBtn" class="btn" type="button">Set a new password</button>
+    <p class="muted">Open this on the phone where you asked for the reset.</p>
+  </div>
+  <div id="opened" hidden>
+    <h1>Opening NiblGo</h1>
+    <p>Choose your new password in the app.</p>
+    <a id="openBtn" class="btn" href="niblgo://">Open NiblGo</a>
+    <p class="muted">Didn't open? Tap the button again. You can close this page afterwards.</p>
+  </div>
+  <div id="desk" hidden>
+    <h1>Open this on your phone</h1>
+    <p>Password resets finish in the NiblGo app. Open this email on the phone where you asked for the reset and tap the link there.</p>
+    <p class="muted">The link still works: nothing has been used up.</p>
   </div>
   <div id="err" hidden>
     <h1>This link didn't work</h1>
@@ -502,32 +534,76 @@ text-decoration:none;font-weight:700;font-size:16px;padding:13px 26px;border-rad
   </div>
 </main>
 <script>
+(function () {
+  var SUPABASE_URL = ${JSON.stringify(supaUrl)};
+  var SUPABASE_KEY = ${JSON.stringify(supaKey)};
+  function show(id) {
+    ['ok', 'opened', 'desk', 'err'].forEach(function (x) {
+      document.getElementById(x).hidden = x !== id;
+    });
+  }
+  function openApp(s) {
+    // The same hand-off every app build understands.
+    var target = 'niblgo://reset#' + new URLSearchParams({
+      access_token: s.access_token,
+      refresh_token: s.refresh_token,
+      expires_in: String(s.expires_in || 3600),
+      token_type: 'bearer',
+      type: 'recovery'
+    }).toString();
+    document.getElementById('openBtn').href = target;
+    show('opened');
+    // A beat to draw the page first; the button is there if this doesn't open the app.
+    setTimeout(function () { try { location.href = target; } catch (_) {} }, 300);
+  }
   try {
-    var frag = (location.hash || '').replace(/^#/, '');
-    var qry = (location.search || '').replace(/^\\?/, '');
-    var carry = location.hash || location.search || '';
-    var h = new URLSearchParams(frag || qry);
-    if (h.get('error') || h.get('error_code') || !(h.get('access_token') && h.get('refresh_token'))) {
-      // Expired, used, or not a real reset link. The message stays ours: the
-      // link's own error text is never shown (anyone can build a link here).
-      document.getElementById('ok').hidden = true;
-      document.getElementById('err').hidden = false;
-    } else {
-      var target = 'niblgo://reset' + carry;
-      document.getElementById('openBtn').href = target;
-      // Try on its own first; the button is there when the browser won't.
-      setTimeout(function () { try { location.href = target; } catch (_) {} }, 400);
-    }
-    // The session is in hand: take it out of the address bar and history.
+    var p = new URLSearchParams((location.hash || '').replace(/^#/, '') || (location.search || '').replace(/^\\?/, ''));
+    // Whatever the link carried, take it out of the address bar and history.
     if (history.replaceState) history.replaceState(null, '', location.pathname);
-  } catch (_) {}
+    var phone = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ||
+      (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
+
+    if (p.get('error') || p.get('error_code')) {
+      // The message stays ours: the link's own text is never shown.
+      show('err');
+    } else if (p.get('access_token') && p.get('refresh_token')) {
+      // An older-style link, already checked by Supabase: straight on.
+      openApp({ access_token: p.get('access_token'), refresh_token: p.get('refresh_token'), expires_in: p.get('expires_in') });
+    } else if (p.get('token_hash') && p.get('type') === 'recovery' && SUPABASE_URL && SUPABASE_KEY) {
+      if (!phone) {
+        // Tapping here would use the link up on a computer, where the app isn't.
+        show('desk');
+      } else {
+        var token = p.get('token_hash');
+        var btn = document.getElementById('goBtn');
+        show('ok');
+        btn.onclick = function () {
+          btn.disabled = true;
+          btn.textContent = 'Opening NiblGo';
+          fetch(SUPABASE_URL + '/auth/v1/verify', {
+            method: 'POST',
+            headers: { apikey: SUPABASE_KEY, 'content-type': 'application/json' },
+            body: JSON.stringify({ type: 'recovery', token_hash: token })
+          })
+            .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+            .then(function (s) {
+              if (!s || !s.access_token || !s.refresh_token) throw new Error('no session');
+              openApp(s);
+            })
+            .catch(function () { show('err'); });
+        };
+      }
+    } else {
+      show('err');
+    }
+  } catch (_) {
+    show('err');
+  }
+})();
 </script>
 </body>
 </html>
 `;
-  fs.mkdirSync(path.join(OUT, 'auth'), { recursive: true });
-  fs.writeFileSync(path.join(OUT, 'auth', 'reset.html'), html);
-  console.log('  (static)              -> website/auth/reset.html');
 }
 
 // The favicon and header mark. Copied rather than referenced so the site

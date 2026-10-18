@@ -31,11 +31,12 @@ that everyday features still work against the hardened backend: tagging people,
 likes, comments and replies, follows, reposts, shares, saves, recipe cards and
 nutrition, profile and avatar edits, DMs with reactions and pushes, groups,
 leaving, streaks, reports, feedback, deleting your own post and blocking.
-And it runs a password reset for real: Auth emails the link to a local mail
-catcher (`smtp_sink.mjs`), the check opens it, follows it through Auth to
-niblgo.com/auth/reset, sets the new password the way the app does, and checks
-the old one stops working, the link works once, and a reset can't be sent to
-another site. `e2e/RESULTS.md` is the latest run.
+And it runs a password reset for real: Auth sends the production reset template
+(`supabase/templates/reset-password.html`) to a local mail catcher
+(`smtp_sink.mjs`), the check opens it, does what niblgo.com/auth/reset does when
+the button is tapped (swaps the code for a session), sets the new password the
+way the app does, and checks the old one stops working, the code works once,
+only the newest email works, and a reset can't be sent to another site. `e2e/RESULTS.md` is the latest run.
 
 Linux only (it downloads Linux builds of PostgREST and Supabase Auth, cached in
 `~/.cache/niblgo-e2e`); needs Postgres 16, Node, Deno and openssl. Set

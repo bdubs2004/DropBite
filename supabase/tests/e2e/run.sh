@@ -93,6 +93,11 @@ export GOTRUE_SMTP_ADMIN_EMAIL=no-reply@niblgo.com GOTRUE_SMTP_SENDER_NAME=NiblG
 # As on hosted Supabase, the links in Auth's emails point at /auth/v1/verify.
 export GOTRUE_MAILER_URLPATHS_RECOVERY=/auth/v1/verify GOTRUE_MAILER_URLPATHS_CONFIRMATION=/auth/v1/verify
 export GOTRUE_MAILER_URLPATHS_INVITE=/auth/v1/verify GOTRUE_MAILER_URLPATHS_EMAIL_CHANGE=/auth/v1/verify
+# The reset email is the production template (supabase/templates/), served by
+# smtp_sink.mjs, the way Auth loads custom templates.
+TPLPORT=${TPLPORT:-2526}
+export GOTRUE_MAILER_TEMPLATES_RECOVERY="http://127.0.0.1:$TPLPORT/reset-password.html"
+export GOTRUE_MAILER_SUBJECTS_RECOVERY="Reset your NiblGo password"
 "$CACHE/auth/auth" migrate >"$WORK/auth-migrate.log" 2>&1 || { cat "$WORK/auth-migrate.log"; exit 1; }
 
 log "the rest of the platform (supabase_sim.sql), then schema.sql"
@@ -120,7 +125,7 @@ server-port = $RESTPORT
 server-host = "127.0.0.1"
 EOF
 "$CACHE/postgrest" "$WORK/postgrest.conf" >"$WORK/postgrest.log" 2>&1 & PIDS+=($!)
-E2E_SMTP_PORT=$SMTPPORT E2E_MAIL_DIR="$WORK/mail" node "$HERE/smtp_sink.mjs" >"$WORK/smtp.log" 2>&1 & PIDS+=($!)
+E2E_SMTP_PORT=$SMTPPORT E2E_MAIL_DIR="$WORK/mail" E2E_TEMPLATE_PORT=$TPLPORT E2E_TEMPLATES_DIR="$SUPA/templates" node "$HERE/smtp_sink.mjs" >"$WORK/smtp.log" 2>&1 & PIDS+=($!)
 "$CACHE/auth/auth" serve >"$WORK/auth.log" 2>&1 & PIDS+=($!)
 
 export E2E_JWT_SECRET="$JWT_SECRET" E2E_DB_URL="postgres://postgres@127.0.0.1:$PGPORT/postgres"

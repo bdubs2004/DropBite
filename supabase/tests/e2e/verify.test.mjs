@@ -490,9 +490,10 @@ check('A blocks B, and B no longer sees her posts', !r.error && hidden.data?.len
 // ======================================================= 12. password reset
 heading('12. Password reset, through the real email');
 // Riley forgets her password. Everything below is what happens for real: the
-// app asks Auth for a reset, Auth emails a link (caught by smtp_sink.mjs), the
-// link goes through Auth to niblgo.com/auth/reset, which hands the session to
-// the app, and the app sets the new password.
+// app asks Auth for a reset, Auth sends the production email template (caught
+// by smtp_sink.mjs) linking to niblgo.com/auth/reset with a code; tapping the
+// page's button swaps the code for a session, which the page hands to the app,
+// and the app sets the new password.
 const R = await signUp('riley');
 const MAIL = path.join(process.env.E2E_WORK, 'mail');
 const inbox = () => (fs.existsSync(MAIL) ? fs.readdirSync(MAIL).sort() : []);
@@ -508,28 +509,25 @@ async function nextEmail(to, seen) {
   }
   return '';
 }
-const linkIn = (mail) => (mail.match(/href="([^"]*\/verify\?[^"]*)"/) || [])[1]?.replace(/&amp;/g, '&') ?? '';
-// Follow the email's link the way a browser does, up to where it leaves Auth.
-async function follow(link) {
-  if (!link) return '(no email arrived)';
-  const res = await fetch(link, { redirect: 'manual' });
-  return res.headers.get('location') ?? `HTTP ${res.status}`;
-}
-const fragment = (loc) => new URLSearchParams((loc.split('#')[1] ?? ''));
 
 let seen = inbox().length;
 r = await anonClient().auth.resetPasswordForEmail(R.email, { redirectTo: 'https://niblgo.com/auth/reset' });
 check('the app asks for a reset email', !r.error, ok_(r), 'ok');
 let mail = await nextEmail(R.email, seen);
-let link = linkIn(mail);
-check('…the email arrives, with a reset link', !!link && /type=recovery/.test(link), link ? link.replace(/token=[^&]+/, 'token=…') : '(no email)', 'a link with type=recovery');
-let loc = await follow(link);
-let f = fragment(loc);
-check('…the link opens niblgo.com/auth/reset carrying a session', loc.startsWith('https://niblgo.com/auth/reset#') && !!f.get('access_token') && f.get('type') === 'recovery',
-  loc.replace(/#.*/, '#…'), 'https://niblgo.com/auth/reset#access_token=…&type=recovery');
-// The page passes the fragment on to niblgo://reset; the app does this:
+const resetLink = (m) => (m.match(/href="(https:\/\/niblgo\.com\/auth\/reset#[^"]*)"/) || [])[1]?.replace(/&amp;/g, '&') ?? '';
+let link = resetLink(mail);
+let code = new URLSearchParams(link.split('#')[1] ?? '').get('token_hash');
+check('…the email arrives (the production template), linking to niblgo.com/auth/reset with the code after the #',
+  !!code && link.includes('type=recovery'), link ? link.replace(/token_hash=[^&]+/, 'token_hash=…') : '(no email)', 'https://niblgo.com/auth/reset#token_hash=…&type=recovery');
+check('…and nothing in the email can use the reset up just by being opened (no Supabase link in it)',
+  !/\/auth\/v1\/verify/.test(mail), /\/auth\/v1\/verify/.test(mail) ? 'has a Supabase verify link' : 'no Supabase link', 'no Supabase link');
+// What the page does when Riley taps "Set a new password".
+const tap = (c) => call('/auth/v1/verify', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ type: 'recovery', token_hash: c }) });
+let v = await tap(code);
+check('…tapping the button swaps the code for a session', v.status === 200 && !!v.json?.access_token && !!v.json?.refresh_token, `HTTP ${v.status}`, 'HTTP 200 with a session');
+// The page hands that to the app (niblgo://reset#access_token=…); the app does this:
 const app = anonClient();
-r = await app.auth.setSession({ access_token: f.get('access_token'), refresh_token: f.get('refresh_token') });
+r = await app.auth.setSession({ access_token: v.json?.access_token, refresh_token: v.json?.refresh_token });
 check('…the app signs in with it', !r.error, ok_(r), 'ok');
 const NEW_PASSWORD = 'Burritos456!-e2e';
 r = await app.auth.updateUser({ password: NEW_PASSWORD });
@@ -538,25 +536,28 @@ r = await anonClient().auth.signInWithPassword({ email: R.email, password: NEW_P
 check('Riley signs in with the new password', !r.error && !!r.data.session, ok_(r), 'ok');
 r = await anonClient().auth.signInWithPassword({ email: R.email, password: PASSWORD });
 check('…and the old one no longer works', !!r.error, ok_(r), 'refused');
-loc = await follow(link);
-check('the same link a second time is refused (one use)', !fragment(loc).get('access_token') && /error/.test(loc),
-  loc.replace(/error_description=[^&]*/, 'error_description=…'), 'an error, no session');
+v = await tap(code);
+check('the same code a second time is refused (one use)', v.status >= 400 && !v.json?.access_token, `HTTP ${v.status}`, 'refused');
 
-// A reset sent somewhere else, and what an outsider learns.
+// Only the newest email works, a made-up code does nothing, and outsiders learn nothing.
 seen = inbox().length;
-r = await anonClient().auth.resetPasswordForEmail(R.email, { redirectTo: 'https://evil.example/steal' });
+await anonClient().auth.resetPasswordForEmail(R.email, { redirectTo: 'https://niblgo.com/auth/reset' });
+const older = new URLSearchParams(resetLink(await nextEmail(R.email, seen)).split('#')[1] ?? '').get('token_hash');
+seen = inbox().length;
+await new Promise((res) => setTimeout(res, 1100));
+await anonClient().auth.resetPasswordForEmail(R.email, { redirectTo: 'https://evil.example/steal' });
 mail = await nextEmail(R.email, seen);
-loc = await follow(linkIn(mail));
-check('a reset asking to go to another site lands on niblgo.com instead', loc.startsWith('https://niblgo.com') && !loc.includes('evil.example'),
-  loc.replace(/#.*/, '#…'), 'https://niblgo.com…');
+const newer = new URLSearchParams(resetLink(mail).split('#')[1] ?? '').get('token_hash');
+check('a reset asked to go to another site still links only to niblgo.com', !!newer && !mail.includes('evil.example'),
+  newer ? 'niblgo.com link' : '(no link)', 'niblgo.com link, no other site');
+v = await tap(older);
+check('after a newer email, the older one is refused (use the newest email)', v.status >= 400, `HTTP ${v.status}`, 'refused');
+v = await tap(newer);
+check('…and the newest one works', v.status === 200 && !!v.json?.access_token, `HTTP ${v.status}`, 'HTTP 200');
+v = await tap('0'.repeat(56));
+check('a made-up code does nothing', v.status >= 400 && !v.json?.access_token, `HTTP ${v.status}`, 'refused');
 r = await anonClient().auth.resetPasswordForEmail('nobody-here@e2e.niblgo.test', { redirectTo: 'https://niblgo.com/auth/reset' });
 check('asking for an email that has no account looks the same (no way to tell who has one)', !r.error, ok_(r), 'ok, same as a real account');
-// Builds before this one asked for niblgo://reset directly; that still works.
-seen = inbox().length;
-await anonClient().auth.resetPasswordForEmail(R.email, { redirectTo: 'niblgo://reset' });
-loc = await follow(linkIn(await nextEmail(R.email, seen)));
-check('older app builds (straight to niblgo://reset) still work', loc.startsWith('niblgo://reset#') && !!fragment(loc).get('access_token'),
-  loc.replace(/#.*/, '#…'), 'niblgo://reset#access_token=…');
 
 // ================================================================= result
 const failed = results.filter((x) => !x.ok);

@@ -1,10 +1,10 @@
 # End-to-end security verification: last run
 
-Run 2026-10-18 02:02 UTC with `supabase/tests/e2e/run.sh`: Postgres 16 + schema.sql, Supabase Auth v2.177.0, PostgREST 12.2.3, the seven edge functions on Deno, supabase-js as the client. Storage is a stand-in that authorizes through the same storage.objects policies (gateway.mjs).
+Run 2026-10-18 03:26 UTC with `supabase/tests/e2e/run.sh`: Postgres 16 + schema.sql, Supabase Auth v2.177.0, PostgREST 12.2.3, the seven edge functions on Deno, supabase-js as the client. Storage is a stand-in that authorizes through the same storage.objects policies (gateway.mjs).
 
 User A owns the data; User B is a separate, unrelated account; User C is signed out.
 
-**133 of 133 checks passed.**
+**136 of 136 checks passed.**
 
 ## 1. User B requests User A's private messages
 
@@ -27,7 +27,7 @@ User A owns the data; User B is a separate, unrelated account; User C is signed 
 | B renames it | denied (0 rows changed) | 0 row(s) | PASS |
 | B deletes it | denied (0 rows deleted) | 0 row(s) | PASS |
 | B adds a post to it | denied (error) | error: new row violates row-level security policy for table "collection_posts" | PASS |
-| afterwards A's collection is exactly as it was | owner A, name "Weeknight dinners" | {"id":"18849eab-b29b-4c8b-a058-e265b4a1b14e","user_id":"32d86f93-4011-4b9f-a7cd-bdb41c9985a0","name":"Weeknight dinners"} | PASS |
+| afterwards A's collection is exactly as it was | owner A, name "Weeknight dinners" | {"id":"60bda667-3e51-40b6-be5c-82fa5ceb344c","user_id":"0052bc59-8806-423b-9519-f14299c3099d","name":"Weeknight dinners"} | PASS |
 | B reads A's saved posts (the private list) | denied (0 rows) | 0 row(s) | PASS |
 | B clears A's saved posts | denied (0 rows) | 0 row(s) | PASS |
 | control: A still sees her saved post | 1 row | 1 row(s) | PASS |
@@ -41,7 +41,7 @@ User A owns the data; User B is a separate, unrelated account; User C is signed 
 | B deletes A's post | denied (0 rows deleted) | 0 row(s) | PASS |
 | B posts as A (user_id = A) | denied (error) | error: Upload photos with the app. | PASS |
 | B edits A's profile | denied (0 rows changed) | 0 row(s) | PASS |
-| afterwards A's post is untouched | unchanged | {"blurb":"Alice's garlic chicken","user_id":"32d86f93-4011-4b9f-a7cd-bdb41c9985a0"} | PASS |
+| afterwards A's post is untouched | unchanged | {"blurb":"Alice's garlic chicken","user_id":"0052bc59-8806-423b-9519-f14299c3099d"} | PASS |
 | control: A edits her own post | 1 row changed | 1 row(s) | PASS |
 
 ## 4. User B tries to get User A's private photos
@@ -188,13 +188,16 @@ User A owns the data; User B is a separate, unrelated account; User C is signed 
 | Check | Expected | Got | |
 | --- | --- | --- | --- |
 | the app asks for a reset email | ok | ok | PASS |
-| …the email arrives, with a reset link | a link with type=recovery | https://127.0.0.1:54321/auth/v1/verify?token=…&type=recovery&redirect_to=https://niblgo.com/auth/reset | PASS |
-| …the link opens niblgo.com/auth/reset carrying a session | https://niblgo.com/auth/reset#access_token=…&type=recovery | https://niblgo.com/auth/reset#… | PASS |
+| …the email arrives (the production template), linking to niblgo.com/auth/reset with the code after the # | https://niblgo.com/auth/reset#token_hash=…&type=recovery | https://niblgo.com/auth/reset#token_hash=…&type=recovery | PASS |
+| …and nothing in the email can use the reset up just by being opened (no Supabase link in it) | no Supabase link | no Supabase link | PASS |
+| …tapping the button swaps the code for a session | HTTP 200 with a session | HTTP 200 | PASS |
 | …the app signs in with it | ok | ok | PASS |
 | …and sets the new password | ok | ok | PASS |
 | Riley signs in with the new password | ok | ok | PASS |
 | …and the old one no longer works | refused | error: Invalid login credentials | PASS |
-| the same link a second time is refused (one use) | an error, no session | https://niblgo.com/auth/reset#error=access_denied&error_code=otp_expired&error_description=… | PASS |
-| a reset asking to go to another site lands on niblgo.com instead | https://niblgo.com… | https://niblgo.com#… | PASS |
+| the same code a second time is refused (one use) | refused | HTTP 403 | PASS |
+| a reset asked to go to another site still links only to niblgo.com | niblgo.com link, no other site | niblgo.com link | PASS |
+| after a newer email, the older one is refused (use the newest email) | refused | HTTP 403 | PASS |
+| …and the newest one works | HTTP 200 | HTTP 200 | PASS |
+| a made-up code does nothing | refused | HTTP 403 | PASS |
 | asking for an email that has no account looks the same (no way to tell who has one) | ok, same as a real account | ok | PASS |
-| older app builds (straight to niblgo://reset) still work | niblgo://reset#access_token=… | niblgo://reset#… | PASS |
