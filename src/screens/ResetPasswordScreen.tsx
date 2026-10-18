@@ -51,12 +51,9 @@ export function ResetPasswordScreen({
       await refreshMe();
       setDone(true);
     } catch (e: any) {
-      const raw = String(e?.message ?? '');
-      setFormError(
-        /rate|too many/i.test(raw)
-          ? 'Too many attempts. Wait a minute and try again.'
-          : 'Could not set your password. The reset link may have expired, so request a new one.',
-      );
+      // They stay on the form with what they typed: the reset session is still
+      // good, so picking another password needs no new email.
+      setFormError(resetErrorMessage(e));
     } finally {
       setBusy(false);
     }
@@ -129,6 +126,26 @@ export function ResetPasswordScreen({
       />
     </ResetFrame>
   );
+}
+
+/**
+ * Why Supabase Auth refused the new password, in plain words. Only a real
+ * session problem says the link may have expired; a password it won't take
+ * (the current one, or too weak) says so, so the person just picks another.
+ */
+function resetErrorMessage(e: any): string {
+  const code = String(e?.code ?? '');
+  const raw = String(e?.message ?? '');
+  if (code === 'same_password' || /different from the old password/i.test(raw)) {
+    return 'That’s already your password. Choose a different one';
+  }
+  if (code === 'weak_password' || /weak|easy to guess/i.test(raw)) {
+    return 'That password isn’t strong enough. Try a longer one with letters, numbers and a symbol';
+  }
+  if (Number(e?.status) === 429 || /rate|too many/i.test(raw)) {
+    return 'Too many attempts. Wait a minute and try again.';
+  }
+  return 'Could not set your password. The reset link may have expired, so request a new one.';
 }
 
 /**
