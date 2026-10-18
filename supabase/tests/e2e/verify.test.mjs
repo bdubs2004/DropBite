@@ -532,6 +532,9 @@ check('…the app signs in with it', !r.error, ok_(r), 'ok');
 const NEW_PASSWORD = 'Burritos456!-e2e';
 r = await app.auth.updateUser({ password: NEW_PASSWORD });
 check('…and sets the new password', !r.error, ok_(r), 'ok');
+r = await app.auth.updateUser({ password: NEW_PASSWORD });
+check('…choosing the password she already has is refused as the same password (the app says so)',
+  r.error?.code === 'same_password', r.error ? `${r.error.code}: ${r.error.message}` : 'saved', 'same_password');
 r = await anonClient().auth.signInWithPassword({ email: R.email, password: NEW_PASSWORD });
 check('Riley signs in with the new password', !r.error && !!r.data.session, ok_(r), 'ok');
 r = await anonClient().auth.signInWithPassword({ email: R.email, password: PASSWORD });

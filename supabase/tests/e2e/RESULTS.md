@@ -1,10 +1,10 @@
 # End-to-end security verification: last run
 
-Run 2026-10-18 03:26 UTC with `supabase/tests/e2e/run.sh`: Postgres 16 + schema.sql, Supabase Auth v2.177.0, PostgREST 12.2.3, the seven edge functions on Deno, supabase-js as the client. Storage is a stand-in that authorizes through the same storage.objects policies (gateway.mjs).
+Run 2026-10-18 04:08 UTC with `supabase/tests/e2e/run.sh`: Postgres 16 + schema.sql, Supabase Auth v2.177.0, PostgREST 12.2.3, the seven edge functions on Deno, supabase-js as the client. Storage is a stand-in that authorizes through the same storage.objects policies (gateway.mjs).
 
 User A owns the data; User B is a separate, unrelated account; User C is signed out.
 
-**136 of 136 checks passed.**
+**137 of 137 checks passed.**
 
 ## 1. User B requests User A's private messages
 
@@ -27,7 +27,7 @@ User A owns the data; User B is a separate, unrelated account; User C is signed 
 | B renames it | denied (0 rows changed) | 0 row(s) | PASS |
 | B deletes it | denied (0 rows deleted) | 0 row(s) | PASS |
 | B adds a post to it | denied (error) | error: new row violates row-level security policy for table "collection_posts" | PASS |
-| afterwards A's collection is exactly as it was | owner A, name "Weeknight dinners" | {"id":"60bda667-3e51-40b6-be5c-82fa5ceb344c","user_id":"0052bc59-8806-423b-9519-f14299c3099d","name":"Weeknight dinners"} | PASS |
+| afterwards A's collection is exactly as it was | owner A, name "Weeknight dinners" | {"id":"487ed4fc-f8d7-434d-90a1-f4b196d69c71","user_id":"4d51f131-934a-46a8-831f-64ae3b586b05","name":"Weeknight dinners"} | PASS |
 | B reads A's saved posts (the private list) | denied (0 rows) | 0 row(s) | PASS |
 | B clears A's saved posts | denied (0 rows) | 0 row(s) | PASS |
 | control: A still sees her saved post | 1 row | 1 row(s) | PASS |
@@ -41,7 +41,7 @@ User A owns the data; User B is a separate, unrelated account; User C is signed 
 | B deletes A's post | denied (0 rows deleted) | 0 row(s) | PASS |
 | B posts as A (user_id = A) | denied (error) | error: Upload photos with the app. | PASS |
 | B edits A's profile | denied (0 rows changed) | 0 row(s) | PASS |
-| afterwards A's post is untouched | unchanged | {"blurb":"Alice's garlic chicken","user_id":"0052bc59-8806-423b-9519-f14299c3099d"} | PASS |
+| afterwards A's post is untouched | unchanged | {"blurb":"Alice's garlic chicken","user_id":"4d51f131-934a-46a8-831f-64ae3b586b05"} | PASS |
 | control: A edits her own post | 1 row changed | 1 row(s) | PASS |
 
 ## 4. User B tries to get User A's private photos
@@ -193,6 +193,7 @@ User A owns the data; User B is a separate, unrelated account; User C is signed 
 | …tapping the button swaps the code for a session | HTTP 200 with a session | HTTP 200 | PASS |
 | …the app signs in with it | ok | ok | PASS |
 | …and sets the new password | ok | ok | PASS |
+| …choosing the password she already has is refused as the same password (the app says so) | same_password | same_password: New password should be different from the old password. | PASS |
 | Riley signs in with the new password | ok | ok | PASS |
 | …and the old one no longer works | refused | error: Invalid login credentials | PASS |
 | the same code a second time is refused (one use) | refused | HTTP 403 | PASS |
