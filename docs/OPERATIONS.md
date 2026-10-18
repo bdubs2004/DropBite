@@ -200,8 +200,9 @@ source; deleting it from the code doesn't help.
 **An account is being abused or was taken over.** Ban it (MODERATION.md,
 "Acting on a report"): the ban locks out every session at once. If the owner
 was hijacked, set them a new password from Authentication → Users once you've
-confirmed it's really them, then lift the ban. (In-app password reset isn't
-set up yet.)
+confirmed it's really them, then lift the ban, or lift it and have them use
+"Forgot password?" on their own phone (the reset link only works on the phone
+that asked for it).
 
 **Data looks wrong after a change.** Stop deploying, restore the daily backup
 (above), and run `verify.sql` and `supabase/tests/run_security.sh` against a

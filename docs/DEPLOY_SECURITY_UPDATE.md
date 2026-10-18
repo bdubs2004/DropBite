@@ -149,8 +149,9 @@ Authentication:
 - [ ] Providers → Email: **Confirm email** on; **Secure email change** on;
       minimum password length **8**.
 - [ ] URL Configuration: Site URL `https://niblgo.com`; Redirect URLs exactly
-      `niblgo://reset` and `https://niblgo.com/auth/confirm`. Delete anything
-      else (wildcards, `localhost`, `exp://`).
+      `https://niblgo.com/auth/reset`, `niblgo://reset` and
+      `https://niblgo.com/auth/confirm`. Delete anything else (wildcards,
+      `localhost`, `exp://`).
 - [ ] Rate Limits: sign-ups/sign-ins 30 per 5 min, token verifications 30 per
       5 min (the defaults); emails per hour 100 once custom SMTP is on.
 - [ ] Sessions: "Detect and revoke potentially compromised refresh tokens" on;

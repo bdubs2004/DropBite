@@ -1,10 +1,10 @@
 # End-to-end security verification: last run
 
-Run 2026-10-18 01:49 UTC with `supabase/tests/e2e/run.sh`: Postgres 16 + schema.sql, Supabase Auth v2.177.0, PostgREST 12.2.3, the seven edge functions on Deno, supabase-js as the client. Storage is a stand-in that authorizes through the same storage.objects policies (gateway.mjs).
+Run 2026-10-18 02:02 UTC with `supabase/tests/e2e/run.sh`: Postgres 16 + schema.sql, Supabase Auth v2.177.0, PostgREST 12.2.3, the seven edge functions on Deno, supabase-js as the client. Storage is a stand-in that authorizes through the same storage.objects policies (gateway.mjs).
 
 User A owns the data; User B is a separate, unrelated account; User C is signed out.
 
-**122 of 122 checks passed.**
+**133 of 133 checks passed.**
 
 ## 1. User B requests User A's private messages
 
@@ -27,7 +27,7 @@ User A owns the data; User B is a separate, unrelated account; User C is signed 
 | B renames it | denied (0 rows changed) | 0 row(s) | PASS |
 | B deletes it | denied (0 rows deleted) | 0 row(s) | PASS |
 | B adds a post to it | denied (error) | error: new row violates row-level security policy for table "collection_posts" | PASS |
-| afterwards A's collection is exactly as it was | owner A, name "Weeknight dinners" | {"id":"1c885ea4-74bb-4fa7-a3fc-17e33b230149","user_id":"8366b467-dcd0-4726-b6a3-29fcb2635de0","name":"Weeknight dinners"} | PASS |
+| afterwards A's collection is exactly as it was | owner A, name "Weeknight dinners" | {"id":"18849eab-b29b-4c8b-a058-e265b4a1b14e","user_id":"32d86f93-4011-4b9f-a7cd-bdb41c9985a0","name":"Weeknight dinners"} | PASS |
 | B reads A's saved posts (the private list) | denied (0 rows) | 0 row(s) | PASS |
 | B clears A's saved posts | denied (0 rows) | 0 row(s) | PASS |
 | control: A still sees her saved post | 1 row | 1 row(s) | PASS |
@@ -41,7 +41,7 @@ User A owns the data; User B is a separate, unrelated account; User C is signed 
 | B deletes A's post | denied (0 rows deleted) | 0 row(s) | PASS |
 | B posts as A (user_id = A) | denied (error) | error: Upload photos with the app. | PASS |
 | B edits A's profile | denied (0 rows changed) | 0 row(s) | PASS |
-| afterwards A's post is untouched | unchanged | {"blurb":"Alice's garlic chicken","user_id":"8366b467-dcd0-4726-b6a3-29fcb2635de0"} | PASS |
+| afterwards A's post is untouched | unchanged | {"blurb":"Alice's garlic chicken","user_id":"32d86f93-4011-4b9f-a7cd-bdb41c9985a0"} | PASS |
 | control: A edits her own post | 1 row changed | 1 row(s) | PASS |
 
 ## 4. User B tries to get User A's private photos
@@ -182,3 +182,19 @@ User A owns the data; User B is a separate, unrelated account; User C is signed 
 | Dana sends feedback | ok | ok | PASS |
 | Dana posts, then deletes her own post | ok; 1 deleted | ok; 1 row(s) deleted | PASS |
 | A blocks B, and B no longer sees her posts | ok; 0 rows | ok; B sees 0 row(s) | PASS |
+
+## 12. Password reset, through the real email
+
+| Check | Expected | Got | |
+| --- | --- | --- | --- |
+| the app asks for a reset email | ok | ok | PASS |
+| …the email arrives, with a reset link | a link with type=recovery | https://127.0.0.1:54321/auth/v1/verify?token=…&type=recovery&redirect_to=https://niblgo.com/auth/reset | PASS |
+| …the link opens niblgo.com/auth/reset carrying a session | https://niblgo.com/auth/reset#access_token=…&type=recovery | https://niblgo.com/auth/reset#… | PASS |
+| …the app signs in with it | ok | ok | PASS |
+| …and sets the new password | ok | ok | PASS |
+| Riley signs in with the new password | ok | ok | PASS |
+| …and the old one no longer works | refused | error: Invalid login credentials | PASS |
+| the same link a second time is refused (one use) | an error, no session | https://niblgo.com/auth/reset#error=access_denied&error_code=otp_expired&error_description=… | PASS |
+| a reset asking to go to another site lands on niblgo.com instead | https://niblgo.com… | https://niblgo.com#… | PASS |
+| asking for an email that has no account looks the same (no way to tell who has one) | ok, same as a real account | ok | PASS |
+| older app builds (straight to niblgo://reset) still work | niblgo://reset#access_token=… | niblgo://reset#… | PASS |

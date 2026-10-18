@@ -487,6 +487,77 @@ r = await A.sb.from('blocks').insert({ blocker_id: A.id, blocked_id: B.id });
 const hidden = await B.sb.from('posts').select('id').eq('id', POST);
 check('A blocks B, and B no longer sees her posts', !r.error && hidden.data?.length === 0, `${ok_(r)}; B sees ${rows(hidden)}`, 'ok; 0 rows');
 
+// ======================================================= 12. password reset
+heading('12. Password reset, through the real email');
+// Riley forgets her password. Everything below is what happens for real: the
+// app asks Auth for a reset, Auth emails a link (caught by smtp_sink.mjs), the
+// link goes through Auth to niblgo.com/auth/reset, which hands the session to
+// the app, and the app sets the new password.
+const R = await signUp('riley');
+const MAIL = path.join(process.env.E2E_WORK, 'mail');
+const inbox = () => (fs.existsSync(MAIL) ? fs.readdirSync(MAIL).sort() : []);
+// The newest email to `to`, decoded (quoted-printable), after `seen` emails.
+async function nextEmail(to, seen) {
+  for (let t = 0; t < 50; t++) {
+    const fresh = inbox().slice(seen).map((f) => fs.readFileSync(path.join(MAIL, f), 'utf8'));
+    const mine = fresh.filter((m) => m.split('\r\n')[0].includes(to));
+    if (mine.length) {
+      return mine[mine.length - 1].replace(/=\r?\n/g, '').replace(/=([0-9A-F]{2})/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
+    }
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  return '';
+}
+const linkIn = (mail) => (mail.match(/href="([^"]*\/verify\?[^"]*)"/) || [])[1]?.replace(/&amp;/g, '&') ?? '';
+// Follow the email's link the way a browser does, up to where it leaves Auth.
+async function follow(link) {
+  if (!link) return '(no email arrived)';
+  const res = await fetch(link, { redirect: 'manual' });
+  return res.headers.get('location') ?? `HTTP ${res.status}`;
+}
+const fragment = (loc) => new URLSearchParams((loc.split('#')[1] ?? ''));
+
+let seen = inbox().length;
+r = await anonClient().auth.resetPasswordForEmail(R.email, { redirectTo: 'https://niblgo.com/auth/reset' });
+check('the app asks for a reset email', !r.error, ok_(r), 'ok');
+let mail = await nextEmail(R.email, seen);
+let link = linkIn(mail);
+check('…the email arrives, with a reset link', !!link && /type=recovery/.test(link), link ? link.replace(/token=[^&]+/, 'token=…') : '(no email)', 'a link with type=recovery');
+let loc = await follow(link);
+let f = fragment(loc);
+check('…the link opens niblgo.com/auth/reset carrying a session', loc.startsWith('https://niblgo.com/auth/reset#') && !!f.get('access_token') && f.get('type') === 'recovery',
+  loc.replace(/#.*/, '#…'), 'https://niblgo.com/auth/reset#access_token=…&type=recovery');
+// The page passes the fragment on to niblgo://reset; the app does this:
+const app = anonClient();
+r = await app.auth.setSession({ access_token: f.get('access_token'), refresh_token: f.get('refresh_token') });
+check('…the app signs in with it', !r.error, ok_(r), 'ok');
+const NEW_PASSWORD = 'Burritos456!-e2e';
+r = await app.auth.updateUser({ password: NEW_PASSWORD });
+check('…and sets the new password', !r.error, ok_(r), 'ok');
+r = await anonClient().auth.signInWithPassword({ email: R.email, password: NEW_PASSWORD });
+check('Riley signs in with the new password', !r.error && !!r.data.session, ok_(r), 'ok');
+r = await anonClient().auth.signInWithPassword({ email: R.email, password: PASSWORD });
+check('…and the old one no longer works', !!r.error, ok_(r), 'refused');
+loc = await follow(link);
+check('the same link a second time is refused (one use)', !fragment(loc).get('access_token') && /error/.test(loc),
+  loc.replace(/error_description=[^&]*/, 'error_description=…'), 'an error, no session');
+
+// A reset sent somewhere else, and what an outsider learns.
+seen = inbox().length;
+r = await anonClient().auth.resetPasswordForEmail(R.email, { redirectTo: 'https://evil.example/steal' });
+mail = await nextEmail(R.email, seen);
+loc = await follow(linkIn(mail));
+check('a reset asking to go to another site lands on niblgo.com instead', loc.startsWith('https://niblgo.com') && !loc.includes('evil.example'),
+  loc.replace(/#.*/, '#…'), 'https://niblgo.com…');
+r = await anonClient().auth.resetPasswordForEmail('nobody-here@e2e.niblgo.test', { redirectTo: 'https://niblgo.com/auth/reset' });
+check('asking for an email that has no account looks the same (no way to tell who has one)', !r.error, ok_(r), 'ok, same as a real account');
+// Builds before this one asked for niblgo://reset directly; that still works.
+seen = inbox().length;
+await anonClient().auth.resetPasswordForEmail(R.email, { redirectTo: 'niblgo://reset' });
+loc = await follow(linkIn(await nextEmail(R.email, seen)));
+check('older app builds (straight to niblgo://reset) still work', loc.startsWith('niblgo://reset#') && !!fragment(loc).get('access_token'),
+  loc.replace(/#.*/, '#…'), 'niblgo://reset#access_token=…');
+
 // ================================================================= result
 const failed = results.filter((x) => !x.ok);
 console.log(`\n# ${results.length - failed.length} of ${results.length} passed${failed.length ? `, ${failed.length} FAILED` : ''}`);

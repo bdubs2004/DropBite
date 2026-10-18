@@ -50,12 +50,19 @@ export const TERMS_URL = `${APP_LINK_BASE}/terms`;
 export const EMAIL_CONFIRM_URL = `${APP_LINK_BASE}/auth/confirm`;
 
 /**
- * Where a password-reset link sends people. This MUST be the app's own deep
- * link, not the website: recovery hands back session tokens that only the app
- * can act on (setSession → updateUser). A web page can open niblgo:// but the
- * app would arrive with no session, so the reset has to land in the app.
+ * Where a password-reset link sends people: a page on the website that hands
+ * the link's session straight on to the app (niblgo://reset#…), where the new
+ * password is set (setSession → updateUser). The tokens ride in the URL
+ * fragment, which never reaches the web server.
+ *
+ * Going through a web page rather than straight to niblgo:// is what makes it
+ * dependable: an email app's built-in browser often won't follow a redirect to
+ * an app link on its own, but always will when the person taps a button, and
+ * on a computer the page can say to open the email on the phone instead.
+ * Builds before this one asked for niblgo://reset directly; the app still
+ * handles both.
  */
-export const PASSWORD_RESET_URL = 'niblgo://reset';
+export const PASSWORD_RESET_URL = `${APP_LINK_BASE}/auth/reset`;
 
 /**
  * Location / restaurant tagging ("where you ate", Google Places-backed).
