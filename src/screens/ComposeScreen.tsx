@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CollectionPicker } from '../components/CollectionPicker';
 import { HashtagField } from '../components/HashtagField';
+import { PricePicker } from '../components/PricePicker';
 import { PostSuccessOverlay } from '../components/PostSuccessOverlay';
 import { TagPeoplePicker } from '../components/TagPeoplePicker';
 import { NutritionPanel } from '../components/NutritionPanel';
@@ -20,6 +21,7 @@ import { RecipeCardEditor } from '../components/RecipeCardEditor';
 import { Button, Input, Muted } from '../components/ui';
 import { LIMITS } from '../lib/limits';
 import { photoFrame } from '../lib/photoFrame';
+import { PriceLevel } from '../lib/price';
 import { pickImage } from '../lib/pickImage';
 import { defaultMealSlot } from '../lib/time';
 import { totalForRecipe } from '../lib/nutrition';
@@ -88,6 +90,8 @@ export function ComposeScreen({ navigation }: any) {
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
   // Hashtags from the list, so the dish turns up in Search.
   const [hashtags, setHashtags] = useState<string[]>([]);
+  // What it cost to make: none, or one of $ / $$ / $$$.
+  const [price, setPrice] = useState<PriceLevel[]>([]);
 
   const hasPhoto = Boolean(photoUri || photoEmoji);
   const previewFrame = photoFrame(photoSize?.width, photoSize?.height);
@@ -211,6 +215,7 @@ export function ComposeScreen({ navigation }: any) {
           : null,
         tag_user_ids: tagged.map((u) => u.id),
         hashtags,
+        price_level: price[0] ?? null,
       });
       // Supplementary, like the recipe: a collection that fails to save must
       // never lose the post.
@@ -511,12 +516,16 @@ export function ComposeScreen({ navigation }: any) {
           </>
         )}
 
-        {/* 6: hashtags (optional), an area of their own: never mixed into the
+        {/* 6: what it cost to make (optional) */}
+        <Text style={styles.stepLabel}>Cost to make</Text>
+        <PricePicker testID="compose-price" value={price} onChange={setPrice} />
+
+        {/* 7: hashtags (optional), an area of their own: never mixed into the
             description, which stays exactly as written */}
         <Text style={styles.stepLabel}>Hashtags</Text>
         <HashtagField selected={hashtags} onChange={setHashtags} />
 
-        {/* 7: tag people (optional) */}
+        {/* 8: tag people (optional) */}
         <Text style={styles.stepLabel}>Tag people</Text>
         <Pressable
           testID="compose-tags"
@@ -549,7 +558,7 @@ export function ComposeScreen({ navigation }: any) {
           />
         </Modal>
 
-        {/* 8: collections (optional) */}
+        {/* 9: collections (optional) */}
         <Text style={styles.stepLabel}>Collection</Text>
         <Pressable
           testID="compose-collections"

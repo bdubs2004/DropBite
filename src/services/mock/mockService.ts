@@ -1,7 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { hashPassword, verifyPassword } from '../../lib/demoPassword';
 import { cleanHandle, sameHandle } from '../../lib/handle';
-import { cleanHashtags, hashtagsForSearch } from '../../lib/hashtags';
+import { cleanHashtags } from '../../lib/hashtags';
+import { cleanPriceLevel } from '../../lib/price';
+import { combineSearch, hasSearch, postMatches, SearchFilters } from '../../lib/searchQuery';
 import { uid } from '../../lib/id';
 import { appVersion, platformName } from '../../lib/appInfo';
 import { clamp, clampOrNull, LIMITS } from '../../lib/limits';
@@ -180,6 +182,7 @@ export class MockService implements DataService {
     return {
       ...post,
       hashtags: cleanHashtags(post.hashtags),
+      price_level: cleanPriceLevel(post.price_level),
       user: db.users.find((u) => u.id === post.user_id),
       recipe: db.recipes.find((r) => r.post_id === post.id) ?? null,
       reaction_count: db.reactions.filter((r) => r.post_id === post.id).length,
@@ -494,25 +497,24 @@ export class MockService implements DataService {
       .map((p) => this.hydrate(db, p, me.id));
   }
 
-  async searchPosts(query: string): Promise<Post[]> {
+  async searchPosts(query: string, filters: SearchFilters = {}): Promise<Post[]> {
     const db = await this.load();
     const me = await this.me();
-    const q = query.trim().toLowerCase();
-    if (!q) return [];
-    const { tags, only } = hashtagsForSearch(query);
+    const search = combineSearch(query, filters);
+    if (!hasSearch(search)) return [];
     const blocked = this.blockedIds(db, me.id);
     return db.posts
       .filter((p) => {
         if (blocked.has(p.user_id)) return false;
-        const tagged = (p.hashtags ?? []).some((t) => tags.includes(t));
-        if (only) return tagged;
         const recipe = db.recipes.find((r) => r.post_id === p.id);
-        return (
-          tagged ||
-          p.blurb.toLowerCase().includes(q) ||
-          (recipe?.title ?? '').toLowerCase().includes(q) ||
-          // Ingredients are the structured asset; searching them is the point.
-          (recipe?.ingredients ?? []).some((i) => i.item.toLowerCase().includes(q))
+        return postMatches(
+          {
+            ...p,
+            recipeTitle: recipe?.title,
+            // Ingredients are the structured asset; searching them is the point.
+            ingredients: (recipe?.ingredients ?? []).map((i) => i.item),
+          },
+          search,
         );
       })
       .sort((a, b) => b.created_at.localeCompare(a.created_at))
@@ -586,6 +588,7 @@ export class MockService implements DataService {
       lat: input.restaurant?.lat ?? null,
       lng: input.restaurant?.lng ?? null,
       hashtags: cleanHashtags(input.hashtags),
+      price_level: cleanPriceLevel(input.price_level),
       created_at: new Date().toISOString(),
     };
     db.posts.push(post);

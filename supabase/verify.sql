@@ -42,7 +42,8 @@ expected_columns(tbl, col, fixed_by) as (
     ('reports',      'comment_text_snapshot', '0013_report_comments_and_accounts.sql'),
     ('comments',     'image_url',             '0015_comment_photos.sql'),
     ('comments',     'parent_id',             '0016_comment_replies.sql'),
-    ('posts',        'hashtags',              '0039_hashtags.sql')
+    ('posts',        'hashtags',              '0039_hashtags.sql'),
+    ('posts',        'price_level',           '0040_price_level.sql')
 ),
 
 -- Functions the policies call. A missing one breaks every policy that uses it.
@@ -369,8 +370,8 @@ checks(grp, item, status) as (
         or has_table_privilege('authenticated', 'public.hashtags', 'UPDATE')
         or has_table_privilege('authenticated', 'public.hashtags', 'DELETE')
         then 'USERS CAN ADD THEIR OWN TAGS TO THE LIST — run 0039_hashtags.sql'
-      else (select case when n = 53 then 'OK (53 tags)'
-                        else 'HAS ' || n || ' TAGS, EXPECTED 53 — run 0039_hashtags.sql' end
+      else (select case when n = 49 then 'OK (49 tags)'
+                        else 'HAS ' || n || ' TAGS, EXPECTED 49 — run upgrade_all.sql (0039, 0040)' end
             from (select (xpath('//n/text()',
                     query_to_xml('select count(*) as n from public.hashtags', false, false, '')))[1]::text::int as n) c)
     end

@@ -74,6 +74,8 @@ export interface Post {
   lng: number | null;
   /** Up to 5 tags from the list in src/lib/hashtags.ts, in the order picked. */
   hashtags?: string[];
+  /** What it cost to make: 1 ($), 2 ($$) or 3 ($$$); null when not given. */
+  price_level?: 1 | 2 | 3 | null;
   created_at: string;
   /** Display-only engagement counts (comments/shares/reposts land in Phase 2) */
   comment_count?: number;
@@ -371,4 +373,6 @@ export interface NewPostInput {
   tag_user_ids?: string[];
   /** Hashtags from the list (src/lib/hashtags.ts). */
   hashtags?: string[];
+  /** $ / $$ / $$$ (src/lib/price.ts), or null. */
+  price_level?: 1 | 2 | 3 | null;
 }

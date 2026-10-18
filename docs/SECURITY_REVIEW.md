@@ -1,6 +1,6 @@
 # NiblGo security review: brief for the outside test
 
-State as of 16 October 2026: database migrations through `0039`, edge
+State as of 18 October 2026: database migrations through `0040`, edge
 functions as in `supabase/functions/`. SECURITY.md has the detail behind each
 line here; docs/OPERATIONS.md covers logs, backups and access.
 
@@ -34,11 +34,11 @@ hosts the legal pages, the email-confirmation page and shared-post previews.
 private copy of the whole backend (real Supabase Auth, real PostgREST, the
 seven edge functions) and attacks it through the app's own front door with
 User A (owns the data), User B (an unrelated account) and User C (signed out):
-117 checks (83 attacks and 34 everyday features), every one with an expected and an actual result, in
+122 checks (86 attacks and 36 everyday features), every one with an expected and an actual result, in
 `supabase/tests/e2e/RESULTS.md`. The table below is the database-level detail.
 
 Every database claim below is a check in `supabase/tests/rls_attack_test.sql`
-(256 checks, six accounts signing in the way the API does, an attacker with an
+(266 checks, six accounts signing in the way the API does, an attacker with an
 ordinary account), run on a fresh install and on an upgraded database
 (`supabase/tests/run_security.sh`). `supabase/verify.sql` checks the same
 things on the live project.
@@ -51,7 +51,7 @@ things on the live project.
 | Sessions and sign-in | A token dies with its session (sign-out, deletion, ban), checked on every API request; one generic sign-in error; confirm and reset links only sign in the phone that asked; exact redirect allowlist | Section 18; PostgREST end-to-end run (SECURITY.md); `test:authlink` |
 | Secrets and functions | Only the publishable key ships (history, bundle and logs scanned); every function verifies the session with Supabase Auth and takes identity only from it | `.gitleaks.toml` scan; `npm run test:functions` |
 | AI | Signed in only; per-person-per-day, per-minute and app-wide daily limits; size caps and timeouts; no tools; the reply is rebuilt into a fixed schema and dropped if it repeats the prompt; nutrition numbers from USDA, never the model | Section 19; `test:ai`, `test:recipedata` |
-| Abuse | Rate limits on everything people create; duplicate guards; no disguised names (control and direction-flipping characters); no staff-looking handles; malformed recipe cards refused and drawn safely; hashtags only from a fixed list (nothing typed freely ends up under a post), at most 5 | Sections 19-20, 22; `test:handle`, `test:hashtags` |
+| Abuse | Rate limits on everything people create; duplicate guards; no disguised names (control and direction-flipping characters); no staff-looking handles; malformed recipe cards refused and drawn safely; hashtags only from a fixed list (nothing typed freely ends up under a post), at most 5; price only $ to $$$ | Sections 19-20, 22-23; `test:handle`, `test:hashtags` |
 | Privacy | Account deletion leaves nothing pointing at the account; feedback is kept without the person; reports outlive accounts, and their copies of content are cleared 2 years after closing | Section 21 |
 
 ## Known limitations and accepted risks
@@ -101,7 +101,7 @@ before the test; docs/DEPLOY_SECURITY_UPDATE.md walks through all of them in
 order):
 
 - [ ] `supabase/upgrade_all.sql` run on production (all migrations, 0002 to
-      0039); `verify.sql` says PASS.
+      0040); `verify.sql` says PASS.
 - [ ] Edge functions deployed at the current version (all seven), with
       `sweep-storage --no-verify-jwt` and its daily Cron job using
       `x-sweep-secret`.
@@ -122,8 +122,8 @@ order):
 ## Re-running everything
 
 ```bash
-npm run test:e2e                          # 117 end-to-end checks, Users A, B and C (Linux)
-supabase/tests/run_security.sh            # 256 database checks, fresh install
+npm run test:e2e                          # 122 end-to-end checks, Users A, B and C (Linux)
+supabase/tests/run_security.sh            # 266 database checks, fresh install
 supabase/tests/run_security.sh upgrade    # the same, on an upgraded database
 npm test                                  # app and function unit tests
 npm run test:functions                    # every edge function, run for real (needs Deno)

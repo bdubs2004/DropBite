@@ -16,6 +16,7 @@ import {
   Streak,
   User,
 } from '../types';
+import { SearchFilters } from '../lib/searchQuery';
 
 /**
  * Everything the UI needs from a backend. Two implementations:
@@ -108,8 +109,12 @@ export interface DataService {
   getPost(postId: string): Promise<Post | null>;
   /** Everyone's posts, newest first — the Discover grid, not just your feed. */
   getDiscoverPosts(): Promise<Post[]>;
-  /** Search every post by description, recipe title, or ingredient. */
-  searchPosts(query: string): Promise<Post[]>;
+  /**
+   * Search every post: what was typed (description, recipe title, ingredient,
+   * read smartly: see src/lib/searchQuery.ts) plus the Price and Hashtag
+   * filters picked by hand.
+   */
+  searchPosts(query: string, filters?: SearchFilters): Promise<Post[]>;
   /** People to discover, each with a few recent posts and follow state. */
   getDiscoverPeople(): Promise<DiscoverPerson[]>;
   createPost(input: NewPostInput): Promise<Post>;

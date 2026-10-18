@@ -7,7 +7,6 @@
 import {
   ALL_HASHTAGS,
   cleanHashtags,
-  hashtagsForSearch,
   HASHTAG_GROUPS,
   MAX_HASHTAGS,
   normalizeHashtag,
@@ -26,7 +25,8 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 check('every tag is lowercase letters and numbers, 2 to 30 long', ALL_HASHTAGS.every((t) => /^[a-z0-9]{2,30}$/.test(t)));
 check('no tag is listed twice', new Set(ALL_HASHTAGS).size === ALL_HASHTAGS.length);
 check('the search bar only suggests real tags', SEARCH_EXAMPLES.every((t) => ALL_HASHTAGS.includes(t)));
-check('the examples the owner asked for are there', ['healthy', 'expensive', 'budget', 'mediterranean', 'chinese'].every((t) => ALL_HASHTAGS.includes(t)));
+check('the examples the owner asked for are there', ['healthy', 'mediterranean', 'chinese'].every((t) => ALL_HASHTAGS.includes(t)));
+check('prices are not hashtags (posts carry $ / $$ / $$$ instead)', !['budget', 'cheapeats', 'splurge', 'expensive'].some((t) => ALL_HASHTAGS.includes(t)));
 
 // The database holds the same list, in the same groups and order.
 // Run from the repository root (npm run test:hashtags). Node's own modules,
@@ -43,7 +43,7 @@ for (const file of ['supabase/migrations/0039_hashtags.sql', 'supabase/schema.sq
 }
 
 // Tidying what a post carries.
-check('known tags kept in order', same(cleanHashtags(['mexican', 'budget']), ['mexican', 'budget']));
+check('known tags kept in order', same(cleanHashtags(['mexican', 'vegan']), ['mexican', 'vegan']));
 check('unknown tags and repeats dropped', same(cleanHashtags(['mexican', 'freecrypto', 'mexican', 7, null]), ['mexican']));
 check('at most 5', cleanHashtags(ALL_HASHTAGS).length === MAX_HASHTAGS);
 check('not a list at all means none', same(cleanHashtags(null), []) && same(cleanHashtags('mexican'), []));
@@ -58,13 +58,7 @@ check('a tag off the list is refused', same(toggleHashtag([], 'freecrypto'), [])
 // Typing.
 check('#Middle Eastern becomes middleeastern', normalizeHashtag('#Middle Eastern') === 'middleeastern', normalizeHashtag('#Middle Eastern'));
 
-// Search.
-check('"#chin" finds tags starting with chin', same(hashtagsForSearch('#chin'), { tags: ['chinese'], only: true }), hashtagsForSearch('#chin'));
-check('"#" alone matches nothing yet', hashtagsForSearch('#').tags.length === 0 && hashtagsForSearch('#').only);
-check('"chinese" also finds #chinese', same(hashtagsForSearch('chinese'), { tags: ['chinese'], only: false }));
-check('"Chinese " with capitals and spaces too', same(hashtagsForSearch(' Chinese '), { tags: ['chinese'], only: false }));
-check('"chicken" is not a tag', same(hashtagsForSearch('chicken'), { tags: [], only: false }));
-check('"#zzz" matches no tag', same(hashtagsForSearch('#zzz'), { tags: [], only: true }));
+// Search reads hashtags too: see searchQuery.test.ts.
 
 if (failures > 0) {
   console.log(`\n${failures} check(s) failed`);

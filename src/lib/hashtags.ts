@@ -1,6 +1,9 @@
 /**
- * Hashtags: an optional label or two on a post (#mexican, #budget, #healthy)
+ * Hashtags: an optional label or two on a post (#mexican, #vegan, #healthy)
  * that make dishes easy to find in Search.
+ *
+ * What a dish cost is not a hashtag: posts carry a price level instead
+ * ($ / $$ / $$$, src/lib/price.ts), which Search filters on.
  *
  * People pick from this list rather than typing their own, like TikTok's
  * suggested tags: every tag is one people will actually search for, nobody
@@ -52,10 +55,6 @@ export const HASHTAG_GROUPS: HashtagGroup[] = [
     ],
   },
   {
-    title: 'Price',
-    tags: ['budget', 'cheapeats', 'splurge', 'expensive'],
-  },
-  {
     title: 'Cooking',
     tags: [
       'homemade',
@@ -98,7 +97,7 @@ const KNOWN = new Set(ALL_HASHTAGS);
 export const SEARCH_EXAMPLES = [
   'chinese',
   'healthy',
-  'budget',
+  'bbq',
   'mediterranean',
   'comfortfood',
   'mexican',
@@ -144,20 +143,4 @@ export function toggleHashtag(current: string[], tag: string): string[] {
   if (current.includes(tag)) return current.filter((t) => t !== tag);
   if (current.length >= MAX_HASHTAGS || !KNOWN.has(tag)) return current;
   return [...current, tag];
-}
-
-/**
- * The tags a search is asking for.
- *
- * "#chin" (a hashtag being typed) means every tag starting with "chin";
- * "chinese" (a plain word that happens to be a tag) means that tag, alongside
- * the usual description and ingredient matches; anything else, none.
- */
-export function hashtagsForSearch(query: string): { tags: string[]; only: boolean } {
-  const trimmed = query.trim();
-  const only = trimmed.startsWith('#');
-  const term = normalizeHashtag(trimmed);
-  if (!term) return { tags: [], only };
-  if (only) return { tags: ALL_HASHTAGS.filter((t) => t.startsWith(term)), only };
-  return { tags: KNOWN.has(term) ? [term] : [], only };
 }

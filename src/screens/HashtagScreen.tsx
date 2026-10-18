@@ -33,9 +33,8 @@ export function HashtagScreen({ navigation, route }: any) {
     useCallback(() => {
       let alive = true;
       svc
-        .searchPosts(`#${tag}`)
-        // "#bbq" also matches tags starting with bbq; this page is one tag.
-        .then((p) => alive && setPosts(p.filter((x) => x.hashtags?.includes(tag))))
+        .searchPosts('', { tags: [tag] })
+        .then((p) => alive && setPosts(p))
         .catch(() => alive && setPosts([]))
         .finally(() => alive && setLoading(false));
       return () => {

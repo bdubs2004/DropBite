@@ -396,6 +396,18 @@ check('B can\'t add his own tag to the list', !!r.error, ok_(r), 'denied');
 r = await C.sb.from('posts').select('id').overlaps('hashtags', ['greek']);
 check('signed out, searching a hashtag finds nothing', !r.data?.length, rows(r), 'none');
 
+// What it cost to make ($ / $$ / $$$), and filtering on it with hashtags.
+r = await A.sb.from('posts').update({ price_level: 1 }).eq('id', POST).select('price_level');
+check('A marks her dish $ (cost to make)', r.data?.[0]?.price_level === 1, ok_(r), 'ok');
+r = await B.sb.from('posts').select('id').in('price_level', [1]).contains('hashtags', ['greek']).eq('id', POST);
+check('…B finds it filtering by $ and #greek together', r.data?.length === 1, rows(r), '1 row');
+r = await B.sb.from('posts').update({ price_level: 3 }).eq('id', POST).select();
+check('…but B can\'t change what A\'s dish cost', !r.data?.length, rows(r), 'denied (0 rows changed)');
+r = await A.sb.from('posts').update({ price_level: 4 }).eq('id', POST).select();
+check('a price of $$$$ (4) is refused', !!r.error, ok_(r), 'denied');
+r = await A.sb.from('posts').update({ hashtags: ['budget'] }).eq('id', POST).select();
+check('the old #budget hashtag is refused (price has its own place now)', !!r.error, ok_(r), 'denied');
+
 // Likes, comments, replies, comment likes, follows.
 r = await B.sb.from('reactions').insert({ post_id: POST, user_id: B.id });
 check('B likes A\'s post', !r.error, ok_(r), 'ok');

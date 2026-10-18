@@ -1,6 +1,6 @@
 -- 0039: Hashtags on posts.
 --
--- A post can carry up to 5 hashtags (#mexican, #budget, #healthy) so dishes
+-- A post can carry up to 5 hashtags (#mexican, #vegan, #healthy) so dishes
 -- are easy to find in Search. They come from a fixed list, like TikTok's
 -- suggested tags, rather than being typed freely: every tag is one people
 -- search for, nobody splits one three ways (#bbq, #BBQ, #barbecue), and
@@ -59,31 +59,27 @@ with list(tag, category, position) as (values
   ('pescatarian', 'diet', 26),
   ('glutenfree', 'diet', 27),
   ('dairyfree', 'diet', 28),
-  ('budget', 'price', 29),
-  ('cheapeats', 'price', 30),
-  ('splurge', 'price', 31),
-  ('expensive', 'price', 32),
-  ('homemade', 'cooking', 33),
-  ('takeout', 'cooking', 34),
-  ('mealprep', 'cooking', 35),
-  ('quickandeasy', 'cooking', 36),
-  ('onepot', 'cooking', 37),
-  ('airfryer', 'cooking', 38),
-  ('slowcooker', 'cooking', 39),
-  ('grilled', 'cooking', 40),
-  ('baked', 'cooking', 41),
-  ('streetfood', 'cooking', 42),
-  ('comfortfood', 'vibe', 43),
-  ('spicy', 'vibe', 44),
-  ('sweettooth', 'vibe', 45),
-  ('dessert', 'vibe', 46),
-  ('seafood', 'vibe', 47),
-  ('brunch', 'vibe', 48),
-  ('datenight', 'vibe', 49),
-  ('latenight', 'vibe', 50),
-  ('gameday', 'vibe', 51),
-  ('familydinner', 'vibe', 52),
-  ('leftovers', 'vibe', 53)
+  ('homemade', 'cooking', 29),
+  ('takeout', 'cooking', 30),
+  ('mealprep', 'cooking', 31),
+  ('quickandeasy', 'cooking', 32),
+  ('onepot', 'cooking', 33),
+  ('airfryer', 'cooking', 34),
+  ('slowcooker', 'cooking', 35),
+  ('grilled', 'cooking', 36),
+  ('baked', 'cooking', 37),
+  ('streetfood', 'cooking', 38),
+  ('comfortfood', 'vibe', 39),
+  ('spicy', 'vibe', 40),
+  ('sweettooth', 'vibe', 41),
+  ('dessert', 'vibe', 42),
+  ('seafood', 'vibe', 43),
+  ('brunch', 'vibe', 44),
+  ('datenight', 'vibe', 45),
+  ('latenight', 'vibe', 46),
+  ('gameday', 'vibe', 47),
+  ('familydinner', 'vibe', 48),
+  ('leftovers', 'vibe', 49)
 ),
 saved as (
   insert into public.hashtags (tag, category, position)
