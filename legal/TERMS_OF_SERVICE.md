@@ -1,6 +1,6 @@
 # NiblGo Terms of Service
 
-**Last updated: 6 September 2026** · **Effective: 6 September 2026**
+**Last updated: 18 October 2026** · **Effective: 1 November 2026**
 
 These terms are a contract between you and **Bryce and Cameron** ("we", "us"),
 4500 E. 33rd St., Sioux Falls, South Dakota 57110, USA. By creating an account or
@@ -42,7 +42,9 @@ To operate the app, you give us a **non-exclusive, worldwide, royalty-free
 licence** to host, store, reproduce, resize and display your content **for the
 purpose of running and improving NiblGo, and only for that purpose**. This
 licence exists so we can show your post to your friends, generate thumbnails,
-and keep backups.
+and keep backups. It also covers showing a post on its page on niblgo.com when
+you or another user shares a link to it out of the app: anyone with that link
+can see that post, as the Privacy Policy describes.
 
 This licence ends when you delete the content or your account, except that:
 
@@ -78,6 +80,8 @@ Do not post, send, or do any of the following:
 - **Spam and scams** — bulk unsolicited messages, fake engagement, deceptive
   promotion, phishing
 - **Impersonation** — pretending to be another person, brand, or us
+- **Fake accounts and invite abuse** — creating accounts you don't use as
+  yourself, or gaming invite codes and referrals
 - **Someone else's content** — photos or recipes you do not have the right to post
 - **Someone else's private information** — addresses, phone numbers, or anything
   else identifying a person without their consent
@@ -107,7 +111,7 @@ If we remove your content or suspend you and you think we are wrong, write to
 
 ---
 
-## 5. AI recipe cards — read this one
+## 5. AI recipe cards and nutrition estimates: read this one
 
 When you ask NiblGo to turn a blurb into a recipe card, the text is processed by
 an AI model. **The result is automatically generated and may be inaccurate,
@@ -128,6 +132,10 @@ supplement your own words; they do not replace your judgement. **We are not
 responsible for the outcome of anything you cook.** If in doubt, consult a
 reliable recipe source or a professional.
 
+**Nutrition estimates** are worked out from the ingredient list using public
+USDA food data. They are rough estimates for general interest, depend on the
+card being right, and are not medical or dietary advice.
+
 ---
 
 ## 6. What we provide, and what we don't promise
@@ -139,7 +147,8 @@ merchantability, fitness for a particular purpose, and non-infringement.
 We do not promise the service will be uninterrupted, error-free, or that content
 will always be preserved. Keep your own copies of photos that matter to you.
 
-We do not endorse or verify user content, including restaurants mentioned in it.
+We do not endorse or verify user content, including restaurants mentioned in it,
+and the price ($ to $$$) and hashtags people choose for their posts.
 
 ---
 
@@ -274,4 +283,5 @@ of a merger, acquisition, or sale of assets, on notice to you.
 
 **Bryce and Cameron**
 4500 E. 33rd St.
+Sioux Falls, South Dakota 57110, USA
 **support@niblgo.com**
