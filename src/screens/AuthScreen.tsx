@@ -1,3 +1,5 @@
+import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import React, { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -16,6 +18,7 @@ import { LIMITS } from '../lib/limits';
 import { isReservedHandle } from '../lib/handle';
 import { passwordMeetsAll } from '../lib/passwordRules';
 import { clearInvite, rememberInvite } from '../lib/pendingInvite';
+import { onPendingPost, readPost } from '../lib/pendingPost';
 import { clearPendingAuth, rememberPendingAuth } from '../lib/pendingAuth';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
@@ -78,6 +81,31 @@ export function AuthScreen() {
   // a fumbling thumb (or a script driving the app) from hammering it.
   const [misses, setMisses] = useState(0);
   const [lockout, setLockout] = useState(0);
+  // A post someone shared, opened before signing in: shown above the form so
+  // they know what's waiting (it opens once they're in, see App.tsx).
+  const [shared, setShared] = useState<{ photo: string | null; who: string } | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      const pending = await readPost();
+      if (!pending || !alive) return;
+      // Whoever shared it is the natural invite code; theirs to change.
+      if (pending.from) setInviteCode((c) => c || `@${pending.from}`);
+      const preview = await svc.getPostPreview(pending.postId);
+      if (!alive) return;
+      setShared({
+        photo: preview?.photo_url ?? null,
+        who: preview?.display_name?.trim() || (preview?.handle ? `@${preview.handle}` : ''),
+      });
+    };
+    load();
+    const off = onPendingPost(load);
+    return () => {
+      alive = false;
+      off();
+    };
+  }, [svc]);
 
   // Tick the resend cooldown down to zero.
   useEffect(() => {
@@ -346,6 +374,26 @@ export function AuthScreen() {
           <Text style={styles.tagline}>Share bites. Discover favorites. Connect over food.</Text>
         </View>
 
+        {shared ? (
+          <View testID="auth-shared-post" style={styles.shared}>
+            {shared.photo ? (
+              <Image source={{ uri: shared.photo }} style={styles.sharedPhoto} contentFit="cover" />
+            ) : (
+              <View style={[styles.sharedPhoto, styles.sharedPhotoNone]}>
+                <Ionicons name="restaurant" size={22} color={colors.amberDark} />
+              </View>
+            )}
+            <View style={{ flex: 1 }}>
+              <Text style={styles.sharedTitle} numberOfLines={2}>
+                {shared.who ? `${shared.who} shared a meal with you` : 'A meal was shared with you'}
+              </Text>
+              <Text style={styles.sharedSub}>
+                {mode === 'signup' ? 'Create your account to see it' : 'Sign in to see it'}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
         <View style={styles.card}>
           <View style={styles.tabs}>
             <Pressable
@@ -554,6 +602,22 @@ const useStyles = makeStyles((colors) => ({
     borderRadius: radius.xl,
     padding: spacing.xl,
   },
+  shared: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.card,
+    borderRadius: radius.lg,
+    padding: spacing.sm,
+    paddingRight: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1.5,
+    borderColor: colors.amberSoft,
+  },
+  sharedPhoto: { width: 56, height: 56, borderRadius: radius.md, backgroundColor: colors.creamDark },
+  sharedPhotoNone: { alignItems: 'center', justifyContent: 'center' },
+  sharedTitle: { fontFamily: fonts.bold, fontSize: 15, color: colors.cocoa },
+  sharedSub: { fontFamily: fonts.semi, fontSize: 13, color: colors.cocoaSoft, marginTop: 2 },
   tabs: {
     flexDirection: 'row',
     backgroundColor: colors.cream,

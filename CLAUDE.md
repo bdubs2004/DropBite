@@ -40,6 +40,10 @@ version of the feature worth having — see `supabase/functions/lookup-nutrition
 KPIs go to Power BI from first-party analytics (migration 0041, `src/lib/analytics.ts`,
 `docs/ANALYTICS.md`): a private `analytics` schema the app writes only through
 checked RPCs, reporting views with ids and counts only, and no third-party SDK.
+Sharing out of the app sends `niblgo.com/post/<id>?from=<handle>`: the website
+worker (`scripts/post-preview-worker.js`, the source of the live `_worker.js`)
+renders the post's page, opens the app via universal links, and `/get` is the one
+download link. A link opened signed out waits through sign-up (`src/lib/pendingPost.ts`).
 
 ## Recommended Stack (Adjust Only With Good Reason)
 

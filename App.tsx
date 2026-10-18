@@ -51,6 +51,7 @@ import { ReportScreen } from './src/screens/ReportScreen';
 import { ActivityScreen } from './src/screens/ActivityScreen';
 import { SearchScreen } from './src/screens/SearchScreen';
 import { HashtagScreen } from './src/screens/HashtagScreen';
+import { InviteScreen } from './src/screens/InviteScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { TagPeopleScreen } from './src/screens/TagPeopleScreen';
 import { TaggedPostsScreen } from './src/screens/TaggedPostsScreen';
@@ -60,7 +61,8 @@ import { ThemeProvider } from './src/state/ThemeProvider';
 import { APP_LINK_BASE } from './src/config';
 import { linkSessionAllowed, parseAuthParams, sessionTokens } from './src/lib/authLink';
 import { clearPendingAuth, readPendingAuth } from './src/lib/pendingAuth';
-import { LINK_PATHS } from './src/lib/links';
+import { clearPost, readPost, rememberPost } from './src/lib/pendingPost';
+import { LINK_PATHS, postLinkFrom } from './src/lib/links';
 import { fonts, makeStyles, radius, useColors } from './src/theme';
 
 /**
@@ -240,6 +242,14 @@ function Root() {
     };
     const handle = async (url: string | null) => {
       if (!url) return;
+      // A shared post opened while signed out: keep it, and open it once
+      // they're in (below). Signed in, the linking config opens it at once.
+      const shared = postLinkFrom(url);
+      if (shared) {
+        const current = await svc.getCurrentUser().catch(() => null);
+        if (!current) await rememberPost(shared);
+        return;
+      }
       const p = parseAuthParams(url);
 
       // Email confirmation: the browser verified the account and handed the
@@ -308,6 +318,32 @@ function Root() {
       sub.remove();
     };
   }, [svc, refreshMe]);
+
+  // A post someone shared, waiting from before they signed in (or signed up
+  // and confirmed their email): open it as soon as the app is theirs.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      const pending = await readPost();
+      if (!pending || cancelled) return;
+      await clearPost();
+      // The signed-in screens mount on this render; wait for them.
+      for (let i = 0; i < 40 && !cancelled; i++) {
+        if (navigationRef.isReady() && navigationRef.getRootState()?.routeNames?.includes('PostDetail')) {
+          // The link itself may have opened it already (a session restored at launch).
+          const here = navigationRef.getCurrentRoute();
+          if (here?.name === 'PostDetail' && (here.params as any)?.postId === pending.postId) return;
+          navigationRef.navigate('PostDetail', { postId: pending.postId });
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 100));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Tapping a push opens what it's about: a DM opens the conversation, an
   // Activity push opens the post or the person. Handles both a warm tap and a
@@ -424,6 +460,7 @@ function Root() {
         component={ShareSheetScreen}
         options={SLIDE_UP}
       />
+      <Stack.Screen name="Invite" component={InviteScreen} options={SLIDE_UP} />
       <Stack.Screen name="UserProfile" component={ProfileScreen} />
       <Stack.Screen name="UserList" component={UserListScreen} />
       <Stack.Screen name="Activity" component={ActivityScreen} />

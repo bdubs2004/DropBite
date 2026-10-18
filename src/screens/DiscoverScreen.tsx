@@ -1,4 +1,5 @@
 import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -14,7 +15,6 @@ import { Avatar } from '../components/Avatar';
 import { PostThumb } from '../components/PostThumb';
 import { Button, Muted, ScreenTitle } from '../components/ui';
 import { openPostFeed } from '../lib/postFeed';
-import { inviteFriends } from '../lib/share';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
 import { fonts, radius, spacing, makeStyles, useColors, photoGrid } from '../theme';
@@ -131,7 +131,20 @@ export function DiscoverScreen({ navigation }: any) {
 
   const header = (
     <View style={styles.header}>
-      <ScreenTitle>Discover</ScreenTitle>
+      <View style={styles.titleRow}>
+        <ScreenTitle>Discover</ScreenTitle>
+        <Pressable
+          testID="discover-invite-top"
+          onPress={() => navigation.navigate('Invite')}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Invite friends"
+          style={({ pressed }) => [styles.inviteBtn, pressed && { opacity: 0.8 }]}
+        >
+          <Ionicons name="person-add" size={15} color={colors.amberDark} />
+          <Text style={styles.inviteText}>Invite</Text>
+        </Pressable>
+      </View>
       <Muted>
         {tab === 'dishes' ? 'Scroll around and find your next meal' : 'People worth following'}
       </Muted>
@@ -228,7 +241,7 @@ export function DiscoverScreen({ navigation }: any) {
                 <Button
                   testID="discover-invite"
                   title="Invite friends"
-                  onPress={() => inviteFriends(user.handle)}
+                  onPress={() => navigation.navigate('Invite')}
                   style={{ alignSelf: 'center', marginTop: spacing.md }}
                 />
               ) : null}
@@ -336,6 +349,17 @@ const useStyles = makeStyles((colors, { shadowSoft }) => ({
     paddingTop: spacing.md,
     paddingBottom: spacing.md,
   },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  inviteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: radius.pill,
+    backgroundColor: colors.card,
+  },
+  inviteText: { fontFamily: fonts.bold, fontSize: 14, color: colors.amberDark },
   tabs: {
     flexDirection: 'row',
     backgroundColor: colors.creamDark,

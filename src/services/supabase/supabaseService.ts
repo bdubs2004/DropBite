@@ -27,7 +27,7 @@ import { cleanPriceLevel } from '../../lib/price';
 import { combineSearch, hasSearch, SearchFilters } from '../../lib/searchQuery';
 import { sanitizeSearchTerm } from '../../lib/searchTerm';
 import { daysBetween, localDateString } from '../../lib/time';
-import { DataService } from '../types';
+import { DataService, PostPreview } from '../types';
 import { getSupabase } from './client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -773,6 +773,22 @@ export class SupabaseService implements DataService {
       return ['ok', 'already', 'not_found', 'self', 'too_late'].includes(data) ? data : 'error';
     } catch {
       return 'error';
+    }
+  }
+
+  async getPostPreview(postId: string): Promise<PostPreview | null> {
+    try {
+      const { data, error } = await this.sb.rpc('get_post_preview', { pid: postId });
+      const row = Array.isArray(data) ? data[0] : data;
+      if (error || !row) return null;
+      return {
+        photo_url: typeof row.photo_url === 'string' ? row.photo_url : null,
+        display_name: typeof row.display_name === 'string' ? row.display_name : null,
+        handle: typeof row.handle === 'string' ? row.handle : null,
+        meal_slot: typeof row.meal_slot === 'string' ? row.meal_slot : null,
+      };
+    } catch {
+      return null;
     }
   }
 

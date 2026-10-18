@@ -17,7 +17,6 @@ import { RenameGroupSheet } from '../components/RenameGroupSheet';
 import { Button, Muted } from '../components/ui';
 import { COLLECTION_NAME_MAX, collectionNameProblem } from '../lib/collectionName';
 import { openPostFeed } from '../lib/postFeed';
-import { inviteFriends } from '../lib/share';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
 import { fonts, radius, spacing, makeStyles, useColors, photoGrid } from '../theme';
@@ -642,9 +641,7 @@ export function ProfileScreen({ navigation, route }: any) {
                 label: 'Invite friends',
                 hint: 'Your handle is their invite code',
                 icon: 'person-add-outline',
-                onPress: () => {
-                  if (me?.handle) inviteFriends(me.handle);
-                },
+                onPress: () => navigation.navigate('Invite'),
               },
               {
                 key: 'tagged',

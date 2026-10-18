@@ -1,10 +1,10 @@
 # End-to-end security verification: last run
 
-Run 2026-10-18 17:41 UTC with `supabase/tests/e2e/run.sh`: Postgres 16 + schema.sql, Supabase Auth v2.177.0, PostgREST 12.2.3, the seven edge functions on Deno, supabase-js as the client. Storage is a stand-in that authorizes through the same storage.objects policies (gateway.mjs).
+Run 2026-10-18 18:43 UTC with `supabase/tests/e2e/run.sh`: Postgres 16 + schema.sql, Supabase Auth v2.177.0, PostgREST 12.2.3, the seven edge functions on Deno, supabase-js as the client. Storage is a stand-in that authorizes through the same storage.objects policies (gateway.mjs).
 
 User A owns the data; User B is a separate, unrelated account; User C is signed out.
 
-**148 of 148 checks passed.**
+**149 of 149 checks passed.**
 
 ## 1. User B requests User A's private messages
 
@@ -27,7 +27,7 @@ User A owns the data; User B is a separate, unrelated account; User C is signed 
 | B renames it | denied (0 rows changed) | 0 row(s) | PASS |
 | B deletes it | denied (0 rows deleted) | 0 row(s) | PASS |
 | B adds a post to it | denied (error) | error: new row violates row-level security policy for table "collection_posts" | PASS |
-| afterwards A's collection is exactly as it was | owner A, name "Weeknight dinners" | {"id":"1a55c8ca-07f3-4d46-94b6-c63e11ab8728","user_id":"11e6d333-9745-4926-b4fe-615f4845d06b","name":"Weeknight dinners"} | PASS |
+| afterwards A's collection is exactly as it was | owner A, name "Weeknight dinners" | {"id":"aa1d20f2-41d8-4631-84fa-1ddc74276168","user_id":"3a03ab1c-8a10-4989-acf5-2fa7c3af5e66","name":"Weeknight dinners"} | PASS |
 | B reads A's saved posts (the private list) | denied (0 rows) | 0 row(s) | PASS |
 | B clears A's saved posts | denied (0 rows) | 0 row(s) | PASS |
 | control: A still sees her saved post | 1 row | 1 row(s) | PASS |
@@ -41,7 +41,7 @@ User A owns the data; User B is a separate, unrelated account; User C is signed 
 | B deletes A's post | denied (0 rows deleted) | 0 row(s) | PASS |
 | B posts as A (user_id = A) | denied (error) | error: Upload photos with the app. | PASS |
 | B edits A's profile | denied (0 rows changed) | 0 row(s) | PASS |
-| afterwards A's post is untouched | unchanged | {"blurb":"Alice's garlic chicken","user_id":"11e6d333-9745-4926-b4fe-615f4845d06b"} | PASS |
+| afterwards A's post is untouched | unchanged | {"blurb":"Alice's garlic chicken","user_id":"3a03ab1c-8a10-4989-acf5-2fa7c3af5e66"} | PASS |
 | control: A edits her own post | 1 row changed | 1 row(s) | PASS |
 
 ## 4. User B tries to get User A's private photos
@@ -74,6 +74,7 @@ User A owns the data; User B is a separate, unrelated account; User C is signed 
 | C lists users (and their details) | denied (the app is for signed-in users) | 0 row(s) | PASS |
 | C posts as A | denied (error) | error: Upload photos with the app. | PASS |
 | design: C opens a shared post link (preview card) | 1 row (share links work signed out) | 1 row(s) | PASS |
+| design: the preview card has the card's fields and nothing else (no email, no ids) | avatar_url,blurb,cook_time_minutes,created_at,display_name,handle,hashtags,meal_slot,photo_url,price_level,recipe_title | avatar_url,blurb,cook_time_minutes,created_at,display_name,handle,hashtags,meal_slot,photo_url,price_level,recipe_title | PASS |
 
 ## 6. User B tries to add himself to User A's private group
 
