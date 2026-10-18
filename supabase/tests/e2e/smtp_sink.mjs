@@ -4,7 +4,12 @@
 //
 // Speaks just enough SMTP for Auth's mailer: EHLO, AUTH (anything accepted),
 // MAIL, RCPT, DATA, QUIT. Nothing leaves the machine.
+//
+// It also serves supabase/templates/ over HTTP on $E2E_TEMPLATE_PORT, which is
+// how Auth loads custom email templates, so the run sends the exact reset
+// email production sends.
 import fs from 'node:fs';
+import http from 'node:http';
 import net from 'node:net';
 import path from 'node:path';
 
@@ -75,3 +80,19 @@ net
     sock.on('error', () => {});
   })
   .listen(PORT, '127.0.0.1', () => console.log(`smtp sink on ${PORT}, saving to ${DIR}`));
+
+if (process.env.E2E_TEMPLATE_PORT) {
+  const TEMPLATES = process.env.E2E_TEMPLATES_DIR;
+  http
+    .createServer((req, res) => {
+      const name = path.basename(decodeURIComponent(req.url.split('?')[0]));
+      const file = path.join(TEMPLATES, name);
+      if (!/^[\w-]+\.html$/.test(name) || !fs.existsSync(file)) {
+        res.writeHead(404);
+        return res.end();
+      }
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      res.end(fs.readFileSync(file));
+    })
+    .listen(Number(process.env.E2E_TEMPLATE_PORT), '127.0.0.1');
+}

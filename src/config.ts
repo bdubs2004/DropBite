@@ -50,10 +50,14 @@ export const TERMS_URL = `${APP_LINK_BASE}/terms`;
 export const EMAIL_CONFIRM_URL = `${APP_LINK_BASE}/auth/confirm`;
 
 /**
- * Where a password-reset link sends people: a page on the website that hands
- * the link's session straight on to the app (niblgo://reset#…), where the new
- * password is set (setSession → updateUser). The tokens ride in the URL
- * fragment, which never reaches the web server.
+ * Where a password-reset link sends people: a page on the website that hands a
+ * session on to the app (niblgo://reset#…), where the new password is set
+ * (setSession → updateUser). With the reset email template in
+ * supabase/templates/, the link carries only a code (after the #, so it never
+ * reaches the web server), and the page swaps it for the session when the
+ * person taps its button: an email scanner opening the link first can't use
+ * the reset up. Supabase ignores this redirect when that template is in use;
+ * it still matters for the default template.
  *
  * Going through a web page rather than straight to niblgo:// is what makes it
  * dependable: an email app's built-in browser often won't follow a redirect to

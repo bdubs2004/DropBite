@@ -116,6 +116,14 @@ up:
    lets someone have a confirmation or reset link carry its session to their
    own site.
 
+**Email templates.** Supabase → **Authentication → Emails → Templates**: paste
+the two files in `supabase/templates/` (subjects in its README). The reset one
+matters: Supabase's default reset email spends its one-time code the moment
+anything opens the link (an email app's link scanner or preview, a second tap),
+which shows up as "This reset link has expired". Ours links to
+niblgo.com/auth/reset, and the code is only used when the person taps the
+button there.
+
 **Check it:** tap "Forgot password?" in the app with an account's email. The
 email should arrive within a minute (look in spam the first time), and tapping
 its link on the phone should open niblgo.com/auth/reset, then NiblGo on the
