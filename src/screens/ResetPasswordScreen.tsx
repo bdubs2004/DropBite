@@ -31,7 +31,6 @@ export function ResetPasswordScreen({
   onDone: () => void;
 }) {
   const styles = useStyles();
-  const colors = useColors();
   const svc = getDataService();
   const { refreshMe } = useApp();
   const [password, setPassword] = useState('');
@@ -63,28 +62,10 @@ export function ResetPasswordScreen({
     }
   };
 
-  const Frame = ({ children }: { children: React.ReactNode }) => (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: colors.cream }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-      >
-        <View style={styles.hero}>
-          <LogoMark size={72} />
-        </View>
-        <View style={styles.card}>{children}</View>
-      </ScrollView>
-    </KeyboardAvoidingView>
-  );
-
   // Expired / invalid link.
   if (error) {
     return (
-      <Frame>
+      <ResetFrame>
         <Text style={styles.title}>Reset link expired</Text>
         <Muted style={styles.body}>
           This password reset link is no longer valid. Links can only be used once,
@@ -92,24 +73,24 @@ export function ResetPasswordScreen({
           “Forgot password?” to get a fresh one.
         </Muted>
         <Button title="Back to sign in" onPress={onDone} style={{ marginTop: spacing.lg }} />
-      </Frame>
+      </ResetFrame>
     );
   }
 
   // Success.
   if (done) {
     return (
-      <Frame>
+      <ResetFrame>
         <Text style={styles.title}>Password updated</Text>
         <Muted style={styles.body}>You’re all set. Your new password is saved</Muted>
         <Button title="Continue" onPress={onDone} style={{ marginTop: spacing.lg }} />
-      </Frame>
+      </ResetFrame>
     );
   }
 
   // The form.
   return (
-    <Frame>
+    <ResetFrame>
       <Text style={styles.title}>Set a new password</Text>
       <Muted style={[styles.body, { marginBottom: spacing.lg }]}>
         Choose a new password for your NiblGo account.
@@ -146,7 +127,35 @@ export function ResetPasswordScreen({
         loading={busy}
         style={{ marginTop: spacing.sm }}
       />
-    </Frame>
+    </ResetFrame>
+  );
+}
+
+/**
+ * The logo and card around each state of the screen. Declared out here, not
+ * inside ResetPasswordScreen: a component created inside another is a new
+ * component on every render, so React rebuilt the whole form on each keystroke
+ * (the text box lost focus after one letter, and iOS cleared it on refocus).
+ */
+function ResetFrame({ children }: { children: React.ReactNode }) {
+  const styles = useStyles();
+  const colors = useColors();
+  return (
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: colors.cream }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
+        <View style={styles.hero}>
+          <LogoMark size={72} />
+        </View>
+        <View style={styles.card}>{children}</View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
