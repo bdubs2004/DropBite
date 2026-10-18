@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>A meal on NiblGo</title>
+<meta name="description" content="Share what you eat with the people you actually know">
+<meta name="robots" content="noindex">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="NiblGo">
+<meta property="og:title" content="A meal on NiblGo">
+<meta property="og:description" content="Share what you eat with the people you actually know">
+<meta property="og:image" content="https://niblgo.com/assets/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<style>body{margin:0;background:#FFF8EC}@media (prefers-color-scheme:dark){body{background:#140E08}}</style>
+</head>
+<body>
+<script>
+var esc = (s) => String(s == null ? '' : s)
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+var MEAL = {"breakfast":"Breakfast","lunch":"Lunch","dinner":"Dinner","snack":"Snack"};
+var BETA_PATH = "/beta";
+var ICON_BOOK = "<svg viewBox=\"0 0 24 24\" width=\"20\" height=\"20\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 19.5A2.5 2.5 0 0 1 6.5 17H20\"/><path d=\"M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z\"/></svg>";
+var ICON_PLATE = "<svg viewBox=\"0 0 24 24\" width=\"40\" height=\"40\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><circle cx=\"12\" cy=\"12\" r=\"5\"/></svg>";
+var CSS = "\n:root{\n  --bg:#FFF8EC; --surface:#FFFFFF; --text:#3D2409; --text-2:#7A5A38; --text-3:#A98F73;\n  --brand:#E8862E; --brand-2:#F5A623; --brand-dark:#C96D1B; --brand-ink:#fff;\n  --soft:#FFF1DC; --line:rgba(74,46,18,.12); --line-2:rgba(74,46,18,.06);\n  --shadow:0 18px 46px -18px rgba(74,46,18,.34);\n  color-scheme:light;\n}\n@media (prefers-color-scheme:dark){\n  :root{\n    --bg:#140E08; --surface:#22170D; --text:#FCEFDB; --text-2:#CDB596; --text-3:#987F63;\n    --brand:#F59A3E; --brand-2:#FFB65C; --brand-dark:#FFB65C; --brand-ink:#20140A;\n    --soft:#2E2013; --line:rgba(252,239,219,.14); --line-2:rgba(252,239,219,.07);\n    --shadow:0 22px 54px -20px rgba(0,0,0,.75);\n    color-scheme:dark;\n  }\n}\n*,*::before,*::after{box-sizing:border-box}\nhtml{-webkit-text-size-adjust:100%}\nbody{\n  margin:0;min-height:100vh;background:var(--bg);color:var(--text);\n  font:16px/1.5 Nunito,ui-rounded,system-ui,-apple-system,\"Segoe UI\",Helvetica,Arial,sans-serif;\n  font-weight:600;-webkit-font-smoothing:antialiased;\n}\na{color:inherit}\n.bar{\n  position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;\n  padding:12px 16px;padding-top:max(12px,env(safe-area-inset-top));\n  background:color-mix(in srgb,var(--bg) 88%,transparent);\n  -webkit-backdrop-filter:saturate(1.4) blur(14px);backdrop-filter:saturate(1.4) blur(14px);\n  border-bottom:1px solid var(--line-2);\n}\n.brand{display:flex;align-items:center;gap:8px;text-decoration:none}\n.brand img{border-radius:8px}\n.brand span{font-family:\"Baloo 2\",Nunito,system-ui,sans-serif;font-weight:800;font-size:22px;letter-spacing:-.01em;line-height:1}\n.bar-get{\n  text-decoration:none;font-weight:800;font-size:14px;color:var(--brand-ink);\n  background:var(--brand);padding:8px 14px;border-radius:999px;\n}\n.wrap{max-width:468px;margin:0 auto;padding:18px 16px 40px}\n.card{background:var(--surface);border:1px solid var(--line);border-radius:24px;overflow:hidden;box-shadow:var(--shadow)}\n.who{display:flex;align-items:center;gap:12px;padding:14px 16px}\n.avatar{width:42px;height:42px;border-radius:50%;object-fit:cover;flex:0 0 auto;background:var(--soft)}\n.avatar-letter{display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;\n  color:var(--brand-ink);background:linear-gradient(140deg,var(--brand-2),var(--brand))}\n.who-text{min-width:0}\n.name{font-weight:800;font-size:16.5px;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\n.sub{font-size:13.5px;color:var(--text-3);font-weight:700;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\n.photo{display:block;width:100%;aspect-ratio:1/1;object-fit:cover;background:var(--line-2)}\n.photo-none{display:flex;align-items:center;justify-content:center;color:var(--text-3)}\n.body{padding:16px 18px 20px}\n.blurb{margin:0;font-size:16.5px;line-height:1.5;color:var(--text);white-space:pre-wrap;overflow-wrap:anywhere}\n.blurb.muted{color:var(--text-2)}\n.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}\n.chip{font-size:13px;font-weight:800;color:var(--brand-dark);background:var(--soft);\n  border:1px solid var(--line-2);padding:4px 10px;border-radius:999px}\n.chip-price{color:var(--text-2);letter-spacing:.06em}\n.recipe{display:flex;align-items:center;gap:12px;margin-top:14px;padding:12px 14px;\n  border-radius:16px;background:var(--soft);border:1px solid var(--line-2)}\n.recipe-icon{display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:12px;\n  background:var(--surface);color:var(--brand-dark);flex:0 0 auto}\n.recipe-text{min-width:0}\n.recipe-title{font-weight:800;font-size:15.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\n.recipe-sub{font-size:13px;color:var(--text-3);font-weight:700}\n.cta{margin-top:18px}\n.device-ios .only-other,.device-other .only-ios{display:none}\n.btn{display:block;text-align:center;text-decoration:none;font-weight:800;font-size:16.5px;\n  padding:15px 20px;border-radius:999px}\n.btn+.btn{margin-top:10px}\n.btn-primary{background:linear-gradient(140deg,var(--brand-2),var(--brand));color:var(--brand-ink);\n  box-shadow:0 10px 24px -12px rgba(232,134,46,.95)}\n.btn-secondary{background:transparent;color:var(--text);border:1.5px solid var(--line)}\n.btn:active{transform:translateY(1px)}\n.invite{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;\n  padding:12px 14px;border-radius:16px;border:1.5px dashed color-mix(in srgb,var(--brand) 55%,transparent)}\n.invite-label{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3)}\n.invite-code{font-weight:800;font-size:17px;overflow-wrap:anywhere}\n.invite-copy{font:inherit;font-weight:800;font-size:14px;color:var(--brand-ink);background:var(--brand);\n  border:0;border-radius:999px;padding:8px 14px;cursor:pointer;flex:0 0 auto}\n.fine{margin:10px 2px 0;font-size:13.5px;color:var(--text-3);font-weight:700;text-align:center}\n.card-empty{padding:34px 22px 24px;text-align:center}\n.empty-mark{color:var(--text-3);display:flex;justify-content:center}\n.empty-title{font-family:\"Baloo 2\",Nunito,system-ui,sans-serif;font-weight:800;font-size:24px;line-height:1.2;margin:10px 0 4px}\n.empty-text{margin:0;color:var(--text-2)}\n.card-empty .cta{text-align:left}\n.foot{margin:22px 4px 0;text-align:center;font-size:13px;color:var(--text-3);font-weight:700}\n.foot a{color:var(--text-2)}\n";
+var SUPABASE_URL = "https://lmmuevnvshcqaqxjosbe.supabase.co";
+var SUPABASE_KEY = "sb_publishable_NT2-td5YYJXN3YHFWDORNg_NUcr55DA";
+function safeImage(raw) {
+  if (typeof raw !== 'string') return '';
+  try {
+    const u = new URL(raw);
+    return u.protocol === 'https:' ? u.toString() : '';
+  } catch (e) {
+    return '';
+  }
+}
+function ago(iso, now) {
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return '';
+  const s = Math.max(0, Math.round((now - t) / 1000));
+  if (s < 60) return 'just now';
+  const m = Math.round(s / 60);
+  if (m < 60) return m + (m === 1 ? ' minute ago' : ' minutes ago');
+  const h = Math.round(m / 60);
+  if (h < 24) return h + (h === 1 ? ' hour ago' : ' hours ago');
+  const d = Math.round(h / 24);
+  if (d < 7) return d + (d === 1 ? ' day ago' : ' days ago');
+  const date = new Date(t);
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const sameYear = date.getUTCFullYear() === new Date(now).getUTCFullYear();
+  return months[date.getUTCMonth()] + ' ' + date.getUTCDate() + (sameYear ? '' : ', ' + date.getUTCFullYear());
+}
+function cookTime(min) {
+  const n = Number(min);
+  if (!Number.isInteger(n) || n <= 0) return '';
+  if (n < 60) return n + ' min';
+  const h = Math.floor(n / 60);
+  const m = n % 60;
+  return h + ' hr' + (m ? ' ' + m + ' min' : '');
+}
+function possessive(name) {
+  return /s$/i.test(name) ? name + '’' : name + '’s';
+}
+function cardData(post) {
+  const handle = post && typeof post.handle === 'string' ? post.handle : '';
+  const name = (post && post.display_name) || (handle ? '@' + handle : 'Someone');
+  const meal = post && MEAL[post.meal_slot] ? MEAL[post.meal_slot] : '';
+  const price = post && [1, 2, 3].includes(Number(post.price_level)) ? '$'.repeat(Number(post.price_level)) : '';
+  const tags = post && Array.isArray(post.hashtags)
+    ? post.hashtags.filter((t) => typeof t === 'string' && /^[a-z0-9]{2,30}$/.test(t)).slice(0, 5)
+    : [];
+  const recipe = post && typeof post.recipe_title === 'string' && post.recipe_title.trim()
+    ? { title: post.recipe_title.trim(), time: cookTime(post.cook_time_minutes) }
+    : null;
+  return {
+    handle,
+    name,
+    meal,
+    price,
+    tags,
+    recipe,
+    blurb: post && typeof post.blurb === 'string' ? post.blurb.trim() : '',
+    photo: safeImage(post && post.photo_url),
+    avatar: safeImage(post && post.avatar_url),
+    initial: (name.replace(/^@/, '').trim()[0] || 'N').toUpperCase(),
+  };
+}
+function deviceOf(ua) {
+  return /iPhone|iPad|iPod/i.test(ua) ? 'ios' : 'other';
+}
+function inviteHandle(raw) {
+  if (typeof raw !== 'string') return '';
+  const h = raw.trim().replace(/^@+/, '');
+  return /^[A-Za-z0-9_]{2,30}$/.test(h) ? h : '';
+}
+function shareHtml({ id, post, state, origin, from, device, now }) {
+  const appLink = 'niblgo://post/' + encodeURIComponent(id);
+  const pageUrl = origin + '/post/' + encodeURIComponent(id);
+  const c = cardData(post);
+  const when = post ? ago(post.created_at, now) : '';
+  const missing = state === 'missing';
+
+  const subject = c.meal ? possessive(c.name) + ' ' + c.meal.toLowerCase() : c.name;
+  const title = missing ? 'NiblGo' : post ? subject + ' on NiblGo' : 'A meal on NiblGo';
+  const descSrc = missing
+    ? 'Share what you eat with the people you actually know'
+    : c.blurb || (c.recipe ? 'Recipe: ' + c.recipe.title : 'A meal shared on NiblGo');
+  const desc = descSrc.length > 160 ? descSrc.slice(0, 157).trimEnd() + '…' : descSrc;
+  const ogImage = c.photo || origin + '/assets/og.png';
+  const ogAlt = post ? subject + ', shared on NiblGo' : 'NiblGo';
+
+  const getHref = device === 'ios' ? '/get' : BETA_PATH;
+  const sub = [c.handle ? '@' + c.handle : '', c.meal, when].filter(Boolean).join(' · ');
+
+  const avatar = c.avatar
+    ? `<img class="avatar" src="${esc(c.avatar)}" alt="" referrerpolicy="no-referrer">`
+    : `<span class="avatar avatar-letter" aria-hidden="true">${esc(c.initial)}</span>`;
+
+  const chips = [
+    c.price ? `<span class="chip chip-price" title="What it cost to make">${esc(c.price)}</span>` : '',
+    ...c.tags.map((t) => `<span class="chip">#${esc(t)}</span>`),
+  ].join('');
+
+  const recipe = c.recipe
+    ? `<div class="recipe">
+        <span class="recipe-icon" aria-hidden="true">${ICON_BOOK}</span>
+        <div class="recipe-text">
+          <div class="recipe-title">${esc(c.recipe.title)}</div>
+          <div class="recipe-sub">${c.recipe.time ? esc(c.recipe.time) + ' · ' : ''}Full recipe in the app</div>
+        </div>
+      </div>`
+    : '';
+
+  const invite = from
+    ? `<div class="invite">
+        <div>
+          <div class="invite-label">Your invite code</div>
+          <div class="invite-code">@${esc(from)}</div>
+        </div>
+        <button class="invite-copy" type="button" data-copy="@${esc(from)}">Copy</button>
+      </div>
+      <p class="fine">Enter it when you sign up so @${esc(from)} gets credit for inviting you</p>`
+    : '';
+
+  const ctaIos = `
+    <div class="cta only-ios">
+      <a class="btn btn-primary" href="${esc(missing ? 'niblgo://' : appLink)}">${missing ? 'Open NiblGo' : 'Open in NiblGo'}</a>
+      <a class="btn btn-secondary" href="/get">New here? Get NiblGo</a>
+      ${invite}
+    </div>`;
+  const ctaOther = `
+    <div class="cta only-other">
+      <a class="btn btn-primary" href="${esc(BETA_PATH)}">Get NiblGo</a>
+      <p class="fine">NiblGo is on iPhone for now. Open this link on your iPhone to see it in the app</p>
+      ${invite}
+    </div>`;
+
+  const card = missing
+    ? `<main class="card card-empty">
+        <div class="empty-mark">${ICON_PLATE}</div>
+        <h1 class="empty-title">This post isn’t available</h1>
+        <p class="empty-text">It may have been deleted, or the link isn’t quite right</p>
+        ${ctaIos}${ctaOther}
+      </main>`
+    : `<main class="card">
+        <header class="who">
+          ${avatar}
+          <div class="who-text">
+            <div class="name">${esc(c.name)}</div>
+            ${sub ? `<div class="sub">${esc(sub)}</div>` : ''}
+          </div>
+        </header>
+        ${c.photo ? `<img class="photo" src="${esc(c.photo)}" alt="${esc(ogAlt)}" referrerpolicy="no-referrer">` : `<div class="photo photo-none">${ICON_PLATE}</div>`}
+        <div class="body">
+          ${c.blurb ? `<p class="blurb">${esc(c.blurb)}</p>` : ''}
+          ${chips ? `<div class="chips">${chips}</div>` : ''}
+          ${recipe}
+          ${post ? '' : '<p class="blurb muted">Open NiblGo to see this post</p>'}
+          ${ctaIos}${ctaOther}
+        </div>
+      </main>`;
+
+  return `<!doctype html>
+<html lang="en" class="device-${device === 'ios' ? 'ios' : 'other'}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>${esc(title)}</title>
+<meta name="description" content="${esc(desc)}">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#FFF8EC" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#140E08" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="NiblGo">
+<meta property="og:title" content="${esc(title)}">
+<meta property="og:description" content="${esc(desc)}">
+<meta property="og:image" content="${esc(ogImage)}">
+<meta property="og:image:alt" content="${esc(ogAlt)}">
+<meta property="og:url" content="${esc(pageUrl)}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${esc(title)}">
+<meta name="twitter:description" content="${esc(desc)}">
+<meta name="twitter:image" content="${esc(ogImage)}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Nunito:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>${CSS}</style>
+</head>
+<body>
+<nav class="bar">
+  <a class="brand" href="/"><img src="/assets/favicon.png" alt="" width="28" height="28"><span>NiblGo</span></a>
+  <a class="bar-get" href="${esc(getHref)}">Get the app</a>
+</nav>
+<div class="wrap">
+${card}
+<footer class="foot">Share what you eat with the people you actually know · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></footer>
+</div>
+<script>
+(function () {
+  // iPads in desktop mode say they're Macs; a touch screen gives them away.
+  var d = document.documentElement;
+  if (d.className.indexOf('device-other') !== -1 && /Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1) {
+    d.className = d.className.replace('device-other', 'device-ios');
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('[data-copy]'), function (b) {
+    b.addEventListener('click', function () {
+      var text = b.getAttribute('data-copy');
+      var done = function () { b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy'; }, 1800); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, function () {});
+    });
+  });
+})();
+<\/script>
+</body>
+</html>`;
+}
+
+(function () {
+  var m = location.pathname.match(/^\/post\/([^/]+)\/?$/);
+  var id = '';
+  try { id = m ? decodeURIComponent(m[1]) : ''; } catch (e) { id = ''; }
+  var from = inviteHandle(new URLSearchParams(location.search).get('from'));
+  var device = deviceOf(navigator.userAgent);
+  var UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  function show(post, state) {
+    var html = shareHtml({ id: id, post: post, state: state, origin: location.origin, from: from, device: device, now: Date.now() });
+    document.open(); document.write(html); document.close();
+  }
+  if (!UUID.test(id)) return show(null, 'missing');
+  var done = false;
+  var timer = setTimeout(function () { if (!done) { done = true; show(null, 'unknown'); } }, 5000);
+  fetch(SUPABASE_URL + '/rest/v1/rpc/get_post_preview', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', apikey: SUPABASE_KEY, authorization: 'Bearer ' + SUPABASE_KEY },
+    body: JSON.stringify({ pid: id })
+  }).then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+    .then(function (rows) {
+      if (done) return; done = true; clearTimeout(timer);
+      var post = Array.isArray(rows) ? rows[0] || null : rows;
+      show(post, post ? 'found' : 'missing');
+    })
+    .catch(function () { if (!done) { done = true; clearTimeout(timer); show(null, 'unknown'); } });
+})();
+</script>
+</body>
+</html>

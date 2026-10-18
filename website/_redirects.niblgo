@@ -1,0 +1,5 @@
+# NiblGo app links (the same as the worker does, for when it is not running)
+/get        https://testflight.apple.com/join/J94Q9uXw  302
+/download   /get  302
+/app        /get  302
+/post/*     /post  200

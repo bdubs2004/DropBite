@@ -89,7 +89,9 @@ export function InviteScreen({ navigation }: any) {
             onShared={sent}
             testIDPrefix="invite"
           />
-          <Text style={styles.link}>{GET_APP_URL.replace(/^https:\/\//, '')}</Text>
+          <Text style={styles.link}>
+            {GET_APP_URL.includes('testflight') ? 'They get it through TestFlight while we’re in beta' : GET_APP_URL}
+          </Text>
         </View>
       ) : null}
     </View>
