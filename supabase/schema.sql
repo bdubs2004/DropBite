@@ -654,32 +654,8 @@ $$;
 revoke all on function public.leave_conversation(uuid) from public, anon;
 grant execute on function public.leave_conversation(uuid) to authenticated;
 
--- Public preview for a shared post link. Read (before sign-in) by the web page
--- behind niblgo.com/post/<id> to render a rich preview card. Returns only the
--- card's fields for one post looked up by its unguessable UUID — no listing or
--- enumeration, just the post whose id the share link already handed over.
-create or replace function public.get_post_preview(pid uuid)
-returns table (
-  photo_url text,
-  blurb text,
-  display_name text,
-  handle text,
-  meal_slot text
-)
-language sql
-stable
-security definer
-set search_path = ''
-as $$
-  select p.photo_url, p.blurb, u.display_name, u.handle, p.meal_slot::text
-  from public.posts p
-  join public.users u on u.id = p.user_id
-  where p.id = pid
-  limit 1;
-$$;
-
-revoke all on function public.get_post_preview(uuid) from public;
-grant execute on function public.get_post_preview(uuid) to anon, authenticated;
+-- Public preview for a shared post link: get_post_preview, defined in the
+-- "post preview (0042)" section near the end, after the columns it reads.
 
 
 -- ---------------------------------------------------- comment_reactions
@@ -3273,6 +3249,45 @@ grant select on
   analytics.fact_interactions, analytics.fact_events, analytics.fact_post_views, analytics.fact_referrals,
   analytics.kpi_daily, analytics.kpi_weekly
 to analytics_reader;
+
+
+-- =================================================== post preview (0042)
+-- The card behind a shared link (niblgo.com/post/<id>), read before sign-in by
+-- the website. Only the card's fields, for one post looked up by the exact id
+-- the link handed over: no listing, no email. Dropped and created again because
+-- its columns grew (create or replace can't change them).
+drop function if exists public.get_post_preview(uuid);
+create function public.get_post_preview(pid uuid)
+returns table (
+  photo_url text,
+  blurb text,
+  display_name text,
+  handle text,
+  meal_slot text,
+  avatar_url text,
+  created_at timestamptz,
+  price_level smallint,
+  hashtags text[],
+  recipe_title text,
+  cook_time_minutes integer
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select p.photo_url, p.blurb, u.display_name, u.handle, p.meal_slot::text,
+         u.avatar_url, p.created_at, p.price_level, p.hashtags,
+         r.title, r.cook_time_minutes
+  from public.posts p
+  join public.users u on u.id = p.user_id
+  left join public.recipes r on r.post_id = p.id
+  where p.id = pid
+  limit 1;
+$$;
+
+revoke all on function public.get_post_preview(uuid) from public;
+grant execute on function public.get_post_preview(uuid) to anon, authenticated;
 
 
 -- ============================================== validate the rules (0038)

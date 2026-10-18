@@ -400,6 +400,23 @@ checks(grp, item, status) as (
 
   union all
 
+  -- The shared-link preview card (0042): the fuller version, still callable
+  -- signed out (that's what makes a shared link work).
+  select 19, 'shared link preview',
+    case
+      when to_regprocedure('public.get_post_preview(uuid)') is null then 'MISSING — run upgrade_all.sql (0042)'
+      when not exists (
+        select 1 from pg_proc p
+        where p.oid = to_regprocedure('public.get_post_preview(uuid)')
+          and 'recipe_title' = any (p.proargnames))
+        then 'OLD VERSION — run upgrade_all.sql (0042)'
+      when not has_function_privilege('anon', 'public.get_post_preview(uuid)', 'EXECUTE')
+        then 'SHARED LINKS CAN''T PREVIEW — run upgrade_all.sql (0042)'
+      else 'OK'
+    end
+
+  union all
+
   -- Cards saved before 0034 aren't rewritten; the app draws malformed ones
   -- safely (cleanRecipe). Not a hole, just worth knowing.
   select 13, 'data: older recipe cards',

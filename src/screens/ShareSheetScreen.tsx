@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  Platform,
   Pressable,
   Text,
   View,
@@ -12,9 +12,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '../components/Avatar';
 import { Button, Muted } from '../components/ui';
 import { conversationDisplayName } from '../lib/conversationName';
-import { postUrl } from '../lib/links';
-import { sharePost } from '../lib/share';
+import { ShareHow, ShareTargets } from '../components/ShareTargets';
+import { postShareTitle, postShareUrl } from '../lib/shareText';
 import { getDataService } from '../services';
+import { useApp } from '../state/AppContext';
 import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
 import { Conversation, Post, User } from '../types';
 
@@ -25,9 +26,11 @@ type Row = { kind: 'group'; conv: Conversation } | { kind: 'person'; user: User 
  * or share a post out of the app. Group chats you're already in are listed
  * first; picking one drops it straight into that thread.
  *
- * External sharing hands over a deep link (see src/lib/links.ts) so the
- * recipient lands on the post rather than the app's front door. Profiles are
- * in-app only for now: the website doesn't have a profile page to land on.
+ * Sharing out of the app (Messages, Copy link, More) hands over the post's
+ * link with your handle on it (src/lib/shareText.ts): it opens the post in
+ * NiblGo for anyone who has it, shows a preview card to anyone who doesn't,
+ * and offers your handle as their invite code. Profiles are in-app only for
+ * now: the website doesn't have a profile page to land on.
  */
 export function ShareSheetScreen({ navigation, route }: any) {
   const styles = useStyles();
@@ -35,6 +38,7 @@ export function ShareSheetScreen({ navigation, route }: any) {
   const { postId, userId: profileId } = route.params as { postId?: string; userId?: string };
   const isProfile = !!profileId && !postId;
   const svc = getDataService();
+  const { user: me } = useApp();
   const insets = useSafeAreaInsets();
   // A full-screen page now (see SLIDE_UP in App.tsx), so it clears the status
   // bar itself.
@@ -116,16 +120,11 @@ export function ShareSheetScreen({ navigation, route }: any) {
     }
   };
 
-  const shareExternally = async () => {
-    if (!post || !postId) return;
-    const result = await sharePost(post, postUrl(postId));
-    if (result === 'failed') {
-      setExternalNote('Could not open the share sheet');
-      return;
-    }
-    await svc.recordShare(postId);
-    setExternalNote(result === 'copied' ? 'Link copied to clipboard' : null);
-    if (result === 'shared') navigation.goBack();
+  const sharedOutside = (how: ShareHow) => {
+    if (!postId) return;
+    svc.recordShare(postId).catch(() => {});
+    // Copying keeps the sheet open (they may still send it in the app too).
+    if (how !== 'copy') navigation.goBack();
   };
 
   if (sent) {
@@ -158,9 +157,29 @@ export function ShareSheetScreen({ navigation, route }: any) {
         <Pressable onPress={() => navigation.goBack()} hitSlop={10}>
           <Text style={styles.cancel}>Cancel</Text>
         </Pressable>
-        <Text style={styles.title}>{isProfile ? 'Share profile' : 'Send'}</Text>
+        <Text style={styles.title}>{isProfile ? 'Share profile' : 'Share'}</Text>
         <View style={{ width: 56 }} />
       </View>
+
+      {post ? (
+        <View testID="share-post-preview" style={styles.preview}>
+          {post.photo_url ? (
+            <Image source={{ uri: post.photo_url }} style={styles.previewPhoto} contentFit="cover" />
+          ) : (
+            <View style={styles.previewPhoto} />
+          )}
+          <View style={styles.rowText}>
+            <Text style={styles.name} numberOfLines={1}>
+              {postShareTitle(post).replace(/ on NiblGo$/, '')}
+            </Text>
+            {post.blurb ? (
+              <Text style={styles.previewBlurb} numberOfLines={1}>
+                {post.blurb}
+              </Text>
+            ) : null}
+          </View>
+        </View>
+      ) : null}
 
       {loading ? (
         <ActivityIndicator color={colors.amber} style={{ marginTop: spacing.xl }} />
@@ -221,6 +240,16 @@ export function ShareSheetScreen({ navigation, route }: any) {
           />
 
           <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
+            {!isProfile && post && postId && total === 0 ? (
+              <ShareTargets
+                title={postShareTitle(post)}
+                text={postShareTitle(post)}
+                url={postShareUrl(postId, me?.handle)}
+                copyValue={postShareUrl(postId, me?.handle)}
+                onShared={sharedOutside}
+                testIDPrefix="share-external"
+              />
+            ) : null}
             {canGroup ? (
               <Pressable
                 testID="share-group-toggle"
@@ -244,22 +273,15 @@ export function ShareSheetScreen({ navigation, route }: any) {
               </Pressable>
             ) : null}
 
-            <Button
-              testID="share-send"
-              title={sending ? 'Sending' : total === 0 ? 'Pick who to send to' : `Send (${total})`}
-              onPress={sendInternally}
-              disabled={total === 0 || sending}
-              loading={sending}
-            />
-
-            {isProfile ? null : (
-              <Pressable testID="share-external" onPress={shareExternally} style={styles.externalBtn}>
-                <Ionicons name="share-outline" size={18} color={colors.amberDark} />
-                <Text style={styles.externalText}>
-                  {Platform.OS === 'web' ? 'Copy link' : 'Share outside NiblGo'}
-                </Text>
-              </Pressable>
-            )}
+            {total > 0 || isProfile ? (
+              <Button
+                testID="share-send"
+                title={sending ? 'Sending' : total === 0 ? 'Pick who to send to' : `Send (${total})`}
+                onPress={sendInternally}
+                disabled={total === 0 || sending}
+                loading={sending}
+              />
+            ) : null}
             {externalNote ? (
               <Text testID="share-note" style={styles.note}>
                 {externalNote}
@@ -338,14 +360,17 @@ const useStyles = makeStyles((colors) => ({
   groupToggleOn: { borderColor: colors.amber, backgroundColor: colors.cream },
   groupToggleLabel: { fontFamily: fonts.bold, fontSize: 14.5, color: colors.cocoa },
   groupToggleHint: { fontFamily: fonts.semi, fontSize: 12, color: colors.cocoaFaint, marginTop: 1 },
-  externalBtn: {
+  preview: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    paddingVertical: 12,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    padding: spacing.sm,
+    borderRadius: radius.lg,
+    backgroundColor: colors.card,
   },
-  externalText: { fontFamily: fonts.bold, fontSize: 15, color: colors.amberDark },
+  previewBlurb: { fontFamily: fonts.semi, fontSize: 13, color: colors.cocoaSoft, marginTop: 1 },
+  previewPhoto: { width: 48, height: 48, borderRadius: radius.md, backgroundColor: colors.creamDark },
   note: {
     fontFamily: fonts.semi,
     fontSize: 13,

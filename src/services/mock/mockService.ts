@@ -30,7 +30,7 @@ import {
   Streak,
   User,
 } from '../../types';
-import { DataService } from '../types';
+import { DataService, PostPreview } from '../types';
 import {
   SEED_COLLECTION_POSTS,
   SEED_COLLECTIONS,
@@ -534,6 +534,19 @@ export class MockService implements DataService {
     const inviter = db.users.find((u) => sameHandle(u.handle, handle.trim().replace(/^@/, '')));
     if (!inviter) return 'not_found';
     return inviter.id === me.id ? 'self' : 'ok';
+  }
+
+  async getPostPreview(postId: string): Promise<PostPreview | null> {
+    const db = await this.load();
+    const post = db.posts.find((p) => p.id === postId);
+    if (!post) return null;
+    const author = db.users.find((u) => u.id === post.user_id);
+    return {
+      photo_url: post.photo_url ?? null,
+      display_name: author?.display_name ?? null,
+      handle: author?.handle ?? null,
+      meal_slot: post.meal_slot ?? null,
+    };
   }
 
   async getDiscoverPeople(): Promise<DiscoverPerson[]> {

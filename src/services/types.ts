@@ -23,6 +23,14 @@ import { SearchFilters } from '../lib/searchQuery';
  *  - MockService (demo mode, AsyncStorage, seeded data, zero keys needed)
  *  - SupabaseService (production, activated by EXPO_PUBLIC_SUPABASE_* env vars)
  */
+/** What a shared link shows before sign-in (get_post_preview). */
+export type PostPreview = {
+  photo_url: string | null;
+  display_name: string | null;
+  handle: string | null;
+  meal_slot: string | null;
+};
+
 export interface DataService {
   // auth/session
   getCurrentUser(): Promise<User | null>;
@@ -126,6 +134,11 @@ export interface DataService {
    * within 7 days of signing up. 'error' when it couldn't be sent (try later).
    */
   claimReferral(handle: string): Promise<'ok' | 'already' | 'not_found' | 'self' | 'too_late' | 'error'>;
+  /**
+   * The card for a shared post link, readable signed out: who posted it and
+   * the photo. Null when there's no such post (or it couldn't be read).
+   */
+  getPostPreview(postId: string): Promise<PostPreview | null>;
   /** People to discover, each with a few recent posts and follow state. */
   getDiscoverPeople(): Promise<DiscoverPerson[]>;
   createPost(input: NewPostInput): Promise<Post>;

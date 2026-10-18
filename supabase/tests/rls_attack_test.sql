@@ -692,6 +692,14 @@ select qa.check('signed out', 'read follower counts', 'anon',
   format($q$select count(*) from public.follow_counts(%L)$q$, :alice), 'error');
 select qa.check('signed out', 'a shared post link still previews', 'anon',
   $q$select count(*) from public.get_post_preview('10000000-0000-4000-8000-0000000000a1')$q$, 'rows:1');
+select qa.check('signed out', 'a link to a post that doesn''t exist previews nothing', 'anon',
+  $q$select count(*) from public.get_post_preview('10000000-0000-4000-8000-00000000dead')$q$, 'rows:0');
+select qa.fact('signed out', 'the preview card holds the card''s fields only (no email, no ids)',
+  $q$select array_to_string(p.proargnames[2:], ',') from pg_proc p
+     where p.oid = 'public.get_post_preview(uuid)'::regprocedure$q$,
+  'photo_url,blurb,display_name,handle,meal_slot,avatar_url,created_at,price_level,hashtags,recipe_title,cook_time_minutes');
+select qa.fact('signed out', 'the preview card teases the recipe by its title',
+  $q$select recipe_title from public.get_post_preview('10000000-0000-4000-8000-0000000000a1')$q$, 'Hotdish');
 
 -- =======================================================================
 -- 13. Photo storage

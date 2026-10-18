@@ -218,6 +218,11 @@ r = await C.sb.from('posts').insert({ user_id: A.id, meal_slot: 'lunch', photo_u
 check('C posts as A', !!r.error, r.error ? `error: ${r.error.message}` : 'inserted', 'denied (error)');
 r = await C.sb.rpc('get_post_preview', { pid: POST });
 check('design: C opens a shared post link (preview card)', r.data?.length === 1, rows(r), '1 row (share links work signed out)');
+{
+  const keys = Object.keys(r.data?.[0] ?? {}).sort().join(',');
+  const want = 'avatar_url,blurb,cook_time_minutes,created_at,display_name,handle,hashtags,meal_slot,photo_url,price_level,recipe_title';
+  check('design: the preview card has the card\'s fields and nothing else (no email, no ids)', keys === want, keys, want);
+}
 
 // ======================================================= 6. private group
 heading('6. User B tries to add himself to User A\'s private group');

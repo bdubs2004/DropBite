@@ -611,10 +611,10 @@ text-decoration:none;font:inherit;font-weight:700;font-size:16px;padding:13px 26
 fs.copyFileSync(path.join(ROOT, 'assets/icon.png'), path.join(OUT, 'icon.png'));
 console.log('  assets/icon.png       -> website/icon.png');
 
-// The Cloudflare Pages Worker that renders the rich preview behind a shared
-// post link (/post/<id>). Copied to the site root as _worker.js, which Pages
-// picks up automatically on upload. All non-/post paths fall through to the
-// static files above, so the rest of the site is unaffected.
+// The Cloudflare Pages Worker: the page behind a shared post link
+// (/post/<id>), the /get download link, the universal-links file, and the
+// site's redirects and headers. Copied to the site root as _worker.js, which
+// Pages picks up automatically on upload; every other path is a static file.
 //
 // Bake the Supabase URL + public anon key straight into the copy from your
 // local .env, so the preview photo works with NO Cloudflare environment
@@ -623,9 +623,21 @@ console.log('  assets/icon.png       -> website/icon.png');
 // ships — it just falls back to Pages env vars, then to a photo-less card.
 {
   const env = readDotEnv(path.join(ROOT, '.env'));
-  const supaUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || env.EXPO_PUBLIC_SUPABASE_URL || '';
+  // eas.json's production build carries the same public values, so a checkout
+  // without a .env still builds a worker that can show the photo.
+  let eas = {};
+  try {
+    eas = JSON.parse(fs.readFileSync(path.join(ROOT, 'eas.json'), 'utf8')).build.production.env || {};
+  } catch (_) {
+    eas = {};
+  }
+  const supaUrl =
+    process.env.EXPO_PUBLIC_SUPABASE_URL || env.EXPO_PUBLIC_SUPABASE_URL || eas.EXPO_PUBLIC_SUPABASE_URL || '';
   const supaKey =
-    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
+    env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
+    eas.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
+    '';
   let worker = fs.readFileSync(path.join(__dirname, 'post-preview-worker.js'), 'utf8');
   worker = worker
     .replace("const BUILD_SUPABASE_URL = '';", `const BUILD_SUPABASE_URL = ${JSON.stringify(supaUrl)};`)

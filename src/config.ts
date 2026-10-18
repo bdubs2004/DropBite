@@ -37,6 +37,13 @@ export const APP_LINK_BASE =
  * sync. Override per environment with EXPO_PUBLIC_APP_LINK_BASE.
  */
 export const PRIVACY_URL = `${APP_LINK_BASE}/privacy`;
+
+/**
+ * The one download link: invites and shared-post pages all point here. The
+ * website sends it on to TestFlight today and to the App Store at launch (one
+ * line in scripts/post-preview-worker.js), so no app update is needed then.
+ */
+export const GET_APP_URL = `${APP_LINK_BASE}/get`;
 export const TERMS_URL = `${APP_LINK_BASE}/terms`;
 
 /**

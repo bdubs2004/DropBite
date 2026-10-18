@@ -186,6 +186,7 @@ rebuild it after adding a migration. For reference, what each one adds:
 | `0039_hashtags.sql` | Hashtags on posts: up to 5 per post from a fixed list (also in `src/lib/hashtags.ts`), searchable. Run it before shipping the app build that has the hashtag picker |
 | `0040_price_level.sql` | What a dish cost to make ($ / $$ / $$$) on posts, for the Price filter in Search. Replaces the four price hashtags (posts that had them get the matching price) |
 | `0041_analytics.sql` | Usage analytics for the KPIs in Power BI: app opens, posts seen, recipes opened, invites and referrals, in a private `analytics` schema the API doesn't expose, plus reporting views and a read-only `analytics_reader` role. Redeploy `format-recipe` after it. Setup in [docs/ANALYTICS.md](docs/ANALYTICS.md) |
+| `0042_post_preview.sql` | A fuller card behind a shared post link (the poster's photo, when, price, hashtags, the recipe's title and time), still readable signed out and still only that one post. Deploy the new website `_worker.js` with it ([docs/website-share-update-prompt.md](docs/website-share-update-prompt.md)) |
 
 They are all safe to run twice, and so is `schema.sql` itself. What re-running
 `schema.sql` will **not** do is add a column to a table that already exists —
@@ -420,14 +421,20 @@ notices, but only on a 30 second check.
 
 `niblgo://post/<id>` already opens the installed app with no setup at all.
 
-For `https://yourdomain.com/post/<id>` links to open the app instead of a
-browser, you need a domain you control, serving two files: Apple's
-`apple-app-site-association` and Android's `assetlinks.json`. Both must be at
-fixed paths over https. Set `EXPO_PUBLIC_APP_LINK_BASE` to that domain.
+`https://niblgo.com/post/<id>` opens the app on iPhone too: the website worker
+(`scripts/post-preview-worker.js`) serves Apple's `apple-app-site-association`
+for `/post/*` with Team ID `2QQPTNNN28`, and `app.json` lists
+`applinks:niblgo.com`. Without the app, the same link shows the post's page on
+the website, with "Get NiblGo". Android's `assetlinks.json` isn't set up (no
+Android release yet).
 
-Full walkthrough in SETUP_GUIDE.md § B4. Until then, https links open the web
-build, which resolves to the right screen anyway — the same linking config drives
-both.
+A link opened while signed out is kept (`src/lib/pendingPost.ts`): the sign-in
+screen shows "<name> shared a meal with you", fills in the sharer as the invite
+code, and the post opens once they're in.
+
+`https://niblgo.com/get` is the one download link (TestFlight now). At App Store
+launch, change `DOWNLOAD_URL` in `scripts/post-preview-worker.js`, rebuild the
+site, and deploy: no app update needed.
 
 ---
 

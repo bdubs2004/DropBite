@@ -1,6 +1,6 @@
 # NiblGo security review: brief for the outside test
 
-State as of 18 October 2026: database migrations through `0041`, edge
+State as of 18 October 2026: database migrations through `0042`, edge
 functions as in `supabase/functions/`. SECURITY.md has the detail behind each
 line here; docs/OPERATIONS.md covers logs, backups and access.
 
@@ -34,11 +34,11 @@ hosts the legal pages, the email-confirmation page and shared-post previews.
 private copy of the whole backend (real Supabase Auth, real PostgREST, the
 seven edge functions) and attacks it through the app's own front door with
 User A (owns the data), User B (an unrelated account) and User C (signed out):
-148 checks (attacks and everyday features), every one with an expected and an actual result, in
+149 checks (attacks and everyday features), every one with an expected and an actual result, in
 `supabase/tests/e2e/RESULTS.md`. The table below is the database-level detail.
 
 Every database claim below is a check in `supabase/tests/rls_attack_test.sql`
-(287 checks, six accounts signing in the way the API does, an attacker with an
+(290 checks, six accounts signing in the way the API does, an attacker with an
 ordinary account), run on a fresh install and on an upgraded database
 (`supabase/tests/run_security.sh`). `supabase/verify.sql` checks the same
 things on the live project.
@@ -100,7 +100,7 @@ before the test; docs/DEPLOY_SECURITY_UPDATE.md walks through all of them in
 order):
 
 - [ ] `supabase/upgrade_all.sql` run on production (all migrations, 0002 to
-      0041); `verify.sql` says PASS.
+      0042); `verify.sql` says PASS.
 - [ ] Edge functions deployed at the current version (all seven), with
       `sweep-storage --no-verify-jwt` and its daily Cron job using
       `x-sweep-secret`.
@@ -121,8 +121,8 @@ order):
 ## Re-running everything
 
 ```bash
-npm run test:e2e                          # 148 end-to-end checks, Users A, B and C (Linux)
-supabase/tests/run_security.sh            # 287 database checks, fresh install (plus 33 KPI checks)
+npm run test:e2e                          # 149 end-to-end checks, Users A, B and C (Linux)
+supabase/tests/run_security.sh            # 290 database checks, fresh install (plus 33 KPI checks)
 supabase/tests/run_security.sh upgrade    # the same, on an upgraded database
 npm test                                  # app and function unit tests
 npm run test:functions                    # every edge function, run for real (needs Deno)

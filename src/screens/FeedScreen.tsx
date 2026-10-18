@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LogoLockup } from '../components/Logo';
 import { useZooming } from '../components/PinchZoom';
 import { PostCard } from '../components/PostCard';
-import { Muted } from '../components/ui';
+import { Button, Muted } from '../components/ui';
 import { analytics } from '../lib/analytics';
 import { HeaderScrollState, nextHeaderState } from '../lib/autoHideHeader';
 import { usePostActions } from '../lib/usePostActions';
@@ -284,6 +284,13 @@ export function FeedScreen({ navigation }: any) {
               <Muted style={{ textAlign: 'center' }}>
                 Follow people in the Discover tab, or share your first meal with the + button.
               </Muted>
+              <Button
+                testID="feed-invite"
+                title="Invite friends"
+                small
+                onPress={() => navigation.navigate('Invite')}
+                style={{ marginTop: spacing.md }}
+              />
             </View>
           )
         }

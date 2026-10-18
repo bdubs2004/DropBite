@@ -10,7 +10,14 @@
 -- looked up by its (unguessable) UUID. No feed, no listing, no way to
 -- enumerate: you can only see a post whose exact id you were already given,
 -- which is precisely what sharing the link hands over on purpose.
-create or replace function public.get_post_preview(pid uuid)
+-- Created only if it doesn't exist yet: 0042 replaces it with a fuller card,
+-- and re-running this older version over that one would fail (a function's
+-- columns can't change in place) or undo it.
+do $outer$
+begin
+  if to_regprocedure('public.get_post_preview(uuid)') is null then
+    execute $f$
+create function public.get_post_preview(pid uuid)
 returns table (
   photo_url text,
   blurb text,
@@ -22,13 +29,17 @@ language sql
 stable
 security definer
 set search_path = ''
-as $$
+as $body$
   select p.photo_url, p.blurb, u.display_name, u.handle, p.meal_slot::text
   from public.posts p
   join public.users u on u.id = p.user_id
   where p.id = pid
   limit 1;
-$$;
+$body$
+    $f$;
+  end if;
+end
+$outer$;
 
 revoke all on function public.get_post_preview(uuid) from public;
 grant execute on function public.get_post_preview(uuid) to anon, authenticated;

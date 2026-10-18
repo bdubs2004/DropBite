@@ -1,71 +1,75 @@
-import { Platform, Share } from 'react-native';
-import { Post } from '../types';
-import { analytics } from './analytics';
+import * as Clipboard from 'expo-clipboard';
+import { Linking, Platform, Share } from 'react-native';
+import { smsUrl } from './shareText';
+
+/**
+ * The three ways out of the app, used by the share row (ShareTargets): copy,
+ * text it, or the phone's own share sheet. Each says whether it worked and
+ * never throws, so a button can't break the screen it sits on. The wording
+ * lives in shareText.ts.
+ */
 
 export type ShareResult = 'shared' | 'copied' | 'failed';
 
-/**
- * Share a post using the OS share sheet on native, or the Web Share API /
- * clipboard fallback on web. Returns what actually happened so the UI can
- * confirm it.
- */
-export async function sharePost(post: Post, link?: string): Promise<ShareResult> {
-  const who = post.user?.display_name ? `${post.user.display_name} on NiblGo` : 'A meal on NiblGo';
-  const place = post.restaurant_name ? ` (at ${post.restaurant_name})` : '';
-  // Keep the text short and let the link's preview card carry the photo,
-  // caption and branding: the URL resolves to niblgo.com/post/<id>, which
-  // renders a rich Open Graph card and an "Open in NiblGo" button. A short
-  // caption line still gives context in apps that don't unfurl links.
-  const caption = post.blurb ? `${post.blurb}${place}` : `A meal on NiblGo${place}`;
-  const message = link ? `${caption}\n${link}` : caption;
+function nav(): any {
+  return typeof navigator !== 'undefined' ? navigator : undefined;
+}
 
+export async function copyText(text: string): Promise<boolean> {
   try {
     if (Platform.OS === 'web') {
-      const nav: any = typeof navigator !== 'undefined' ? navigator : undefined;
-      if (nav?.share) {
-        await nav.share({ title: who, text: message, ...(link ? { url: link } : {}) });
-        return 'shared';
-      }
-      if (nav?.clipboard?.writeText) {
-        await nav.clipboard.writeText(message);
-        return 'copied';
-      }
-      return 'failed';
+      const n = nav();
+      if (!n?.clipboard?.writeText) return false;
+      await n.clipboard.writeText(text);
+      return true;
     }
-    const res = await Share.share({ title: who, message });
-    return res.action === Share.dismissedAction ? 'failed' : 'shared';
+    await Clipboard.setStringAsync(text);
+    return true;
   } catch {
-    return 'failed';
+    return false;
+  }
+}
+
+/** Open Messages with the text filled in. False when there's no Messages. */
+export async function openMessages(body: string): Promise<boolean> {
+  if (Platform.OS === 'web') return false;
+  try {
+    await Linking.openURL(smsUrl(body, Platform.OS));
+    return true;
+  } catch {
+    return false;
   }
 }
 
 /**
- * Invite friends: the share sheet with a short note and the person's handle,
- * which the friend types as their invite code when signing up (that's how the
- * referral is recorded). A completed share counts as an invite sent.
+ * The phone's share sheet. On iPhone the link goes in as its own `url`, which
+ * is what makes iMessage and others show the rich preview with the photo.
  */
-export async function inviteFriends(handle: string): Promise<ShareResult> {
-  const message =
-    `I'm on NiblGo, where friends share what they're eating. Add me: @${handle}\n` +
-    `Use @${handle} as your invite code when you sign up. https://niblgo.com`;
-  let result: ShareResult = 'failed';
+export async function systemShare({
+  title,
+  message,
+  url,
+}: {
+  title: string;
+  message: string;
+  url?: string;
+}): Promise<ShareResult> {
+  const withUrl = url ? `${message}\n${url}` : message;
   try {
     if (Platform.OS === 'web') {
-      const nav: any = typeof navigator !== 'undefined' ? navigator : undefined;
-      if (nav?.share) {
-        await nav.share({ title: 'Join me on NiblGo', text: message });
-        result = 'shared';
-      } else if (nav?.clipboard?.writeText) {
-        await nav.clipboard.writeText(message);
-        result = 'copied';
+      const n = nav();
+      if (n?.share) {
+        await n.share({ title, text: message, ...(url ? { url } : {}) });
+        return 'shared';
       }
-    } else {
-      const res = await Share.share({ title: 'Join me on NiblGo', message });
-      result = res.action === Share.dismissedAction ? 'failed' : 'shared';
+      return (await copyText(url ?? withUrl)) ? 'copied' : 'failed';
     }
+    const res =
+      Platform.OS === 'ios' && url
+        ? await Share.share({ title, message, url })
+        : await Share.share({ title, message: withUrl });
+    return res.action === Share.dismissedAction ? 'failed' : 'shared';
   } catch {
-    result = 'failed';
+    return 'failed';
   }
-  if (result !== 'failed') analytics().inviteSent();
-  return result;
 }
