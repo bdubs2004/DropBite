@@ -22,7 +22,7 @@ check('no handle, no ?from', postShareUrl(ID) === `https://niblgo.com/post/${ID}
 check('a handle that isn\'t one is left off', postShareUrl(ID, 'a b<c>') === `https://niblgo.com/post/${ID}`);
 
 const invite = inviteMessage('bdubs2004');
-check('an invite has the one download link and the code', invite.includes('https://niblgo.com/get') && invite.includes('@bdubs2004 as your invite code'), invite);
+check('an invite has the download link (TestFlight) and the code', invite.includes('https://testflight.apple.com/join/J94Q9uXw') && invite.includes('@bdubs2004 as your invite code'), invite);
 check('no em dashes in what people receive', !/—/.test(invite));
 
 check('Messages link on iPhone', smsUrl('hi there & you', 'ios') === 'sms:&body=hi%20there%20%26%20you');

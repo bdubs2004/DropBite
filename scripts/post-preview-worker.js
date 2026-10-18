@@ -516,5 +516,26 @@ a{color:inherit}
 .foot a{color:var(--text-2)}
 `;
 
-// For the tests (scripts/__tests__): the page builder on its own.
-export { shareHtml, inviteHandle, ago, cookTime };
+// For the tests (scripts/__tests__), and for build-site.js, which builds the
+// same page as a static fallback (website/post.html) for when the worker isn't
+// running.
+export {
+  shareHtml,
+  inviteHandle,
+  ago,
+  cookTime,
+  esc,
+  safeImage,
+  possessive,
+  cardData,
+  deviceOf,
+  MEAL,
+  BETA_PATH,
+  DOWNLOAD_URL,
+  IOS_APP_ID,
+  BUILD_SUPABASE_URL,
+  BUILD_SUPABASE_ANON_KEY,
+  ICON_BOOK,
+  ICON_PLATE,
+  CSS,
+};

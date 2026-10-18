@@ -649,6 +649,127 @@ console.log('  assets/icon.png       -> website/icon.png');
   console.log(
     `  post-preview-worker.js -> website/_worker.js${supaUrl && supaKey ? ' (Supabase baked in)' : ' (no .env keys — set Cloudflare vars or add .env)'}`,
   );
+  writeStaticFallbacks(worker);
+}
+
+/**
+ * The same share page, /get and universal links WITHOUT the worker, as plain
+ * static files, because a deploy can end up without _worker.js running (it
+ * happened). The worker wins wherever it runs; these only answer when it
+ * doesn't:
+ *   website/post.html  the share page, filled in by the browser (a _redirects
+ *                      rule "/post/* /post 200" serves it for every post link).
+ *                      It's built from the worker's own page code, so the two
+ *                      can't drift. Link previews get the NiblGo card rather
+ *                      than the food photo; everything else is the same.
+ *   website/.well-known/apple-app-site-association
+ *   _redirects lines for /get, /download, /app and /post/*, printed below and
+ *   kept in website/_redirects.niblgo for the site's own _redirects file.
+ */
+function writeStaticFallbacks(workerSource) {
+  const tmp = path.join(ROOT, '.test-build', 'worker-for-site.mjs');
+  fs.mkdirSync(path.dirname(tmp), { recursive: true });
+  fs.writeFileSync(tmp, workerSource);
+  const { pathToFileURL } = require('url');
+  return import(pathToFileURL(tmp).href).then((w) => {
+    const fns = [w.safeImage, w.ago, w.cookTime, w.possessive, w.cardData, w.deviceOf, w.inviteHandle, w.shareHtml]
+      .map((f) => f.toString())
+      .join('\n');
+    const consts = [
+      `var esc = ${w.esc.toString()};`,
+      `var MEAL = ${JSON.stringify(w.MEAL)};`,
+      `var BETA_PATH = ${JSON.stringify(w.BETA_PATH)};`,
+      `var ICON_BOOK = ${JSON.stringify(w.ICON_BOOK)};`,
+      `var ICON_PLATE = ${JSON.stringify(w.ICON_PLATE)};`,
+      `var CSS = ${JSON.stringify(w.CSS)};`,
+      `var SUPABASE_URL = ${JSON.stringify(w.BUILD_SUPABASE_URL)};`,
+      `var SUPABASE_KEY = ${JSON.stringify(w.BUILD_SUPABASE_ANON_KEY)};`,
+    ].join('\n');
+    const run = `
+(function () {
+  var m = location.pathname.match(/^\\/post\\/([^/]+)\\/?$/);
+  var id = '';
+  try { id = m ? decodeURIComponent(m[1]) : ''; } catch (e) { id = ''; }
+  var from = inviteHandle(new URLSearchParams(location.search).get('from'));
+  var device = deviceOf(navigator.userAgent);
+  var UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  function show(post, state) {
+    var html = shareHtml({ id: id, post: post, state: state, origin: location.origin, from: from, device: device, now: Date.now() });
+    document.open(); document.write(html); document.close();
+  }
+  if (!UUID.test(id)) return show(null, 'missing');
+  var done = false;
+  var timer = setTimeout(function () { if (!done) { done = true; show(null, 'unknown'); } }, 5000);
+  fetch(SUPABASE_URL + '/rest/v1/rpc/get_post_preview', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', apikey: SUPABASE_KEY, authorization: 'Bearer ' + SUPABASE_KEY },
+    body: JSON.stringify({ pid: id })
+  }).then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+    .then(function (rows) {
+      if (done) return; done = true; clearTimeout(timer);
+      var post = Array.isArray(rows) ? rows[0] || null : rows;
+      show(post, post ? 'found' : 'missing');
+    })
+    .catch(function () { if (!done) { done = true; clearTimeout(timer); show(null, 'unknown'); } });
+})();`;
+    // The page's own code contains "</script>" inside strings; keep the
+    // browser from reading that as the end of this script.
+    const script = `${consts}\n${fns}\n${run}`.replace(/<\/script/gi, '<\\/script');
+    const html = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>A meal on NiblGo</title>
+<meta name="description" content="Share what you eat with the people you actually know">
+<meta name="robots" content="noindex">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="NiblGo">
+<meta property="og:title" content="A meal on NiblGo">
+<meta property="og:description" content="Share what you eat with the people you actually know">
+<meta property="og:image" content="https://niblgo.com/assets/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<style>body{margin:0;background:#FFF8EC}@media (prefers-color-scheme:dark){body{background:#140E08}}</style>
+</head>
+<body>
+<script>
+${script}
+</script>
+</body>
+</html>
+`;
+    fs.writeFileSync(path.join(OUT, 'post.html'), html);
+    console.log('  (worker page code)    -> website/post.html (static share page)');
+
+    const aasa = {
+      applinks: {
+        apps: [],
+        details: [
+          {
+            appIDs: [w.IOS_APP_ID],
+            components: [{ '/': '/post/*', comment: 'A shared post opens in the app' }],
+            appID: w.IOS_APP_ID,
+            paths: ['/post/*'],
+          },
+        ],
+      },
+    };
+    fs.mkdirSync(path.join(OUT, '.well-known'), { recursive: true });
+    fs.writeFileSync(path.join(OUT, '.well-known', 'apple-app-site-association'), JSON.stringify(aasa));
+    console.log('  (worker app id)       -> website/.well-known/apple-app-site-association');
+
+    const redirects = [
+      '# NiblGo app links (the same as the worker does, for when it is not running)',
+      `/get        ${w.DOWNLOAD_URL}  302`,
+      '/download   /get  302',
+      '/app        /get  302',
+      '/post/*     /post  200',
+      '',
+    ].join('\n');
+    fs.writeFileSync(path.join(OUT, '_redirects.niblgo'), redirects);
+    console.log('  (worker links)        -> website/_redirects.niblgo (lines for the site\'s _redirects)');
+  });
 }
 
 for (const p of PAGES) {
