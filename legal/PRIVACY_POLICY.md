@@ -1,6 +1,6 @@
 # NiblGo Privacy Policy
 
-**Last updated: 18 October 2026** · **Effective: 25 October 2026**
+**Last updated: 18 October 2026** · **Effective: 18 October 2026**
 
 NiblGo is a photo-first app for sharing meals with friends. This policy explains
 what we collect, why, who we share it with, and what you can make us do about it.
@@ -25,6 +25,8 @@ Questions, requests, or complaints: **privacy@niblgo.com**.
 - Your meal photos are stored in a **public bucket**: anyone with the direct
   link can view an image, whether or not they use NiblGo. Do not post pictures
   you would not want seen outside the app.
+- If a post is shared out of the app, anyone with that link can see the post on
+  niblgo.com without an account (section 5).
 - You can delete your account from inside the app, and it really deletes.
 - Section 7 covers your legal rights, including in the EU/UK and California.
 
@@ -42,7 +44,8 @@ Questions, requests, or complaints: **privacy@niblgo.com**.
 | Profile photo or emoji, bio | Optional, any time | Shown on your profile |
 | Meal photos | Each post | The core of the service |
 | Your written blurb | Each post | Displayed with your post, exactly as you wrote it |
-| Meal type, and optionally a restaurant | Each post | Organising and browsing meals |
+| Meal type, and optionally hashtags (from our fixed list), what it cost to make ($ to $$$) and a restaurant | Each post | Organising, browsing and searching meals |
+| An invite code (a friend's handle) | Optional, at sign-up | So we know who invited you (section 2, "How you use the app") |
 | Comments, likes, reposts, shares, saved posts | As you use them | To make the features work |
 | Direct messages, including any photos you attach | When you message someone | To deliver them |
 | Follows and blocks | As you use them | To build your feed and enforce your blocks |
@@ -116,6 +119,8 @@ data, and we do not share it for advertising.
 | **Supabase** | Accounts, database, photo storage, server functions | United States |
 | **Anthropic** | Blurb text and ingredient lists, only when you ask for a recipe card or a nutrition estimate (section 3) | USA |
 | **USDA FoodData Central** | Plain food names only, when you ask for a nutrition estimate | USA |
+| **Resend** | Your email address and the email itself, to send account emails (confirming your account, resetting your password) | USA |
+| **Cloudflare** | Hosts niblgo.com, including the pages behind shared post links; sees standard request data such as IP address | USA |
 | **Expo / Apple / Google** | App distribution and delivery | USA |
 
 We will also disclose information where we are legally required to — a valid
@@ -131,8 +136,18 @@ Contractual Clauses with the provider concerned.
 ## 5. Who can see what
 
 - **Visible to anyone signed in:** your handle, display name, profile photo,
-  bio, posts, recipe cards, comments, likes, follower and following counts,
-  streak, and the time zone your account is set to.
+  bio, posts (with their hashtags and price), recipe cards, comments, likes,
+  follower and following counts, streak, and the time zone your account is set
+  to.
+- **Visible to anyone with a shared link:** when you or someone else shares one
+  of your posts out of the app, the link opens a page on niblgo.com that anyone
+  with the link can see, no account needed. It shows your display name, handle
+  and profile photo, the meal photo, your caption, the meal type, when you
+  posted it, its price and hashtags, and the recipe card's title and cook time.
+  It does not show the full recipe, comments, likes or anything else on your
+  profile. Only that one post is shown, and only to people who have its link.
+  A link shared from the app also carries the sharer's handle, so the page can
+  suggest it as an invite code.
 - **Private to you:** your email, saved posts, blocked accounts, your reports,
   and your feedback.
 - **Between you and the recipient:** direct messages. **No other user** can read
@@ -149,11 +164,13 @@ faults, and comply with the law. We do not read private messages in the ordinary
 course of running the app. Any service works this way; we would rather say so
 than let the section above imply otherwise.
 
-**Photos are a real exception and worth reading twice.** Meal photos, profile
-photos and photos sent in messages are stored in a **public storage bucket**.
-The link is long and not guessable, and nothing in the app shows it to people
-who should not see the post — but anyone who obtains the URL can open the image
-without an account. Treat a photo you upload as potentially public.
+**Photos are a real exception and worth reading twice.** Meal photos and
+profile photos are stored in a **public storage bucket**. The link is long and
+not guessable, and nothing in the app shows it to people who should not see the
+post, but anyone who obtains the URL can open the image without an account.
+Treat a meal or profile photo you upload as potentially public. Photos sent in
+messages are different: they are kept private, and only the people in that chat
+can open them, through links that expire after a short time.
 
 ---
 
