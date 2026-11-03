@@ -173,8 +173,7 @@ export function SettingsScreen({ navigation, route }: any) {
           />
         ))}
         <Muted style={{ marginTop: spacing.md }}>
-          Tap a time to change it. Reminders follow your phone's timezone, so
-          they stay right when you travel. Snacks never send reminders.
+          Times follow your phone's time zone.
           {Platform.OS === 'web' ? ' Notifications are mobile-only.' : ''}
         </Muted>
       </Card>
@@ -188,8 +187,7 @@ export function SettingsScreen({ navigation, route }: any) {
           last
         />
         <Muted style={{ marginTop: spacing.md }}>
-          When someone likes, comments, replies or follows you while you're using NiblGo, it
-          slides down from the top. Swipe it up to dismiss it
+          Likes, comments and follows pop up at the top while you're in the app
         </Muted>
       </Card>
 
@@ -228,7 +226,7 @@ export function SettingsScreen({ navigation, route }: any) {
           })}
         </View>
         <Muted style={{ marginTop: spacing.md }}>
-          System follows your phone, so NiblGo goes dark when your phone does
+          System matches your phone
         </Muted>
       </Card>
 
@@ -243,8 +241,7 @@ export function SettingsScreen({ navigation, route }: any) {
           last
         />
         <Muted style={{ marginTop: spacing.md }}>
-          When on, people can still tap your followers and following counts, but the
-          names stay hidden and they see a private notice instead.
+          People still see your counts, just not the names
         </Muted>
       </Card>
 
@@ -368,10 +365,8 @@ const useStyles = makeStyles((colors, { shadowSoft }) => ({
   },
   section: {
     fontFamily: fonts.bold,
-    fontSize: 13,
-    color: colors.cocoaSoft,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    fontSize: 15,
+    color: colors.cocoa,
     marginTop: spacing.xl,
     marginBottom: spacing.sm,
   },

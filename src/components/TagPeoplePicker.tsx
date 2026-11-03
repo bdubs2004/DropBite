@@ -316,10 +316,8 @@ const useStyles = makeStyles((colors, { shadow }) => ({
   },
   section: {
     fontFamily: fonts.bold,
-    fontSize: 12,
-    color: colors.cocoaSoft,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    fontSize: 15,
+    color: colors.cocoa,
     marginTop: spacing.xs,
     marginBottom: spacing.xs,
   },

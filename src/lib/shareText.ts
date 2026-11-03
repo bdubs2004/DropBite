@@ -45,9 +45,9 @@ export function postShareUrl(postId: string, fromHandle?: string | null): string
 /** The text an invite sends: the download link and your handle as the code. */
 export function inviteMessage(handle: string): string {
   return (
-    `I’m on NiblGo, where friends share what they’re eating. Come join me!\n` +
-    `Get the app: ${GET_APP_URL}\n` +
-    `Use @${handle} as your invite code when you sign up`
+    `Get NiblGo so we can see what each other’s eating\n` +
+    `${GET_APP_URL}\n` +
+    `Put @${handle} as your invite code when you sign up`
   );
 }
 

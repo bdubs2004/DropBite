@@ -125,9 +125,9 @@ export const radius = {
  */
 export const photoGrid = {
   columns: 3,
-  gap: 6,
+  gap: 3,
   side: spacing.lg,
-  radius: radius.md,
+  radius: 6,
 };
 
 export type Shadows = { shadow: object; shadowSoft: object };

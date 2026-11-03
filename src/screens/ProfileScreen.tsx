@@ -219,7 +219,7 @@ export function ProfileScreen({ navigation, route }: any) {
             onPress={() => setMenuOpen(true)}
             hitSlop={10}
             style={styles.menuBtn}
-            accessibilityLabel="Your stuff"
+            accessibilityLabel="Settings and activity"
           >
             <Ionicons name="menu" size={24} color={colors.cocoa} />
           </Pressable>
@@ -237,20 +237,11 @@ export function ProfileScreen({ navigation, route }: any) {
         {profile?.bio ? <Text style={styles.bio}>{profile.bio}</Text> : null}
 
         <View style={styles.streakRow}>
-          <View style={styles.streakBadge}>
-            <View style={styles.streakValue}>
-              <Ionicons name="flame" size={16} color={colors.amber} />
-              <Text style={styles.streakBig}>{streak?.current_streak ?? 0}</Text>
-            </View>
-            <Muted>day streak</Muted>
-          </View>
-          <View style={styles.streakBadge}>
-            <View style={styles.streakValue}>
-              <Ionicons name="trophy" size={15} color={colors.amber} />
-              <Text style={styles.streakBig}>{streak?.longest_streak ?? 0}</Text>
-            </View>
-            <Muted>best streak</Muted>
-          </View>
+          <Ionicons name="flame" size={15} color={colors.amber} />
+          <Text style={styles.streakText}>
+            <Text style={styles.streakBig}>{streak?.current_streak ?? 0}</Text> day streak
+            <Text style={styles.streakDim}>  ·  best {streak?.longest_streak ?? 0}</Text>
+          </Text>
         </View>
 
         {isMe ? (
@@ -259,14 +250,16 @@ export function ProfileScreen({ navigation, route }: any) {
               title="Edit profile"
               variant="secondary"
               onPress={() => navigation.navigate('Settings', { section: 'profile' })}
-              style={{ flex: 1 }}
+              small
+              style={{ flex: 1, borderRadius: radius.md }}
             />
             <Button
               testID="profile-activity"
               title="Your activity"
               variant="secondary"
               onPress={() => navigation.navigate('Activity', { tab: 'liked' })}
-              style={{ flex: 1 }}
+              small
+              style={{ flex: 1, borderRadius: radius.md }}
             />
           </View>
         ) : blocked ? (
@@ -344,7 +337,7 @@ export function ProfileScreen({ navigation, route }: any) {
           <Ionicons
             name="grid"
             size={16}
-            color={tab === 'posts' ? colors.amberDark : colors.cocoaSoft}
+            color={tab === 'posts' ? colors.cocoa : colors.cocoaFaint}
           />
           <Text style={[styles.profileTabText, tab === 'posts' && styles.profileTabTextActive]}>
             Posts
@@ -358,7 +351,7 @@ export function ProfileScreen({ navigation, route }: any) {
           <Ionicons
             name="repeat"
             size={18}
-            color={tab === 'reposts' ? colors.amberDark : colors.cocoaSoft}
+            color={tab === 'reposts' ? colors.cocoa : colors.cocoaFaint}
           />
           <Text style={[styles.profileTabText, tab === 'reposts' && styles.profileTabTextActive]}>
             Reposts
@@ -372,7 +365,7 @@ export function ProfileScreen({ navigation, route }: any) {
           <Ionicons
             name="albums"
             size={16}
-            color={tab === 'collections' ? colors.amberDark : colors.cocoaSoft}
+            color={tab === 'collections' ? colors.cocoa : colors.cocoaFaint}
           />
           <Text
             style={[styles.profileTabText, tab === 'collections' && styles.profileTabTextActive]}
@@ -599,28 +592,24 @@ export function ProfileScreen({ navigation, route }: any) {
               {
                 key: 'interactions',
                 label: 'Activity',
-                hint: 'Likes and comments on your posts',
                 icon: 'notifications-outline',
                 onPress: () => navigation.navigate('Notifications'),
               },
               {
                 key: 'liked',
                 label: 'Liked',
-                hint: 'Posts you have hearted',
                 icon: 'heart-outline',
                 onPress: () => navigation.navigate('Activity', { tab: 'liked' }),
               },
               {
                 key: 'saved',
                 label: 'Saved',
-                hint: 'Your private bookmarks',
                 icon: 'bookmark-outline',
                 onPress: () => navigation.navigate('Activity', { tab: 'saved' }),
               },
               {
                 key: 'commented',
                 label: 'Comments',
-                hint: 'Posts you have replied to',
                 icon: 'chatbubble-outline',
                 onPress: () => navigation.navigate('Activity', { tab: 'commented' }),
               },
@@ -632,28 +621,24 @@ export function ProfileScreen({ navigation, route }: any) {
               {
                 key: 'messages',
                 label: 'Messages',
-                hint: 'Your direct messages',
                 icon: 'paper-plane-outline',
                 onPress: () => navigation.navigate('Inbox'),
               },
               {
                 key: 'invite',
                 label: 'Invite friends',
-                hint: 'Your handle is their invite code',
                 icon: 'person-add-outline',
                 onPress: () => navigation.navigate('Invite'),
               },
               {
                 key: 'tagged',
                 label: 'Tagged',
-                hint: 'Posts you have been tagged in',
                 icon: 'pricetag-outline',
                 onPress: () => navigation.navigate('Activity', { tab: 'tagged' }),
               },
               {
                 key: 'streaks',
                 label: 'Streaks',
-                hint: 'Leaderboard and your best run',
                 icon: 'flame-outline',
                 onPress: () => navigation.navigate('Leaderboard'),
               },
@@ -665,49 +650,42 @@ export function ProfileScreen({ navigation, route }: any) {
               {
                 key: 'edit-profile',
                 label: 'Edit profile',
-                hint: 'Photo, name, and bio',
                 icon: 'person-outline',
                 onPress: () => navigation.navigate('Settings', { section: 'profile' }),
               },
               {
                 key: 'share-profile',
                 label: 'Share your profile',
-                hint: 'Send it to friends or a group chat',
                 icon: 'paper-plane-outline',
                 onPress: () => navigation.navigate('ShareSheet', { userId }),
               },
               {
                 key: 'notifications',
                 label: 'Notifications',
-                hint: 'Reminders and in-app banners',
                 icon: 'notifications-outline',
                 onPress: () => navigation.navigate('Settings', { section: 'notifications' }),
               },
               {
                 key: 'appearance',
                 label: 'Appearance',
-                hint: 'Light, dark, or match your phone',
                 icon: 'moon-outline',
                 onPress: () => navigation.navigate('Settings', { section: 'appearance' }),
               },
               {
                 key: 'privacy',
                 label: 'Privacy',
-                hint: 'Who can see your follower list',
                 icon: 'lock-closed-outline',
                 onPress: () => navigation.navigate('Settings', { section: 'privacy' }),
               },
               {
                 key: 'blocked',
                 label: 'Blocked accounts',
-                hint: 'People you have blocked',
                 icon: 'ban-outline',
                 onPress: () => navigation.navigate('Blocked'),
               },
               {
                 key: 'account',
                 label: 'Account',
-                hint: 'Sign out or delete your account',
                 icon: 'log-out-outline',
                 danger: true,
                 onPress: () => navigation.navigate('Settings', { section: 'account' }),
@@ -720,14 +698,12 @@ export function ProfileScreen({ navigation, route }: any) {
               {
                 key: 'feedback',
                 label: 'Send feedback',
-                hint: 'Ideas, requests, anything you think',
                 icon: 'chatbox-ellipses-outline',
                 onPress: () => navigation.navigate('Feedback', { kind: 'feedback' }),
               },
               {
                 key: 'bug',
                 label: 'Report a problem',
-                hint: 'Something is broken or behaving oddly',
                 icon: 'bug-outline',
                 onPress: () => navigation.navigate('Feedback', { kind: 'bug' }),
               },
@@ -777,11 +753,9 @@ const useStyles = makeStyles((colors, { shadowSoft }) => ({
     color: colors.amberDark,
     fontSize: 15,
   },
+  // The profile sits on the page, not in a card: name, numbers, buttons.
   card: {
-    backgroundColor: colors.card,
-    borderRadius: radius.xl,
-    padding: spacing.xl,
-    ...(shadowSoft as object),
+    paddingTop: spacing.sm,
   },
   moreBtn: {
     width: 46,
@@ -807,8 +781,8 @@ const useStyles = makeStyles((colors, { shadowSoft }) => ({
   },
   menuBtn: {
     position: 'absolute',
-    top: spacing.md,
-    right: spacing.md,
+    top: 0,
+    right: 0,
     zIndex: 2,
     padding: 4,
   },
@@ -845,29 +819,19 @@ const useStyles = makeStyles((colors, { shadowSoft }) => ({
   },
   streakRow: {
     flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.lg,
-  },
-  streakBadge: {
-    flex: 1,
-    backgroundColor: colors.cream,
-    borderRadius: radius.lg,
     alignItems: 'center',
-    paddingVertical: spacing.md,
+    gap: 5,
+    marginTop: spacing.sm,
   },
+  streakText: { fontFamily: fonts.semi, fontSize: 14, color: colors.cocoaSoft },
+  streakDim: { color: colors.cocoaFaint },
   meButtons: {
     flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.lg,
-  },
-  streakValue: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
+    gap: spacing.sm,
+    marginTop: spacing.md,
   },
   streakBig: {
-    fontFamily: fonts.display,
-    fontSize: 19,
+    fontFamily: fonts.bold,
     color: colors.cocoa,
   },
   sectionTitle: {
@@ -878,12 +842,11 @@ const useStyles = makeStyles((colors, { shadowSoft }) => ({
     marginBottom: spacing.sm,
     marginLeft: spacing.xs,
   },
+  // Tabs under the profile: plain labels with a line under the one you're on.
   profileTabs: {
     flexDirection: 'row',
-    backgroundColor: colors.creamDark,
-    borderRadius: radius.pill,
-    padding: 4,
-    gap: 4,
+    borderBottomWidth: 1,
+    borderColor: colors.hairline,
     marginTop: spacing.lg,
     marginBottom: spacing.sm,
   },
@@ -893,12 +856,14 @@ const useStyles = makeStyles((colors, { shadowSoft }) => ({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 9,
-    borderRadius: radius.pill,
+    paddingVertical: 10,
+    borderBottomWidth: 2,
+    borderColor: 'transparent',
+    marginBottom: -1,
   },
-  profileTabActive: { backgroundColor: colors.raised, ...(shadowSoft as object) },
-  profileTabText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.cocoaSoft },
-  profileTabTextActive: { color: colors.amberDark },
+  profileTabActive: { borderColor: colors.cocoa },
+  profileTabText: { fontFamily: fonts.bold, fontSize: 14, color: colors.cocoaFaint },
+  profileTabTextActive: { color: colors.cocoa },
   collectionTile: { flex: 1 },
   collectionCover: {
     aspectRatio: 1,

@@ -35,9 +35,9 @@ export function HashtagField({
 
   return (
     <View testID="hashtag-field" style={styles.card}>
-      <View style={styles.picked}>
-        {selected.length ? (
-          selected.map((tag) => (
+      {selected.length ? (
+        <View style={styles.picked}>
+          {selected.map((tag) => (
             <Pressable
               key={tag}
               testID={`hashtag-picked-${tag}`}
@@ -48,11 +48,9 @@ export function HashtagField({
               <Text style={[styles.chipText, styles.chipTextOn]}>#{tag}</Text>
               <Ionicons name="close" size={14} color={colors.white} />
             </Pressable>
-          ))
-        ) : (
-          <Text style={styles.none}>Pick up to {MAX_HASHTAGS} so people can find your dish</Text>
-        )}
-      </View>
+          ))}
+        </View>
+      ) : null}
       {selected.length || full ? (
         <Text testID="hashtag-count" style={[styles.count, full && { color: colors.danger }]}>
           {full ? `You can add up to ${MAX_HASHTAGS}` : `${selected.length} of ${MAX_HASHTAGS}`}

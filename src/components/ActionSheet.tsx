@@ -11,7 +11,7 @@ export type SheetAction = {
   onPress: () => void;
   /** Renders in red and is the action people regret; put it last. */
   destructive?: boolean;
-  /** Optional second line explaining what the action does. */
+  /** Not shown: an action's name says what it does, as in any app's menu. */
   hint?: string;
 };
 
@@ -66,19 +66,14 @@ export function ActionSheet({
               }}
               style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
             >
-              <View style={[styles.iconWrap, a.destructive && styles.iconWrapDanger]}>
-                <Ionicons
-                  name={a.icon}
-                  size={19}
-                  color={a.destructive ? colors.danger : colors.amberDark}
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.label, a.destructive && { color: colors.danger }]}>
-                  {a.label}
-                </Text>
-                {a.hint ? <Text style={styles.hint}>{a.hint}</Text> : null}
-              </View>
+              <Ionicons
+                name={a.icon}
+                size={22}
+                color={a.destructive ? colors.danger : colors.cocoa}
+              />
+              <Text style={[styles.label, a.destructive && { color: colors.danger }]}>
+                {a.label}
+              </Text>
             </Pressable>
           ))}
 
@@ -122,28 +117,18 @@ const useStyles = makeStyles((colors, { shadow }) => ({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    backgroundColor: colors.card,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
+    gap: 14,
+    paddingVertical: 13,
+    paddingHorizontal: spacing.xs,
   },
-  rowPressed: { opacity: 0.7 },
-  iconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.cream,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconWrapDanger: { backgroundColor: 'rgba(201, 79, 46, 0.12)' },
-  label: { fontFamily: fonts.bold, fontSize: 15.5, color: colors.cocoa },
-  hint: { fontFamily: fonts.semi, fontSize: 12.5, color: colors.cocoaFaint, marginTop: 1 },
+  rowPressed: { opacity: 0.6 },
+  label: { flex: 1, fontFamily: fonts.semi, fontSize: 16, color: colors.cocoa },
   cancel: {
     alignItems: 'center',
     paddingVertical: spacing.md,
-    marginTop: 2,
+    marginTop: spacing.xs,
+    borderTopWidth: 1,
+    borderColor: colors.hairline,
   },
   cancelText: { fontFamily: fonts.bold, fontSize: 15, color: colors.cocoaSoft },
 }));

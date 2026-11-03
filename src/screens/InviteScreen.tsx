@@ -45,7 +45,7 @@ export function InviteScreen({ navigation }: any) {
         <LogoMark size={76} />
         <Text style={styles.title}>Invite friends to NiblGo</Text>
         <Text style={styles.sub}>
-          Text them the link. NiblGo is free on iPhone, and meals are better with your people
+          Send your friends the link to get the app
         </Text>
 
         {handle ? (
@@ -75,7 +75,7 @@ export function InviteScreen({ navigation }: any) {
           </Pressable>
         ) : null}
         <Text style={styles.fine}>
-          They enter it when they sign up, so we know you brought them
+          They type it in when they sign up
         </Text>
       </View>
 
@@ -137,10 +137,8 @@ const useStyles = makeStyles((colors) => ({
     backgroundColor: colors.card,
   },
   codeLabel: {
-    fontFamily: fonts.bold,
-    fontSize: 11.5,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
+    fontFamily: fonts.semi,
+    fontSize: 13,
     color: colors.cocoaFaint,
   },
   codeValue: { fontFamily: fonts.display, fontSize: 22, color: colors.cocoa, marginTop: 2 },

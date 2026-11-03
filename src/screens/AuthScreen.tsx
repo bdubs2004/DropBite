@@ -371,7 +371,6 @@ export function AuthScreen() {
         <View style={styles.hero}>
           <LogoMark size={76} />
           <Text style={styles.wordmark}>NiblGo</Text>
-          <Text style={styles.tagline}>Share bites. Discover favorites. Connect over food.</Text>
         </View>
 
         {shared ? (
@@ -590,13 +589,6 @@ const useStyles = makeStyles((colors) => ({
     marginTop: spacing.sm,
     letterSpacing: -0.5,
   },
-  tagline: {
-    fontFamily: fonts.semi,
-    fontSize: 14.5,
-    color: colors.cocoaSoft,
-    textAlign: 'center',
-    marginTop: 4,
-  },
   card: {
     backgroundColor: colors.card,
     borderRadius: radius.xl,
@@ -620,27 +612,28 @@ const useStyles = makeStyles((colors) => ({
   sharedSub: { fontFamily: fonts.semi, fontSize: 13, color: colors.cocoaSoft, marginTop: 2 },
   tabs: {
     flexDirection: 'row',
-    backgroundColor: colors.cream,
-    borderRadius: radius.pill,
-    padding: 4,
+    borderBottomWidth: 1,
+    borderColor: colors.hairline,
     marginBottom: spacing.xl,
   },
   tab: {
     flex: 1,
-    paddingVertical: 9,
-    borderRadius: radius.pill,
+    paddingVertical: 10,
     alignItems: 'center',
+    borderBottomWidth: 2,
+    borderColor: 'transparent',
+    marginBottom: -1,
   },
   tabActive: {
-    backgroundColor: colors.amber,
+    borderColor: colors.cocoa,
   },
   tabText: {
     fontFamily: fonts.bold,
-    fontSize: 14,
-    color: colors.cocoaSoft,
+    fontSize: 15,
+    color: colors.cocoaFaint,
   },
   tabTextActive: {
-    color: colors.onAmber,
+    color: colors.cocoa,
   },
   error: {
     fontFamily: fonts.bold,
