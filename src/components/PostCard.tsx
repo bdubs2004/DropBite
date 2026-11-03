@@ -503,20 +503,19 @@ function PostCardView({
 export const PostCard = React.memo(PostCardView);
 
 const useStyles = makeStyles((colors, { shadow }) => ({
+  // Edge to edge, like every photo feed: the photo is the post, not a card
+  // floating on the page.
   card: {
-    backgroundColor: colors.card,
-    borderRadius: radius.xl,
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.xl,
+    marginBottom: spacing.lg,
     overflow: 'hidden',
-    ...(shadow as object),
   },
   photoWrap: { position: 'relative' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: spacing.lg,
-    paddingBottom: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
   },
   userRow: {
     flexDirection: 'row',
@@ -591,8 +590,9 @@ const useStyles = makeStyles((colors, { shadow }) => ({
     color: colors.white,
   },
   body: {
-    padding: spacing.lg,
-    paddingTop: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
   },
   actionsRow: {
     flexDirection: 'row',

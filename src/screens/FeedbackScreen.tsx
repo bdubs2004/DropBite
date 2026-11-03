@@ -195,10 +195,8 @@ const useStyles = makeStyles((colors) => ({
   tabHint: { fontFamily: fonts.semi, fontSize: 11.5, color: colors.cocoaFaint, marginTop: 2 },
   label: {
     fontFamily: fonts.bold,
-    fontSize: 13,
-    color: colors.cocoaSoft,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    fontSize: 15,
+    color: colors.cocoa,
     marginBottom: spacing.sm,
   },
   textarea: { minHeight: 140, textAlignVertical: 'top', marginBottom: spacing.lg },

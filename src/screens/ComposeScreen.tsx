@@ -668,10 +668,8 @@ const useStyles = makeStyles((colors) => ({
   collectionText: { flex: 1, fontFamily: fonts.semi, fontSize: 15, color: colors.cocoa },
   stepLabel: {
     fontFamily: fonts.bold,
-    fontSize: 12.5,
-    color: colors.cocoaSoft,
-    textTransform: 'uppercase',
-    letterSpacing: 0.9,
+    fontSize: 15,
+    color: colors.cocoa,
     marginTop: spacing.xl,
     marginBottom: spacing.sm,
   },

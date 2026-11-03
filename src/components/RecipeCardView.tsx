@@ -96,10 +96,8 @@ const useStyles = makeStyles((colors) => ({
   },
   section: {
     fontFamily: fonts.bold,
-    fontSize: 13,
-    color: colors.cocoaSoft,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    fontSize: 15,
+    color: colors.cocoa,
     marginTop: spacing.md,
     marginBottom: 6,
   },

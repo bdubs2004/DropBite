@@ -224,7 +224,6 @@ export function SearchScreen({ navigation }: any) {
   const header = (
     <View style={styles.header}>
       <ScreenTitle>Search</ScreenTitle>
-      <Muted>Find people and dishes</Muted>
       <View style={{ marginTop: spacing.md }}>
         <View>
           <Input
@@ -461,7 +460,7 @@ export function SearchScreen({ navigation }: any) {
           <Ionicons name={tab === 'dishes' ? 'restaurant-outline' : 'people-outline'} size={40} color={colors.cocoaFaint} />
           <Muted style={styles.emptyText}>
             {tab === 'dishes'
-              ? 'Search a dish, an ingredient or a hashtag, or just say it, like budget meals or cheap mexican'
+              ? 'Try tacos, #bbq or cheap dinner'
               : 'Search for someone by name or handle'}
           </Muted>
         </View>
@@ -654,22 +653,17 @@ const useStyles = makeStyles((colors, { shadowSoft }) => ({
   header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.md },
   tabs: {
     flexDirection: 'row',
-    backgroundColor: colors.creamDark,
-    borderRadius: radius.pill,
-    padding: 4,
+    borderBottomWidth: 1,
+    borderColor: colors.hairline,
   },
-  tab: { flex: 1, paddingVertical: 9, borderRadius: radius.pill, alignItems: 'center' },
-  tabActive: { backgroundColor: colors.raised, ...(shadowSoft as object) },
-  tabText: { fontFamily: fonts.bold, fontSize: 14.5, color: colors.cocoaSoft },
-  tabTextActive: { color: colors.amberDark },
+  tab: { flex: 1, paddingVertical: 9, alignItems: 'center', borderBottomWidth: 2, borderColor: 'transparent', marginBottom: -1 },
+  tabActive: { borderColor: colors.cocoa },
+  tabText: { fontFamily: fonts.bold, fontSize: 14.5, color: colors.cocoaFaint },
+  tabTextActive: { color: colors.cocoa },
   userRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.card,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    ...(shadowSoft as object),
+    paddingVertical: 10,
   },
   userRowInList: { marginHorizontal: spacing.lg },
   termRow: {
@@ -765,10 +759,8 @@ const useStyles = makeStyles((colors, { shadowSoft }) => ({
   },
   recentsTitle: {
     fontFamily: fonts.bold,
-    fontSize: 13,
-    color: colors.cocoaSoft,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    fontSize: 15,
+    color: colors.cocoa,
   },
   recentsClear: { fontFamily: fonts.bold, fontSize: 13, color: colors.amberDark },
   empty: { alignItems: 'center', gap: spacing.sm, marginTop: 60 },

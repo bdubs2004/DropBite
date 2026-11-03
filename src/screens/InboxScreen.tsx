@@ -179,7 +179,7 @@ export function InboxScreen({ navigation }: any) {
               <Ionicons name="paper-plane-outline" size={40} color={colors.cocoaFaint} />
               <Text style={styles.emptyTitle}>No messages yet</Text>
               <Muted style={{ textAlign: 'center', paddingHorizontal: spacing.xl }}>
-                Send a post to a friend, or start a conversation from the pencil above.
+                Tap the pencil to start one
               </Muted>
             </View>
           }

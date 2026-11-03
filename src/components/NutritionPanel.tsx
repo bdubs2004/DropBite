@@ -198,7 +198,7 @@ const useStyles = makeStyles((colors) => ({
     marginBottom: spacing.sm,
   },
   title: { fontFamily: fonts.display, fontSize: 16, color: colors.cocoa },
-  perServing: { fontFamily: fonts.bold, fontSize: 11.5, color: colors.cocoaFaint, textTransform: 'uppercase', letterSpacing: 0.6 },
+  perServing: { fontFamily: fonts.semi, fontSize: 13, color: colors.cocoaFaint },
   servingsRow: {
     flexDirection: 'row',
     alignItems: 'center',

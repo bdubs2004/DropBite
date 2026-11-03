@@ -24,7 +24,8 @@ import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
 type Item = {
   key: string;
   label: string;
-  hint: string;
+  /** Unused: rows are just an icon and a name, like any app's menu. */
+  hint?: string;
   icon: any;
   onPress: () => void;
   danger?: boolean;
@@ -232,7 +233,7 @@ export function ActivityDrawer({
           </View>
 
           <View style={styles.head}>
-            <Text style={styles.title}>Your stuff</Text>
+            <Text style={styles.title}>Settings and activity</Text>
             <Pressable testID="drawer-close" onPress={dismiss} hitSlop={10}>
               <Ionicons name="close" size={24} color={colors.cocoaSoft} />
             </Pressable>
@@ -261,20 +262,15 @@ export function ActivityDrawer({
                     }}
                     style={({ pressed }) => [styles.row, pressed && { opacity: 0.7 }]}
                   >
-                    <View style={[styles.iconWrap, item.danger && styles.iconWrapDanger]}>
-                      <Ionicons
-                        name={item.icon}
-                        size={18}
-                        color={item.danger ? colors.danger : colors.amberDark}
-                      />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.label, item.danger && { color: colors.danger }]}>
-                        {item.label}
-                      </Text>
-                      <Text style={styles.hint}>{item.hint}</Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={17} color={colors.cocoaFaint} />
+                    <Ionicons
+                      name={item.icon}
+                      size={22}
+                      color={item.danger ? colors.danger : colors.cocoa}
+                    />
+                    <Text style={[styles.label, item.danger && { color: colors.danger }]}>
+                      {item.label}
+                    </Text>
+                    <Ionicons name="chevron-forward" size={16} color={colors.cocoaFaint} />
                   </Pressable>
                 ))}
               </View>
@@ -332,34 +328,24 @@ const useStyles = makeStyles((colors, { shadow }) => ({
     justifyContent: 'space-between',
     marginBottom: spacing.lg,
   },
-  title: { fontFamily: fonts.display, fontSize: 22, color: colors.cocoa },
-  section: { marginBottom: spacing.xl },
-  sectionTitle: {
-    fontFamily: fonts.bold,
-    fontSize: 12,
-    color: colors.cocoaSoft,
-    textTransform: 'uppercase',
-    letterSpacing: 0.9,
+  title: { fontFamily: fonts.bold, fontSize: 18, color: colors.cocoa },
+  section: {
+    paddingTop: spacing.md,
     marginBottom: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.hairline,
+  },
+  sectionTitle: {
+    fontFamily: fonts.semi,
+    fontSize: 13,
+    color: colors.cocoaFaint,
+    marginBottom: 2,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    backgroundColor: colors.card,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
+    gap: 14,
+    paddingVertical: 12,
   },
-  iconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.cream,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconWrapDanger: { backgroundColor: 'rgba(201, 79, 46, 0.12)' },
-  label: { fontFamily: fonts.bold, fontSize: 15.5, color: colors.cocoa },
-  hint: { fontFamily: fonts.semi, fontSize: 12.5, color: colors.cocoaFaint, marginTop: 1 },
+  label: { flex: 1, fontFamily: fonts.semi, fontSize: 16, color: colors.cocoa },
 }));

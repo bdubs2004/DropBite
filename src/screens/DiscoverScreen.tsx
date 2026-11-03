@@ -145,9 +145,6 @@ export function DiscoverScreen({ navigation }: any) {
           <Text style={styles.inviteText}>Invite</Text>
         </Pressable>
       </View>
-      <Muted>
-        {tab === 'dishes' ? 'Scroll around and find your next meal' : 'People worth following'}
-      </Muted>
       <View style={styles.tabs}>
         <TabButton label="Dishes" active={tab === 'dishes'} onPress={() => setTab('dishes')} />
         <TabButton label="People" active={tab === 'people'} onPress={() => setTab('people')} />
@@ -210,7 +207,7 @@ export function DiscoverScreen({ navigation }: any) {
           }
           ListEmptyComponent={
             <Muted style={styles.empty}>
-              No dishes yet. When people post a meal with a recipe, it shows up here.
+              No dishes yet
             </Muted>
           }
         />
@@ -236,7 +233,7 @@ export function DiscoverScreen({ navigation }: any) {
           )}
           ListEmptyComponent={
             <View>
-              <Muted style={styles.empty}>No one new to show yet. Invite your friends to join.</Muted>
+              <Muted style={styles.empty}>No one new right now</Muted>
               {user?.handle ? (
                 <Button
                   testID="discover-invite"
@@ -362,29 +359,25 @@ const useStyles = makeStyles((colors, { shadowSoft }) => ({
   inviteText: { fontFamily: fonts.bold, fontSize: 14, color: colors.amberDark },
   tabs: {
     flexDirection: 'row',
-    backgroundColor: colors.creamDark,
-    borderRadius: radius.pill,
-    padding: 4,
+    borderBottomWidth: 1,
+    borderColor: colors.hairline,
     marginTop: spacing.md,
   },
   tab: {
     flex: 1,
     paddingVertical: 9,
-    borderRadius: radius.pill,
     alignItems: 'center',
+    borderBottomWidth: 2,
+    borderColor: 'transparent',
+    marginBottom: -1,
   },
-  tabActive: {
-    backgroundColor: colors.raised,
-    ...(shadowSoft as object),
-  },
+  tabActive: { borderColor: colors.cocoa },
   tabText: {
     fontFamily: fonts.bold,
     fontSize: 14.5,
-    color: colors.cocoaSoft,
+    color: colors.cocoaFaint,
   },
-  tabTextActive: {
-    color: colors.amberDark,
-  },
+  tabTextActive: { color: colors.cocoa },
   empty: {
     textAlign: 'center',
     marginTop: spacing.xl,

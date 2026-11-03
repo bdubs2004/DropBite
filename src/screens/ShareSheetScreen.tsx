@@ -320,15 +320,10 @@ const useStyles = makeStyles((colors) => ({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.card,
-    borderRadius: radius.lg,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    marginBottom: spacing.sm,
-    borderWidth: 1.5,
-    borderColor: 'transparent',
+    paddingVertical: 9,
   },
-  rowOn: { borderColor: colors.amber },
+  // The tick on the right says it's picked; no box around the row.
+  rowOn: {},
   rowText: { flex: 1, marginLeft: spacing.md },
   name: { fontFamily: fonts.bold, fontSize: 15, color: colors.cocoa },
   groupAvatar: {

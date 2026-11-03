@@ -21,8 +21,6 @@ type Layout = 'grid' | 'list';
 const GRID_COLUMNS = photoGrid.columns;
 /** Space between photos, the same in every grid. */
 const GRID_GAP = photoGrid.gap;
-/** Space between the tab track's edge and the selected tab. */
-const TAB_TRACK_PAD = 4;
 /** Remembers the viewer's grid/list preference across visits. */
 const LAYOUT_KEY = 'niblgo.activityLayout';
 
@@ -186,10 +184,10 @@ export function ActivityScreen({ navigation, route }: any) {
           <Ionicons
             name={t.icon}
             size={17}
-            color={tab === t.key ? colors.amberDark : colors.cocoaSoft}
+            color={tab === t.key ? colors.cocoa : colors.cocoaFaint}
           />
-          {/* Icon above the word, so all four words fit their bubble even on a
-              small phone ("Comments" used to spill out). */}
+          {/* Icon above the word, so all four words fit even on a small phone
+              ("Comments" used to spill out). */}
           <Text
             style={[styles.tabText, tab === t.key && styles.tabTextActive]}
             numberOfLines={1}
@@ -348,13 +346,11 @@ const useStyles = makeStyles((colors, { shadowSoft }) => ({
   layoutBtnActive: { backgroundColor: colors.raised, ...(shadowSoft as object) },
   tabs: {
     flexDirection: 'row',
-    backgroundColor: colors.creamDark,
-    borderRadius: radius.xl,
-    padding: TAB_TRACK_PAD,
+    borderBottomWidth: 1,
+    borderColor: colors.hairline,
     marginHorizontal: spacing.lg,
     marginTop: spacing.xs,
     marginBottom: spacing.lg,
-    gap: 4,
   },
   tab: {
     flex: 1,
@@ -363,15 +359,15 @@ const useStyles = makeStyles((colors, { shadowSoft }) => ({
     gap: 3,
     paddingVertical: 8,
     paddingHorizontal: 2,
-    // Same curve as the track, just inside it, so Liked and Tagged fill right
-    // out to the rounded ends instead of leaving a wedge in the corners.
-    borderRadius: radius.xl - TAB_TRACK_PAD,
+    borderBottomWidth: 2,
+    borderColor: 'transparent',
+    marginBottom: -1,
   },
-  tabActive: { backgroundColor: colors.raised, ...(shadowSoft as object) },
-  tabText: { fontFamily: fonts.bold, fontSize: 12, color: colors.cocoaSoft },
+  tabActive: { borderColor: colors.cocoa },
+  tabText: { fontFamily: fonts.bold, fontSize: 12, color: colors.cocoaFaint },
   // Photos sit inside the page's side margins with a little air between them.
   grid: { gap: GRID_GAP, paddingBottom: 120 },
   gridRow: { gap: GRID_GAP, paddingHorizontal: photoGrid.side },
-  tabTextActive: { color: colors.amberDark },
+  tabTextActive: { color: colors.cocoa },
   empty: { alignItems: 'center', gap: spacing.sm, marginTop: 80 },
 }));

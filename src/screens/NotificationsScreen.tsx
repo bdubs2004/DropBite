@@ -288,9 +288,9 @@ export function NotificationsScreen({ navigation }: any) {
           ListEmptyComponent={
             <View style={styles.empty}>
               <Ionicons name="notifications-outline" size={40} color={colors.cocoaFaint} />
-              <Text style={styles.emptyTitle}>Nothing yet</Text>
+              <Text style={styles.emptyTitle}>No activity yet</Text>
               <Muted style={{ textAlign: 'center' }}>
-                When someone likes, comments on, or shares one of your posts, it shows up here
+                Likes, comments and follows show up here
               </Muted>
             </View>
           }

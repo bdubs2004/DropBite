@@ -280,9 +280,9 @@ export function FeedScreen({ navigation }: any) {
           ) : (
             <View style={styles.empty}>
               <Ionicons name="restaurant-outline" size={44} color={colors.cocoaFaint} />
-              <Text style={styles.emptyTitle}>Nothing on the table yet</Text>
+              <Text style={styles.emptyTitle}>Your feed is empty</Text>
               <Muted style={{ textAlign: 'center' }}>
-                Follow people in the Discover tab, or share your first meal with the + button.
+                Follow a few friends to see what they're eating
               </Muted>
               <Button
                 testID="feed-invite"

@@ -191,11 +191,9 @@ const useStyles = makeStyles((colors, { shadowSoft }) => ({
   },
   label: {
     fontFamily: fonts.bold,
-    color: colors.cocoaSoft,
-    fontSize: 13,
+    color: colors.cocoa,
+    fontSize: 15,
     marginBottom: 6,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
   },
   input: {
     backgroundColor: colors.card,

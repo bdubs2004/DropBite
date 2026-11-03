@@ -249,10 +249,8 @@ const useStyles = makeStyles((colors) => ({
   },
   detailLabel: {
     fontFamily: fonts.bold,
-    fontSize: 12.5,
-    color: colors.cocoaSoft,
-    textTransform: 'uppercase',
-    letterSpacing: 0.9,
+    fontSize: 15,
+    color: colors.cocoa,
     marginTop: spacing.lg,
     marginBottom: spacing.sm,
   },

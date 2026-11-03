@@ -10,6 +10,13 @@ function initials(name?: string | null): string {
   return parts.map((p) => p.charAt(0).toUpperCase()).join('');
 }
 
+/** A steady pick per person (same person, same colour every time). */
+function pick(key: string, n: number): number {
+  let h = 0;
+  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) | 0;
+  return Math.abs(h) % n;
+}
+
 export function Avatar({ user, size = 44 }: { user?: User | null; size?: number }) {
   const styles = useStyles();
   const colors = useColors();
@@ -29,13 +36,20 @@ export function Avatar({ user, size = 44 }: { user?: User | null; size?: number 
       />
     );
   }
+  // People without a photo get one of a few colours rather than all the same
+  // orange, so a list of them reads as different people.
+  const tones = [
+    { bg: colors.amber, fg: colors.onAmber },
+    ...Object.values(colors.meal).map((m) => ({ bg: m.bg, fg: m.color })),
+  ];
+  const tone = tones[pick(user?.id ?? user?.handle ?? '', tones.length)];
   return (
-    <View style={[styles.fallback, style]}>
+    <View style={[styles.fallback, style, { backgroundColor: tone.bg }]}>
       <Text
         style={{
           fontFamily: fonts.display,
           fontSize: size * 0.38,
-          color: colors.onAmber,
+          color: tone.fg,
           letterSpacing: 0.5,
         }}
       >

@@ -214,10 +214,8 @@ const useStyles = makeStyles((colors, { shadow }) => ({
   muteLabel: { fontFamily: fonts.bold, fontSize: 15, color: colors.cocoa },
   sectionTitle: {
     fontFamily: fonts.bold,
-    fontSize: 12,
-    color: colors.cocoaSoft,
-    textTransform: 'uppercase',
-    letterSpacing: 0.9,
+    fontSize: 15,
+    color: colors.cocoa,
     marginBottom: spacing.sm,
   },
   memberRow: {
