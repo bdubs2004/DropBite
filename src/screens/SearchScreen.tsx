@@ -702,11 +702,9 @@ const useStyles = makeStyles((colors, { shadowSoft }) => ({
   toggleText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.cocoaSoft },
   toggleTextOn: { color: colors.white },
   filterClear: { marginLeft: 'auto', paddingHorizontal: 4 },
+  // Filter choices open right on the page, under the toggles.
   panel: {
-    backgroundColor: colors.card,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
   },
   panelTitle: {
     fontFamily: fonts.semi,

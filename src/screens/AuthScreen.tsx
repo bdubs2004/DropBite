@@ -302,13 +302,11 @@ export function AuthScreen() {
         <View style={styles.card}>
           <Text style={styles.confirmTitle}>Check your email</Text>
           <Text style={styles.confirmBody}>
-            We sent a password reset link to{' '}
-            <Text style={styles.confirmEmail}>{resetSent}</Text>. Open it on your phone and
-            you’ll land right back here to set a new password.
+            We sent a reset link to <Text style={styles.confirmEmail}>{resetSent}</Text>. Open
+            it on your phone to set a new password.
           </Text>
           <Text style={styles.confirmHint}>
-            No email after a minute? Check your spam folder. Links can only be used once, so
-            use the newest one.
+            Nothing after a minute? Check spam, and use the newest email.
           </Text>
           <Button
             title="Back to sign in"
@@ -340,8 +338,7 @@ export function AuthScreen() {
             sign in.
           </Text>
           <Text style={styles.confirmHint}>
-            No email after a minute or two? Check your spam folder, and make sure the address is
-            right. You can always start again with a different one.
+            Nothing after a minute? Check your spam folder.
           </Text>
           <Button
             title="Back to sign in"
@@ -394,24 +391,6 @@ export function AuthScreen() {
         ) : null}
 
         <View style={styles.card}>
-          <View style={styles.tabs}>
-            <Pressable
-              style={[styles.tab, mode === 'signup' && styles.tabActive]}
-              onPress={() => setMode('signup')}
-            >
-              <Text style={[styles.tabText, mode === 'signup' && styles.tabTextActive]}>
-                Create account
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[styles.tab, mode === 'signin' && styles.tabActive]}
-              onPress={() => setMode('signin')}
-            >
-              <Text style={[styles.tabText, mode === 'signin' && styles.tabTextActive]}>
-                Sign in
-              </Text>
-            </Pressable>
-          </View>
 
           {mode === 'signup' ? (
             <>
@@ -526,6 +505,21 @@ export function AuthScreen() {
             </Muted>
           ) : null}
         </View>
+
+        <Pressable
+          testID="auth-switch"
+          onPress={() => {
+            setError(null);
+            setMode(mode === 'signup' ? 'signin' : 'signup');
+          }}
+          style={styles.switchRow}
+          hitSlop={6}
+        >
+          <Text style={styles.switchText}>
+            {mode === 'signup' ? 'Have an account? ' : 'New to NiblGo? '}
+            <Text style={styles.switchLink}>{mode === 'signup' ? 'Sign in' : 'Create an account'}</Text>
+          </Text>
+        </Pressable>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -589,11 +583,17 @@ const useStyles = makeStyles((colors) => ({
     marginTop: spacing.sm,
     letterSpacing: -0.5,
   },
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: radius.xl,
-    padding: spacing.xl,
+  // The form sits on the page; no card behind it.
+  card: {},
+  switchRow: {
+    marginTop: spacing.xl,
+    paddingTop: spacing.lg,
+    borderTopWidth: 1,
+    borderColor: colors.hairline,
+    alignItems: 'center',
   },
+  switchText: { fontFamily: fonts.semi, fontSize: 14.5, color: colors.cocoaSoft },
+  switchLink: { fontFamily: fonts.bold, color: colors.amberDark },
   shared: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -610,31 +610,6 @@ const useStyles = makeStyles((colors) => ({
   sharedPhotoNone: { alignItems: 'center', justifyContent: 'center' },
   sharedTitle: { fontFamily: fonts.bold, fontSize: 15, color: colors.cocoa },
   sharedSub: { fontFamily: fonts.semi, fontSize: 13, color: colors.cocoaSoft, marginTop: 2 },
-  tabs: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderColor: colors.hairline,
-    marginBottom: spacing.xl,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderBottomWidth: 2,
-    borderColor: 'transparent',
-    marginBottom: -1,
-  },
-  tabActive: {
-    borderColor: colors.cocoa,
-  },
-  tabText: {
-    fontFamily: fonts.bold,
-    fontSize: 15,
-    color: colors.cocoaFaint,
-  },
-  tabTextActive: {
-    color: colors.cocoa,
-  },
   error: {
     fontFamily: fonts.bold,
     color: colors.danger,

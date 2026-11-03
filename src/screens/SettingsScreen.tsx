@@ -270,20 +270,27 @@ export function SettingsScreen({ navigation, route }: any) {
             </View>
           </View>
         ) : (
-          <Button title="Delete account" variant="danger" onPress={askDelete} />
+          <View>
+            <Pressable
+              testID="settings-sign-out"
+              onPress={async () => {
+                await svc.signOut();
+                await forgetAccount();
+              }}
+              style={({ pressed }) => [styles.accountRow, pressed && { opacity: 0.6 }]}
+            >
+              <Text style={styles.accountText}>Sign out</Text>
+            </Pressable>
+            <Pressable
+              testID="settings-delete"
+              onPress={askDelete}
+              style={({ pressed }) => [styles.accountRow, styles.accountRowLast, pressed && { opacity: 0.6 }]}
+            >
+              <Text style={[styles.accountText, { color: colors.danger }]}>Delete account</Text>
+            </Pressable>
+          </View>
         )}
       </Card>
-
-
-      <View style={{ height: spacing.xl }} />
-      <Button
-        title="Sign out"
-        variant="ghost"
-        onPress={async () => {
-          await svc.signOut();
-          await forgetAccount();
-        }}
-      />
       <View style={{ height: 80 }} />
     </ScrollView>
   );
@@ -363,6 +370,13 @@ const useStyles = makeStyles((colors, { shadowSoft }) => ({
     color: colors.amberDark,
     fontSize: 15,
   },
+  accountRow: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderColor: colors.hairline,
+  },
+  accountRowLast: { borderBottomWidth: 0 },
+  accountText: { fontFamily: fonts.semi, fontSize: 16, color: colors.cocoa },
   section: {
     fontFamily: fonts.bold,
     fontSize: 15,

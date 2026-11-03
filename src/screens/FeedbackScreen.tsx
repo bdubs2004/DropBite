@@ -109,14 +109,14 @@ export function FeedbackScreen({ navigation, route }: any) {
         </View>
 
         <Text style={styles.label}>
-          {kind === 'bug' ? 'What went wrong?' : 'What is on your mind?'}
+          {kind === 'bug' ? 'What went wrong?' : 'Your message'}
         </Text>
         <Input
           testID="feedback-message"
           placeholder={
             kind === 'bug'
               ? 'What were you doing, and what happened instead?'
-              : 'Tell us anything: what you want, what is confusing, what you love'
+              : 'Ideas, gripes, anything'
           }
           value={message}
           onChangeText={setMessage}
@@ -138,8 +138,7 @@ export function FeedbackScreen({ navigation, route }: any) {
         <View style={styles.meta}>
           <Ionicons name="information-circle-outline" size={15} color={colors.cocoaFaint} />
           <Muted style={styles.metaText}>
-            We attach your handle, {platformName()}, and app version {appVersion()} so we can
-            reproduce it. Nothing else is sent.
+            Sent with your handle, {platformName()} and app version {appVersion()}
           </Muted>
         </View>
       </ScrollView>
@@ -164,8 +163,7 @@ function Tab({
   const colors = useColors();
   return (
     <Pressable testID={testID} onPress={onPress} style={[styles.tab, active && styles.tabActive]}>
-      <Text style={[styles.tabLabel, active && { color: colors.amberDark }]}>{label}</Text>
-      <Text style={styles.tabHint}>{hint}</Text>
+      <Text style={[styles.tabLabel, active && { color: colors.cocoa }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -181,18 +179,22 @@ const useStyles = makeStyles((colors) => ({
   },
   cancel: { fontFamily: fonts.bold, color: colors.cocoaSoft, fontSize: 15, width: 50 },
   title: { fontFamily: fonts.display, fontSize: 18, color: colors.cocoa },
-  tabs: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
+  tabs: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderColor: colors.hairline,
+    marginBottom: spacing.lg,
+  },
   tab: {
     flex: 1,
-    backgroundColor: colors.card,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    borderWidth: 2,
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 2,
     borderColor: 'transparent',
+    marginBottom: -1,
   },
-  tabActive: { borderColor: colors.amber, backgroundColor: colors.creamDark },
-  tabLabel: { fontFamily: fonts.bold, fontSize: 14.5, color: colors.cocoa },
-  tabHint: { fontFamily: fonts.semi, fontSize: 11.5, color: colors.cocoaFaint, marginTop: 2 },
+  tabActive: { borderColor: colors.cocoa },
+  tabLabel: { fontFamily: fonts.bold, fontSize: 15, color: colors.cocoaFaint },
   label: {
     fontFamily: fonts.bold,
     fontSize: 15,

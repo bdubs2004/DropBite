@@ -276,11 +276,7 @@ const useStyles = makeStyles((colors, { shadowSoft }) => ({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.card,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    ...(shadowSoft as object),
+    paddingVertical: 10,
   },
   name: { fontFamily: fonts.bold, fontSize: 15.5, color: colors.cocoa },
   groupAvatar: {

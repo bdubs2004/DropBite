@@ -169,12 +169,9 @@ export function HashtagBrowser({
 }
 
 const useStyles = makeStyles((colors) => ({
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-  },
-  picked: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, minHeight: 34, alignItems: 'center' },
+  // On the page like the other fields, not in a box of its own.
+  card: {},
+  picked: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: spacing.xs },
   none: { fontFamily: fonts.semi, fontSize: 14, color: colors.cocoaFaint },
   count: {
     fontFamily: fonts.semi,
@@ -186,11 +183,11 @@ const useStyles = makeStyles((colors) => ({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    backgroundColor: colors.cream,
-    borderRadius: radius.pill,
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
     paddingHorizontal: spacing.md,
-    paddingVertical: 9,
-    marginTop: spacing.md,
+    paddingVertical: 10,
+    marginTop: spacing.xs,
   },
   searchInput: {
     flex: 1,
