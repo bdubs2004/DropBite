@@ -417,6 +417,23 @@ checks(grp, item, status) as (
 
   union all
 
+  -- Meal plans and families (0043): there, read-only to the app (changes go
+  -- through the plan and family functions), rate limited.
+  select 20, 'meal plans and families',
+    case
+      when to_regclass('public.meal_plan_items') is null or to_regclass('public.families') is null
+        or to_regprocedure('public.add_plan_item(date, text, uuid, text)') is null
+        then 'MISSING — run upgrade_all.sql (0043)'
+      when has_table_privilege('authenticated', 'public.meal_plan_items', 'INSERT')
+        or has_table_privilege('authenticated', 'public.meal_plan_items', 'UPDATE')
+        or has_table_privilege('authenticated', 'public.family_members', 'INSERT')
+        or has_table_privilege('authenticated', 'public.family_members', 'UPDATE')
+        then 'THE APP CAN WRITE PLANS OR FAMILIES DIRECTLY — run upgrade_all.sql (0043)'
+      else 'OK'
+    end
+
+  union all
+
   -- Cards saved before 0034 aren't rewritten; the app draws malformed ones
   -- safely (cleanRecipe). Not a hole, just worth knowing.
   select 13, 'data: older recipe cards',

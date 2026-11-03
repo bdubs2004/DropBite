@@ -378,7 +378,7 @@ select qa.fact('schema', 'signed in, only the functions the app needs are callab
      join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'public' and p.prokind = 'f' and p.prorettype <> 'trigger'::regtype
        and has_function_privilege('authenticated', p.oid, 'execute')$q$,
-  'can_reply_under,check_request,claim_referral,conversation_has_block,follow_counts,get_post_preview,is_blocked_pair,is_conversation_member,leave_conversation,log_event,log_post_views,plain_text_ok,recipe_ingredients_ok,recipe_nutrition_ok,recipe_steps_ok,start_conversation,start_group_conversation');
+  'add_plan_item,can_reply_under,check_request,claim_referral,conversation_has_block,create_family,decide_plan_item,delete_family,follow_counts,get_post_preview,invite_to_family,is_blocked_pair,is_conversation_member,leave_conversation,leave_family,log_event,log_post_views,my_family_id,plain_text_ok,recipe_ingredients_ok,recipe_nutrition_ok,recipe_steps_ok,remove_family_member,remove_plan_item,respond_family_invite,start_conversation,start_group_conversation,vote_plan_item');
 
 -- =======================================================================
 -- 2. Profiles
@@ -928,7 +928,7 @@ select qa.check('spam', 'one person''s limit doesn''t touch anyone else''s', 'al
 select qa.fact('spam', 'everything people can create is rate limited',
   $q$select string_agg(c.relname || ':' || t.tgname, ',' order by c.relname) from pg_trigger t join pg_class c on c.oid = t.tgrelid
      where t.tgfoid = 'public.limit_rate()'::regprocedure and not t.tgisinternal$q$,
-  'collections:collections_limit_rate,comment_reactions:comment_reactions_limit_rate,comments:comments_limit_rate,conversations:conversations_limit_rate,feedback:feedback_limit_rate,follows:follows_limit_rate,message_reactions:message_reactions_limit_rate,messages:messages_limit_rate,post_tags:post_tags_limit_rate,posts:posts_limit_rate,reactions:reactions_limit_rate,reports:reports_limit_rate,reposts:reposts_limit_rate,shares:shares_limit_rate');
+  'collections:collections_limit_rate,comment_reactions:comment_reactions_limit_rate,comments:comments_limit_rate,conversations:conversations_limit_rate,families:families_limit_rate,family_members:family_members_limit_rate,feedback:feedback_limit_rate,follows:follows_limit_rate,meal_plan_items:meal_plan_items_limit_rate,meal_plan_votes:meal_plan_votes_limit_rate,message_reactions:message_reactions_limit_rate,messages:messages_limit_rate,post_tags:post_tags_limit_rate,posts:posts_limit_rate,reactions:reactions_limit_rate,reports:reports_limit_rate,reposts:reposts_limit_rate,shares:shares_limit_rate');
 select qa.check('spam', 'read or reset anyone''s rate-limit counters', 'mallory',
   $q$select count(*) from public.action_usage$q$, 'denied');
 
@@ -987,6 +987,15 @@ insert into analytics.events (user_id, name) values ('2e2e2e2e-0000-4000-8000-00
 insert into analytics.post_views (user_id, post_id) values ('2e2e2e2e-0000-4000-8000-000000000021', '10000000-0000-4000-8000-0000000000a1');
 insert into analytics.user_labels (user_id, relationship) values ('2e2e2e2e-0000-4000-8000-000000000021', 'acquaintance');
 insert into analytics.referrals (new_user_id, referrer_user_id) values ('2e2e2e2e-0000-4000-8000-000000000021', 'aaaaaaaa-0000-4000-8000-000000000001');
+-- And meal plans (0043): a family he runs with a meal in it and a vote, and a
+-- meal on his own plan.
+insert into public.families (id, name, admin_id) values ('fa000000-0000-4000-8000-0000000000e1', 'Zeds', '2e2e2e2e-0000-4000-8000-000000000021');
+insert into public.family_members (family_id, user_id, status) values ('fa000000-0000-4000-8000-0000000000e1', '2e2e2e2e-0000-4000-8000-000000000021', 'active');
+insert into public.meal_plan_items (id, family_id, plan_date, meal_slot, title, added_by) values
+  ('fb000000-0000-4000-8000-0000000000e1', 'fa000000-0000-4000-8000-0000000000e1', current_date, 'dinner', 'zed tacos', '2e2e2e2e-0000-4000-8000-000000000021');
+insert into public.meal_plan_items (user_id, plan_date, meal_slot, title, added_by) values
+  ('2e2e2e2e-0000-4000-8000-000000000021', current_date, 'lunch', 'zed soup', '2e2e2e2e-0000-4000-8000-000000000021');
+insert into public.meal_plan_votes (item_id, user_id, approve) values ('fb000000-0000-4000-8000-0000000000e1', '2e2e2e2e-0000-4000-8000-000000000021', true);
 insert into public.reports (reporter_id, post_id, reported_user_id, reason) values
   ('2e2e2e2e-0000-4000-8000-000000000021', '10000000-0000-4000-8000-0000000000b2', 'bbbbbbbb-0000-4000-8000-000000000002', 'spam');
 insert into public.reports (id, reporter_id, comment_id, reported_user_id, reason, comment_text_snapshot) values
@@ -1185,6 +1194,119 @@ select qa.fact('analytics', 'nothing the reader sees has an email, handle, name,
 select qa.fact('analytics', 'the reporting views all run',
   $q$select ((select count(*) from analytics.kpi_daily) > 0 and (select count(*) from analytics.kpi_weekly) >= 0
             and (select count(*) from analytics.dim_users) > 0)::text$q$, 'true');
+
+-- =======================================================================
+-- 25. Meal plans and families (0043)
+-- =======================================================================
+-- The Smiths: Alice runs it, Bob is in it, Dave is invited, and so is Carol,
+-- who's already in her own family. On the plan: Alice's pot roast (in), Bob's
+-- nuggets (waiting for Alice), Bob's no on the pot roast. Mallory has her own
+-- plan with tacos on it.
+insert into public.families (id, name, admin_id) values ('fa000000-0000-4000-8000-000000000001', 'Smiths', 'aaaaaaaa-0000-4000-8000-000000000001'), ('fa000000-0000-4000-8000-000000000002', 'Carols', 'cccccccc-0000-4000-8000-000000000003');
+insert into public.family_members (family_id, user_id, status, invited_by) values
+  ('fa000000-0000-4000-8000-000000000001', 'aaaaaaaa-0000-4000-8000-000000000001', 'active', 'aaaaaaaa-0000-4000-8000-000000000001'), ('fa000000-0000-4000-8000-000000000001', 'bbbbbbbb-0000-4000-8000-000000000002', 'active', 'aaaaaaaa-0000-4000-8000-000000000001'), ('fa000000-0000-4000-8000-000000000001', 'ffffffff-0000-4000-8000-000000000006', 'invited', 'aaaaaaaa-0000-4000-8000-000000000001'),
+  ('fa000000-0000-4000-8000-000000000001', 'cccccccc-0000-4000-8000-000000000003', 'invited', 'aaaaaaaa-0000-4000-8000-000000000001'), ('fa000000-0000-4000-8000-000000000002', 'cccccccc-0000-4000-8000-000000000003', 'active', 'cccccccc-0000-4000-8000-000000000003');
+insert into public.meal_plan_items (id, family_id, user_id, plan_date, meal_slot, title, added_by, status) values
+  ('fb000000-0000-4000-8000-000000000001', 'fa000000-0000-4000-8000-000000000001', null, current_date, 'dinner', 'pot roast', 'aaaaaaaa-0000-4000-8000-000000000001', 'in'),
+  ('fb000000-0000-4000-8000-000000000002', 'fa000000-0000-4000-8000-000000000001', null, current_date, 'dinner', 'nuggets', 'bbbbbbbb-0000-4000-8000-000000000002', 'pending'),
+  ('fb000000-0000-4000-8000-000000000003', null, 'dddddddd-0000-4000-8000-000000000004', current_date, 'dinner', 'tacos', 'dddddddd-0000-4000-8000-000000000004', 'in');
+insert into public.meal_plan_votes (item_id, user_id, approve) values ('fb000000-0000-4000-8000-000000000001', 'bbbbbbbb-0000-4000-8000-000000000002', false);
+
+-- Where a meal stands after an action: 0 gone, 1 waiting, 2 on the plan.
+create function qa.plan_state(item uuid) returns bigint language sql security definer set search_path = '' as $$
+  select coalesce((select case i.status when 'pending' then 1 when 'in' then 2 end
+                   from public.meal_plan_items i where i.id = item), 0)::bigint;
+$$;
+create function qa.then_state(action text, item uuid) returns bigint language plpgsql as $$
+begin execute action; return qa.plan_state(item); end $$;
+create function qa.add_state(action text) returns bigint language plpgsql as $$
+declare id uuid;
+begin execute action into id; return qa.plan_state(id); end $$;
+-- How many votes a meal has, after an action.
+create function qa.then_votes(action text, item uuid) returns bigint language plpgsql as $$
+begin execute action;
+  return (select count(*) from public.meal_plan_votes v where v.item_id = item); end $$;
+-- How many of a family's meals the caller can see, after an action.
+create function qa.then_sees(action text, family uuid) returns bigint language plpgsql as $$
+begin execute action;
+  return (select count(*) from public.meal_plan_items i where i.family_id = family); end $$;
+create function qa.family_meals(family uuid) returns bigint language sql security definer set search_path = '' as $$
+  select count(*) from public.meal_plan_items i where i.family_id = family;
+$$;
+create function qa.then_family_meals(action text, family uuid) returns bigint language plpgsql as $$
+begin execute action; return qa.family_meals(family); end $$;
+grant execute on all functions in schema qa to anon, authenticated;
+
+select qa.check('meal plans', 'a family member sees the family plan', 'bob',
+  $q$select count(*) from public.meal_plan_items where family_id = 'fa000000-0000-4000-8000-000000000001'$q$, 'rows:2');
+select qa.check('meal plans', 'an outsider sees none of a family''s plan', 'mallory',
+  $q$select count(*) from public.meal_plan_items where family_id = 'fa000000-0000-4000-8000-000000000001'$q$, 'rows:0');
+select qa.check('meal plans', 'an outsider sees who''s in a family', 'mallory',
+  $q$select count(*) from public.family_members where family_id = 'fa000000-0000-4000-8000-000000000001'$q$, 'rows:0');
+select qa.check('meal plans', 'someone invited sees the family asking, not its plan', 'dave',
+  $q$select (select count(*) from public.families where id = 'fa000000-0000-4000-8000-000000000001') * 10 + (select count(*) from public.meal_plan_items where family_id = 'fa000000-0000-4000-8000-000000000001')$q$, 'rows:10');
+select qa.check('meal plans', 'read someone else''s own plan', 'alice',
+  $q$select count(*) from public.meal_plan_items where id = 'fb000000-0000-4000-8000-000000000003'$q$, 'rows:0');
+select qa.check('meal plans', 'see the votes on another family''s meals', 'mallory',
+  $q$select count(*) from public.meal_plan_votes where item_id = 'fb000000-0000-4000-8000-000000000001'$q$, 'rows:0');
+select qa.check('meal plans', 'put a meal on the plan directly, skipping the rules', 'bob',
+  $q$insert into public.meal_plan_items (family_id, plan_date, meal_slot, title, added_by, status) values ('fa000000-0000-4000-8000-000000000001', current_date, 'lunch', 'cake', 'bbbbbbbb-0000-4000-8000-000000000002', 'in')$q$, 'denied');
+select qa.check('meal plans', 'mark your own meal approved directly', 'bob',
+  $q$update public.meal_plan_items set status = 'in' where id = 'fb000000-0000-4000-8000-000000000002'$q$, 'denied');
+select qa.check('meal plans', 'join a family directly', 'mallory',
+  $q$insert into public.family_members (family_id, user_id, status) values ('fa000000-0000-4000-8000-000000000001', 'dddddddd-0000-4000-8000-000000000004', 'active')$q$, 'denied');
+select qa.check('meal plans', 'the admin adds a meal: straight on the plan', 'alice',
+  $q$select qa.add_state($a$select public.add_plan_item(current_date, 'lunch', null, 'lasagna')$a$)$q$, 'rows:2');
+select qa.check('meal plans', 'a member adds a meal: it waits for the admin', 'bob',
+  $q$select qa.add_state($a$select public.add_plan_item(current_date, 'lunch', null, 'mac and cheese')$a$)$q$, 'rows:1');
+select qa.check('meal plans', 'no family: it goes on your own plan, straight in', 'mallory',
+  $q$select qa.add_state($a$select public.add_plan_item(current_date, 'snack', null, 'chips')$a$)$q$, 'rows:2');
+select qa.check('meal plans', 'add a post you can''t see (across a block)', 'eve',
+  $q$select qa.add_state($a$select public.add_plan_item(current_date, 'dinner', '10000000-0000-4000-8000-0000000000a1', null)$a$)$q$, 'error:That post isn');
+select qa.check('meal plans', 'a member approves a waiting meal', 'bob',
+  $q$select qa.then_state($a$select public.decide_plan_item('fb000000-0000-4000-8000-000000000002', true)$a$, 'fb000000-0000-4000-8000-000000000002')$q$, 'error:Only the family admin');
+select qa.check('meal plans', 'the admin approves a member''s meal', 'alice',
+  $q$select qa.then_state($a$select public.decide_plan_item('fb000000-0000-4000-8000-000000000002', true)$a$, 'fb000000-0000-4000-8000-000000000002')$q$, 'rows:2');
+select qa.check('meal plans', 'the admin says no: the meal is gone', 'alice',
+  $q$select qa.then_state($a$select public.decide_plan_item('fb000000-0000-4000-8000-000000000002', false)$a$, 'fb000000-0000-4000-8000-000000000002')$q$, 'rows:0');
+select qa.check('meal plans', 'a member says no to the admin''s meal: it stays until the admin decides', 'bob',
+  $q$select qa.then_state($a$select public.vote_plan_item('fb000000-0000-4000-8000-000000000001', false)$a$, 'fb000000-0000-4000-8000-000000000001')$q$, 'rows:2');
+select qa.check('meal plans', 'the admin keeps a meal over a no (and the no is cleared)', 'alice',
+  $q$select qa.then_votes($a$select public.decide_plan_item('fb000000-0000-4000-8000-000000000001', true)$a$, 'fb000000-0000-4000-8000-000000000001')$q$, 'rows:0');
+select qa.check('meal plans', 'the admin votes instead of deciding', 'alice',
+  $q$select qa.then_votes($a$select public.vote_plan_item('fb000000-0000-4000-8000-000000000001', true)$a$, 'fb000000-0000-4000-8000-000000000001')$q$, 'error');
+select qa.check('meal plans', 'an outsider votes on a family''s meal', 'mallory',
+  $q$select qa.then_votes($a$select public.vote_plan_item('fb000000-0000-4000-8000-000000000001', false)$a$, 'fb000000-0000-4000-8000-000000000001')$q$, 'error');
+select qa.check('meal plans', 'a member removes the admin''s meal', 'bob',
+  $q$select qa.then_state($a$select public.remove_plan_item('fb000000-0000-4000-8000-000000000001')$a$, 'fb000000-0000-4000-8000-000000000001')$q$, 'error');
+select qa.check('meal plans', 'a member takes back their own waiting meal', 'bob',
+  $q$select qa.then_state($a$select public.remove_plan_item('fb000000-0000-4000-8000-000000000002')$a$, 'fb000000-0000-4000-8000-000000000002')$q$, 'rows:0');
+select qa.check('meal plans', 'remove a meal from someone else''s own plan', 'alice',
+  $q$select qa.then_state($a$select public.remove_plan_item('fb000000-0000-4000-8000-000000000003')$a$, 'fb000000-0000-4000-8000-000000000003')$q$, 'error');
+select qa.check('families', 'a member (not the admin) invites people', 'bob',
+  $q$select count(*) from (select public.invite_to_family('mallory')) x$q$, 'error:Only the family admin');
+select qa.check('families', 'invite someone who blocked you: looks like no such person', 'alice',
+  $q$select case public.invite_to_family('eve') when 'not_found' then 1 else 0 end$q$, 'rows:1');
+select qa.check('families', 'join a second family while in one', 'carol',
+  $q$select count(*) from (select public.respond_family_invite('fa000000-0000-4000-8000-000000000001', true)) x$q$, 'error:Leave your family');
+select qa.check('families', 'accept an invite that went to someone else', 'mallory',
+  $q$select count(*) from (select public.respond_family_invite('fa000000-0000-4000-8000-000000000001', true)) x$q$, 'error');
+select qa.check('families', 'accept an invite: now you see the family plan', 'dave',
+  $q$select qa.then_sees($a$select public.respond_family_invite('fa000000-0000-4000-8000-000000000001', true)$a$, 'fa000000-0000-4000-8000-000000000001')$q$, 'rows:2');
+select qa.check('families', 'leave the family: the plan goes away', 'bob',
+  $q$select qa.then_sees($a$select public.leave_family()$a$, 'fa000000-0000-4000-8000-000000000001')$q$, 'rows:0');
+select qa.check('families', 'the admin walks out on the family', 'alice',
+  $q$select count(*) from (select public.leave_family()) x$q$, 'error:You''re the admin');
+select qa.check('families', 'remove someone from a family you don''t run', 'bob',
+  $q$select count(*) from (select public.remove_family_member('aaaaaaaa-0000-4000-8000-000000000001')) x$q$, 'error:Only the family admin');
+select qa.check('families', 'delete a family you don''t run', 'bob',
+  $q$select count(*) from (select public.delete_family()) x$q$, 'error:Only the family admin');
+select qa.check('families', 'the admin deletes the family: its plan goes with it', 'alice',
+  $q$select qa.then_family_meals($a$select public.delete_family()$a$, 'fa000000-0000-4000-8000-000000000001')$q$, 'rows:0');
+select qa.check('families', 'start a second family while in one', 'bob',
+  $q$select count(*) from (select public.create_family('Bobs')) x$q$, 'error:You''re already in a family');
+select qa.check('families', 'a family name can''t hide control characters', 'mallory',
+  $q$select count(*) from (select public.create_family(E'Ali\u202Ece')) x$q$, 'error');
 
 -- ------------------------------------------------------------- report
 \echo
