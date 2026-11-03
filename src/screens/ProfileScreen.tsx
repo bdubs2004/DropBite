@@ -126,6 +126,29 @@ export function ProfileScreen({ navigation, route }: any) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigation, load]);
 
+  // Message them straight from their profile: opens your chat with them (the
+  // server reuses an existing one). Messages need a follow, so the button only
+  // shows once you follow them; the server checks that and blocks too.
+  const [messaging, setMessaging] = useState(false);
+  const [messageError, setMessageError] = useState<string | null>(null);
+  const openChat = async () => {
+    if (messaging) return;
+    setMessaging(true);
+    setMessageError(null);
+    try {
+      const id = await svc.startConversation(userId);
+      navigation.navigate('Chat', {
+        conversationId: id,
+        title: profile?.display_name ?? 'Chat',
+        isGroup: false,
+      });
+    } catch (e: any) {
+      setMessageError(e?.message ?? 'Could not open the chat');
+    } finally {
+      setMessaging(false);
+    }
+  };
+
   const toggleFollow = async () => {
     if (following) await svc.unfollow(userId);
     else await svc.follow(userId);
@@ -283,11 +306,24 @@ export function ProfileScreen({ navigation, route }: any) {
           <View style={{ marginTop: spacing.lg, gap: spacing.sm }}>
             <View style={{ flexDirection: 'row', gap: spacing.sm, alignItems: 'center' }}>
               <Button
-                title={following ? 'Following ✓' : 'Follow'}
+                testID="profile-follow"
+                title={following ? 'Following' : 'Follow'}
                 variant={following ? 'secondary' : 'primary'}
                 onPress={toggleFollow}
-                style={{ flex: 1 }}
+                small
+                style={{ flex: 1, borderRadius: radius.md }}
               />
+              {following ? (
+                <Button
+                  testID="profile-message"
+                  title="Message"
+                  variant="secondary"
+                  onPress={openChat}
+                  loading={messaging}
+                  small
+                  style={{ flex: 1, borderRadius: radius.md }}
+                />
+              ) : null}
               <Pressable
                 testID="profile-more"
                 onPress={() => setOtherMenuOpen(true)}
@@ -298,6 +334,7 @@ export function ProfileScreen({ navigation, route }: any) {
                 <Ionicons name="ellipsis-horizontal" size={20} color={colors.cocoaSoft} />
               </Pressable>
             </View>
+            {messageError ? <Text style={styles.messageError}>{messageError}</Text> : null}
             {confirmingBlock ? (
               <View style={styles.confirmBlock}>
                 <Text style={styles.confirmBlockText}>
@@ -757,10 +794,11 @@ const useStyles = makeStyles((colors, { shadowSoft }) => ({
   card: {
     paddingTop: spacing.sm,
   },
+  messageError: { fontFamily: fonts.semi, fontSize: 13, color: colors.danger },
   moreBtn: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: 36,
+    height: 36,
+    borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.creamDark,
