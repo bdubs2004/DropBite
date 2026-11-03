@@ -81,7 +81,7 @@ export function AvatarPicker({
         </View>
       </Pressable>
 
-      <Text style={styles.hint}>{busy ? 'Uploading' : 'Tap to change your photo'}</Text>
+      {busy ? <Text style={styles.hint}>Uploading</Text> : null}
 
       {choosing ? (
         <View style={styles.chooser}>

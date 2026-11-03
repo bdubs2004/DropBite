@@ -49,18 +49,21 @@ export function PricePicker({
 }
 
 const useStyles = makeStyles((colors) => ({
-  row: { flexDirection: 'row', gap: spacing.sm },
+  // Chips, like the meal choice above it: "$ Cheap".
+  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   option: {
-    flex: 1,
-    alignItems: 'center',
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
     backgroundColor: colors.card,
-    borderRadius: radius.lg,
-    borderWidth: 1.5,
+    borderRadius: radius.pill,
+    borderWidth: 1,
     borderColor: colors.creamDark,
-    paddingVertical: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
   },
   optionOn: { backgroundColor: colors.amber, borderColor: colors.amber },
-  symbol: { fontFamily: fonts.display, fontSize: 18, color: colors.amberDark },
-  name: { fontFamily: fonts.semi, fontSize: 12.5, color: colors.cocoaFaint, marginTop: 1 },
-  textOn: { color: colors.white },
+  symbol: { fontFamily: fonts.bold, fontSize: 14.5, color: colors.amberDark },
+  name: { fontFamily: fonts.semi, fontSize: 14, color: colors.cocoaSoft },
+  textOn: { color: colors.onAmber },
 }));

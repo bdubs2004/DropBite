@@ -295,7 +295,7 @@ export function ComposeScreen({ navigation }: any) {
                 style={styles.photoBtn}
                 onPress={() => pickPhoto(true)}
               >
-                <Ionicons name="camera" size={28} color={colors.amber} />
+                <Ionicons name="camera-outline" size={21} color={colors.cocoa} />
                 <Text style={styles.photoBtnText}>Camera</Text>
               </Pressable>
               <Pressable
@@ -303,7 +303,7 @@ export function ComposeScreen({ navigation }: any) {
                 style={styles.photoBtn}
                 onPress={() => pickPhoto(false)}
               >
-                <Ionicons name="image" size={28} color={colors.amber} />
+                <Ionicons name="images-outline" size={21} color={colors.cocoa} />
                 <Text style={styles.photoBtnText}>Library</Text>
               </Pressable>
             </View>
@@ -608,7 +608,7 @@ export function ComposeScreen({ navigation }: any) {
         ) : null}
         {!hasPhoto ? (
           <Muted style={{ textAlign: 'center', marginTop: spacing.sm }}>
-            Add a photo to post. NiblGo is photo-first.
+            Add a photo to post
           </Muted>
         ) : null}
       </ScrollView>
@@ -679,19 +679,18 @@ const useStyles = makeStyles((colors) => ({
   },
   photoBtn: {
     flex: 1,
+    flexDirection: 'row',
     backgroundColor: colors.card,
-    borderRadius: radius.lg,
-    borderWidth: 1.5,
-    borderColor: colors.creamDark,
-    borderStyle: 'dashed',
+    borderRadius: radius.md,
     alignItems: 'center',
-    paddingVertical: spacing.xl,
-    gap: 6,
+    justifyContent: 'center',
+    paddingVertical: 14,
+    gap: 8,
   },
   photoBtnText: {
     fontFamily: fonts.bold,
-    color: colors.cocoaSoft,
-    fontSize: 14,
+    color: colors.cocoa,
+    fontSize: 15,
   },
   photoErrorText: {
     fontFamily: fonts.semi,
