@@ -15,6 +15,7 @@ import { conversationDisplayName } from '../lib/conversationName';
 import { ShareHow, ShareTargets } from '../components/ShareTargets';
 import { postShareTitle, postShareUrl } from '../lib/shareText';
 import { getDataService } from '../services';
+import { MEAL_PLANS_ENABLED } from '../config';
 import { useApp } from '../state/AppContext';
 import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
 import { Conversation, Post, User } from '../types';
@@ -248,6 +249,18 @@ export function ShareSheetScreen({ navigation, route }: any) {
                 copyValue={postShareUrl(postId, me?.handle)}
                 onShared={sharedOutside}
                 testIDPrefix="share-external"
+                extra={
+                  MEAL_PLANS_ENABLED
+                    ? [
+                        {
+                          key: 'meal-plan',
+                          label: 'Meal plan',
+                          icon: 'calendar',
+                          onPress: () => navigation.navigate('AddToPlan', { postId }),
+                        },
+                      ]
+                    : []
+                }
               />
             ) : null}
             {canGroup ? (

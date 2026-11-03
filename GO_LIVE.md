@@ -187,6 +187,7 @@ rebuild it after adding a migration. For reference, what each one adds:
 | `0040_price_level.sql` | What a dish cost to make ($ / $$ / $$$) on posts, for the Price filter in Search. Replaces the four price hashtags (posts that had them get the matching price) |
 | `0041_analytics.sql` | Usage analytics for the KPIs in Power BI: app opens, posts seen, recipes opened, invites and referrals, in a private `analytics` schema the API doesn't expose, plus reporting views and a read-only `analytics_reader` role. Redeploy `format-recipe` after it. Setup in [docs/ANALYTICS.md](docs/ANALYTICS.md) |
 | `0042_post_preview.sql` | A fuller card behind a shared post link (the poster's photo, when, price, hashtags, the recipe's title and time), still readable signed out and still only that one post. Deploy the new website `_worker.js` with it ([docs/website-share-update-prompt.md](docs/website-share-update-prompt.md)) |
+| `0043_meal_plans.sql` | Meal plans and families: a week of meals from saved posts, collections or a typed name, on your own plan or a family's shared one. The family admin's picks go straight on, everyone else's wait for the admin, members vote and the admin has the last word. Hidden in the app until `EXPO_PUBLIC_MEAL_PLANS=1` (see `src/config.ts`), so it can run any time before that |
 
 They are all safe to run twice, and so is `schema.sql` itself. What re-running
 `schema.sql` will **not** do is add a column to a table that already exists —

@@ -376,3 +376,46 @@ export interface NewPostInput {
   /** $ / $$ / $$$ (src/lib/price.ts), or null. */
   price_level?: 1 | 2 | 3 | null;
 }
+
+/** A family sharing one meal plan. Its admin is whoever made it. */
+export interface Family {
+  id: string;
+  name: string;
+  admin_id: string;
+  created_at: string;
+}
+
+export interface FamilyMember {
+  user: User;
+  status: 'invited' | 'active';
+  is_admin: boolean;
+}
+
+/** Your family (if any), who's in it, and invites waiting for you. */
+export interface FamilyState {
+  family: Family | null;
+  am_admin: boolean;
+  members: FamilyMember[];
+  invites: { family: Family; invited_by: User | null }[];
+}
+
+/** A meal on a plan: a post (usually with a recipe) or just a name. */
+export interface MealPlanItem {
+  id: string;
+  /** YYYY-MM-DD, the plan's own day (not a moment in time). */
+  plan_date: string;
+  meal_slot: MealSlot;
+  post: Post | null;
+  post_id: string | null;
+  title: string | null;
+  added_by: User | null;
+  /** 'pending' waits for the family admin. Personal plans are always 'in'. */
+  status: 'in' | 'pending';
+  /** Family plans: how members voted, and your own vote (null = none). */
+  yes: number;
+  no: number;
+  my_vote: boolean | null;
+  in_family: boolean;
+}
+
+export type FamilyInviteResult = 'ok' | 'not_found' | 'self' | 'already' | 'full';

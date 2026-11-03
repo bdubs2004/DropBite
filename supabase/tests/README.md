@@ -44,7 +44,7 @@ Linux only (it downloads Linux builds of PostgREST and Supabase Auth, cached in
 
 ## rls_attack_test.sql: start here
 
-The main suite: 290 checks, self-asserting (it ends with an error if any fail).
+The main suite: 325 checks, self-asserting (it ends with an error if any fail).
 Six separate accounts sign in the way the API does it, with their own tokens,
 and an attacker with a normal account (Mallory, who follows the victim and has
 her own posts and a DM with her) tries to read, change or delete other people's
@@ -144,6 +144,14 @@ event names, can't log a server-only event, own and blocked posts don't count
 as views, a referral is claimed once, not for yourself and not weeks later,
 and the Power BI reader role sees the reporting views but no profile, email or
 message, and no view has such a column.
+
+Section 25 covers meal plans and families (migration 0043): the app can't
+write any of the four tables directly, nobody sees another family's plan or
+a stranger's personal one, only the admin invites, removes, approves, drops or
+deletes, a member's pick waits while the admin's goes straight on, a member
+can take back only their own waiting pick, the admin can't vote and members
+can't decide, you can't join a second family or invite across a block, and
+deleting a family takes its plan and votes with it.
 
 ## analytics_test.sql
 

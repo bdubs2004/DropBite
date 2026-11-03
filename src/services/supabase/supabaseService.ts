@@ -12,6 +12,11 @@ import {
   NewPostInput,
   NotificationPrefs,
   Post,
+  Family,
+  FamilyInviteResult,
+  FamilyState,
+  MealPlanItem,
+  MealSlot,
   ReportReason,
   Streak,
   User,
@@ -2136,6 +2141,166 @@ export class SupabaseService implements DataService {
           };
         }),
     );
+  }
+
+  // ------------------------------------------------------- meal plans
+
+  /** Users by id, for the plan's "added by" and the family list. */
+  private async usersById(ids: string[]): Promise<Map<string, User>> {
+    const unique = [...new Set(ids.filter(Boolean))];
+    if (!unique.length) return new Map();
+    const { data } = await this.sb.from('users').select('*').in('id', unique);
+    return new Map((data ?? []).map((u: any) => [u.id, u as User]));
+  }
+
+  private async rpcOrThrow(fn: string, args: Record<string, unknown>, fallback: string): Promise<any> {
+    const { data, error } = await this.sb.rpc(fn, args);
+    // The functions' RAISE messages are already user-facing sentences.
+    if (error) throw new Error(error.message || fallback);
+    return data;
+  }
+
+  async getMealPlan(from: string, to: string): Promise<MealPlanItem[]> {
+    const meId = await this.myId();
+    // RLS already limits rows to my own plan or my family's. Asking for the
+    // one I'm on keeps a personal plan from showing beside the family's.
+    const familyId = (await this.rpcOrThrow('my_family_id', {}, 'Could not load your plan.')) as string | null;
+    let q = this.sb
+      .from('meal_plan_items')
+      // One FK to posts, so this embed is unambiguous. Three FKs to users
+      // (owner, added_by, decided_by), so people are fetched separately.
+      .select('id, plan_date, meal_slot, post_id, title, added_by, status, created_at, posts(' + this.POST_SELECT + ')')
+      .gte('plan_date', from)
+      .lte('plan_date', to)
+      .order('created_at', { ascending: true });
+    q = familyId ? q.eq('family_id', familyId) : q.eq('user_id', meId);
+    const { data, error } = await q;
+    if (error) throw new Error(error.message || 'Could not load your plan.');
+    const rows = data ?? [];
+    const ids = rows.map((r: any) => r.id);
+    const [votesRes, people] = await Promise.all([
+      familyId && ids.length
+        ? this.sb.from('meal_plan_votes').select('item_id, user_id, approve').in('item_id', ids)
+        : Promise.resolve({ data: [] as any[] }),
+      this.usersById(rows.map((r: any) => r.added_by)),
+    ]);
+    const votes = (votesRes as any).data ?? [];
+    return rows.map((r: any) => {
+      const mine = votes.find((v: any) => v.item_id === r.id && v.user_id === meId);
+      return {
+        id: r.id,
+        plan_date: r.plan_date,
+        meal_slot: r.meal_slot as MealSlot,
+        post_id: r.post_id,
+        // A post that's gone (or hidden from me) leaves the slot with no post.
+        post: r.posts ? this.hydrateRow(r.posts, meId) : null,
+        title: r.title,
+        added_by: r.added_by ? people.get(r.added_by) ?? null : null,
+        status: r.status === 'pending' ? 'pending' : 'in',
+        yes: votes.filter((v: any) => v.item_id === r.id && v.approve).length,
+        no: votes.filter((v: any) => v.item_id === r.id && !v.approve).length,
+        my_vote: mine ? Boolean(mine.approve) : null,
+        in_family: Boolean(familyId),
+      };
+    });
+  }
+
+  async addPlanItem(input: { date: string; slot: MealSlot; postId?: string; title?: string }): Promise<void> {
+    await this.rpcOrThrow(
+      'add_plan_item',
+      {
+        on_date: input.date,
+        slot: input.slot,
+        plan_post: input.postId ?? null,
+        meal_title: input.title?.trim() || null,
+      },
+      'Could not add that meal.',
+    );
+  }
+
+  async removePlanItem(itemId: string): Promise<void> {
+    await this.rpcOrThrow('remove_plan_item', { item: itemId }, 'Could not remove that meal.');
+  }
+
+  async decidePlanItem(itemId: string, keep: boolean): Promise<void> {
+    await this.rpcOrThrow('decide_plan_item', { item: itemId, keep }, 'Could not save that.');
+  }
+
+  async votePlanItem(itemId: string, approve: boolean | null): Promise<void> {
+    await this.rpcOrThrow('vote_plan_item', { item: itemId, approve }, 'Could not save your vote.');
+  }
+
+  async getFamily(): Promise<FamilyState> {
+    const meId = await this.myId();
+    // RLS: my family's members, plus my own rows (which is where invites are).
+    const { data: rows, error } = await this.sb
+      .from('family_members')
+      .select('family_id, user_id, status, invited_by, created_at')
+      .order('created_at', { ascending: true });
+    if (error) throw new Error(error.message || 'Could not load your family.');
+    const all = rows ?? [];
+    const familyId = all.find((r: any) => r.user_id === meId && r.status === 'active')?.family_id ?? null;
+    const inviteRows = all.filter((r: any) => r.user_id === meId && r.status === 'invited');
+    const familyIds = [...new Set([familyId, ...inviteRows.map((r: any) => r.family_id)].filter(Boolean))];
+    const { data: fams } = familyIds.length
+      ? await this.sb.from('families').select('id, name, admin_id, created_at').in('id', familyIds)
+      : { data: [] as any[] };
+    const famById = new Map<string, Family>((fams ?? []).map((f: any) => [f.id, f as Family]));
+    const memberRows = familyId ? all.filter((r: any) => r.family_id === familyId) : [];
+    const people = await this.usersById([
+      ...memberRows.map((r: any) => r.user_id),
+      ...inviteRows.map((r: any) => r.invited_by),
+    ]);
+    const family = familyId ? famById.get(familyId) ?? null : null;
+    // Admin first, then everyone in, then people still invited.
+    const rank = (r: any) => (family && r.user_id === family.admin_id ? 0 : r.status === 'active' ? 1 : 2);
+    return {
+      family,
+      am_admin: Boolean(family && family.admin_id === meId),
+      members: memberRows
+        .filter((r: any) => people.has(r.user_id))
+        .sort((a: any, b: any) => rank(a) - rank(b))
+        .map((r: any) => ({
+          user: people.get(r.user_id)!,
+          status: r.status === 'invited' ? 'invited' : 'active',
+          is_admin: Boolean(family && family.admin_id === r.user_id),
+        })),
+      invites: inviteRows
+        .filter((r: any) => famById.has(r.family_id))
+        .map((r: any) => ({
+          family: famById.get(r.family_id)!,
+          invited_by: r.invited_by ? people.get(r.invited_by) ?? null : null,
+        })),
+    };
+  }
+
+  async createFamily(name: string): Promise<void> {
+    await this.rpcOrThrow('create_family', { family_name: name.trim() }, 'Could not make the family.');
+  }
+
+  async inviteToFamily(handle: string): Promise<FamilyInviteResult> {
+    const result = await this.rpcOrThrow(
+      'invite_to_family',
+      { invitee_handle: cleanHandle(handle) },
+      'Could not send that invite.',
+    );
+    return (['ok', 'not_found', 'self', 'already', 'full'].includes(result) ? result : 'not_found') as FamilyInviteResult;
+  }
+
+  async respondFamilyInvite(familyId: string, accept: boolean): Promise<void> {
+    await this.rpcOrThrow('respond_family_invite', { target_family: familyId, accept }, 'Could not answer that invite.');
+  }
+
+  async leaveFamily(): Promise<void> {
+    await this.rpcOrThrow('leave_family', {}, 'Could not leave the family.');
+  }
+
+  async removeFamilyMember(userId: string): Promise<void> {
+    await this.rpcOrThrow('remove_family_member', { member: userId }, 'Could not remove them.');
+  }
+
+  async deleteFamily(): Promise<void> {
+    await this.rpcOrThrow('delete_family', {}, 'Could not delete the family.');
   }
 
   async getNotificationPrefs(): Promise<NotificationPrefs> {

@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { StackActions, useNavigation } from '@react-navigation/native';
-import { LOCATION_TAGGING_ENABLED } from '../config';
+import { LOCATION_TAGGING_ENABLED, MEAL_PLANS_ENABLED } from '../config';
 import { analytics } from '../lib/analytics';
 import { priceSymbol } from '../lib/price';
 import { relativeTime } from '../lib/time';
@@ -163,6 +163,16 @@ function PostCardView({
             hint: 'Send inside NiblGo or copy a link',
             icon: 'paper-plane-outline' as const,
             onPress: () => onShare(post),
+          },
+        ]
+      : []),
+    ...(MEAL_PLANS_ENABLED
+      ? [
+          {
+            key: 'meal-plan',
+            label: 'Add to meal plan',
+            icon: 'calendar-outline' as const,
+            onPress: () => navigation.navigate('AddToPlan', { postId: post.id }),
           },
         ]
       : []),

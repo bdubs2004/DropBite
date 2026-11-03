@@ -18,6 +18,7 @@ import { Button, Muted } from '../components/ui';
 import { COLLECTION_NAME_MAX, collectionNameProblem } from '../lib/collectionName';
 import { openPostFeed } from '../lib/postFeed';
 import { getDataService } from '../services';
+import { MEAL_PLANS_ENABLED } from '../config';
 import { useApp } from '../state/AppContext';
 import { fonts, radius, spacing, makeStyles, useColors, photoGrid } from '../theme';
 import { Collection, Post, Streak, User } from '../types';
@@ -661,6 +662,22 @@ export function ProfileScreen({ navigation, route }: any) {
                 icon: 'paper-plane-outline',
                 onPress: () => navigation.navigate('Inbox'),
               },
+              ...(MEAL_PLANS_ENABLED
+                ? [
+                    {
+                      key: 'meal-plan',
+                      label: 'Meal plan',
+                      icon: 'calendar-outline',
+                      onPress: () => navigation.navigate('MealPlan'),
+                    },
+                    {
+                      key: 'family',
+                      label: 'Family',
+                      icon: 'home-outline',
+                      onPress: () => navigation.navigate('Family'),
+                    },
+                  ]
+                : []),
               {
                 key: 'invite',
                 label: 'Invite friends',

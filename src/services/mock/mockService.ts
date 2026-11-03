@@ -24,6 +24,11 @@ import {
   LeaderboardEntry,
   LeaderboardScope,
   Post,
+  Family,
+  FamilyInviteResult,
+  FamilyState,
+  MealPlanItem,
+  MealSlot,
   Recipe,
   Report,
   ReportReason,
@@ -31,6 +36,7 @@ import {
   User,
 } from '../../types';
 import { DataService, PostPreview } from '../types';
+import { addDays, dayKey, weekStart } from '../../lib/mealPlan';
 import {
   SEED_COLLECTION_POSTS,
   SEED_COLLECTIONS,
@@ -98,6 +104,22 @@ interface Db {
   messageReactions?: { message_id: string; user_id: string; emoji: string }[];
   /** Optional: demo databases saved before tagging existed lack it. */
   postTags?: { post_id: string; user_id: string }[];
+  /** Optional: meal plans and families (demo databases before them lack these). */
+  families?: Family[];
+  familyMembers?: { family_id: string; user_id: string; status: 'invited' | 'active'; invited_by: string | null; created_at: string }[];
+  planItems?: {
+    id: string;
+    user_id: string | null;
+    family_id: string | null;
+    plan_date: string;
+    meal_slot: MealSlot;
+    post_id: string | null;
+    title: string | null;
+    added_by: string | null;
+    status: 'in' | 'pending';
+    created_at: string;
+  }[];
+  planVotes?: { item_id: string; user_id: string; approve: boolean }[];
   blocks: { blocker_id: string; blocked_id: string }[];
   reports: Report[];
   feedback: Feedback[];
@@ -330,6 +352,17 @@ export class MockService implements DataService {
     );
     db.messageReactions = (db.messageReactions ?? []).filter((r) => r.user_id !== meId);
     db.postTags = (db.postTags ?? []).filter((t) => t.user_id !== meId && !myPosts.has(t.post_id));
+    {
+      const t = this.planTables(db);
+      const mine = new Set(t.families.filter((f) => f.admin_id === meId).map((f) => f.id));
+      db.families = t.families.filter((f) => !mine.has(f.id));
+      db.familyMembers = t.members.filter((m) => m.user_id !== meId && !mine.has(m.family_id));
+      db.planItems = t.items
+        .filter((i) => i.user_id !== meId && !(i.family_id && mine.has(i.family_id)) && !(i.post_id && myPosts.has(i.post_id)))
+        .map((i) => (i.added_by === meId ? { ...i, added_by: null } : i));
+      const left = new Set(db.planItems.map((i) => i.id));
+      db.planVotes = t.votes.filter((v) => v.user_id !== meId && left.has(v.item_id));
+    }
     db.streaks = db.streaks.filter((s) => s.user_id !== meId);
     db.credentials = db.credentials.filter((c) => c.userId !== meId);
     db.sessionUserId = null;
@@ -1853,6 +1886,275 @@ export class MockService implements DataService {
         };
       }),
     );
+  }
+
+  // ------------------------------------------------------- meal plans
+
+  /**
+   * Plan tables, seeded the first time: Carol has invited you to her family's
+   * plan, so the demo shows both sides (accept it to be a member, or make your
+   * own family to be an admin). Mirrors migration 0043's rules.
+   */
+  private planTables(db: Db) {
+    if (!db.families) {
+      const at = new Date().toISOString();
+      const mon = weekStart(dayKey(new Date()));
+      db.families = [{ id: 'fam-carol', name: 'Carol\'s crew', admin_id: 'u-carol', created_at: at }];
+      db.familyMembers = [
+        { family_id: 'fam-carol', user_id: 'u-carol', status: 'active', invited_by: null, created_at: at },
+        { family_id: 'fam-carol', user_id: 'u-mike', status: 'active', invited_by: 'u-carol', created_at: at },
+        ...(db.sessionUserId
+          ? [{ family_id: 'fam-carol', user_id: db.sessionUserId, status: 'invited' as const, invited_by: 'u-carol', created_at: at }]
+          : []),
+      ];
+      const item = (id: string, day: number, slot: MealSlot, post: string | null, title: string | null, by: string, status: 'in' | 'pending') => ({
+        id, user_id: null, family_id: 'fam-carol', plan_date: addDays(mon, day), meal_slot: slot,
+        post_id: post, title, added_by: by, status, created_at: at,
+      });
+      db.planItems = [
+        item('plan-1', 0, 'dinner', 'p2', null, 'u-carol', 'in'),
+        item('plan-2', 2, 'dinner', null, 'Pot roast', 'u-carol', 'in'),
+        item('plan-3', 3, 'dinner', null, 'Chicken nuggets and mac and cheese', 'u-mike', 'pending'),
+        item('plan-4', 5, 'breakfast', 'p1', null, 'u-mike', 'in'),
+      ];
+      db.planVotes = [{ item_id: 'plan-2', user_id: 'u-mike', approve: false }];
+    }
+    db.familyMembers ??= [];
+    db.planItems ??= [];
+    db.planVotes ??= [];
+    return { families: db.families, members: db.familyMembers!, items: db.planItems!, votes: db.planVotes! };
+  }
+
+  private myFamily(db: Db, meId: string): Family | null {
+    const t = this.planTables(db);
+    const row = t.members.find((m) => m.user_id === meId && m.status === 'active');
+    return row ? t.families.find((f) => f.id === row.family_id) ?? null : null;
+  }
+
+  private adminFamily(db: Db, meId: string, action: string): Family {
+    const fam = this.myFamily(db, meId);
+    if (!fam || fam.admin_id !== meId) throw new Error(`Only the family admin can ${action}.`);
+    return fam;
+  }
+
+  async getMealPlan(from: string, to: string): Promise<MealPlanItem[]> {
+    const db = await this.load();
+    const me = await this.me();
+    const t = this.planTables(db);
+    const fam = this.myFamily(db, me.id);
+    const blocked = this.blockedIds(db, me.id);
+    return t.items
+      .filter((i) => (fam ? i.family_id === fam.id : i.user_id === me.id))
+      .filter((i) => i.plan_date >= from && i.plan_date <= to)
+      .sort((a, b) => a.created_at.localeCompare(b.created_at))
+      .map((i) => {
+        const post = i.post_id ? db.posts.find((p) => p.id === i.post_id && !blocked.has(p.user_id)) : undefined;
+        const votes = t.votes.filter((v) => v.item_id === i.id);
+        const mine = votes.find((v) => v.user_id === me.id);
+        return {
+          id: i.id,
+          plan_date: i.plan_date,
+          meal_slot: i.meal_slot,
+          post_id: i.post_id,
+          post: post ? this.hydrate(db, post, me.id) : null,
+          title: i.title,
+          added_by: db.users.find((u) => u.id === i.added_by) ?? null,
+          status: i.status,
+          yes: votes.filter((v) => v.approve).length,
+          no: votes.filter((v) => !v.approve).length,
+          my_vote: mine ? mine.approve : null,
+          in_family: Boolean(fam),
+        };
+      });
+  }
+
+  async addPlanItem(input: { date: string; slot: MealSlot; postId?: string; title?: string }): Promise<void> {
+    const db = await this.load();
+    const me = await this.me();
+    const t = this.planTables(db);
+    const title = input.title?.trim().slice(0, 80) || null;
+    if (!['breakfast', 'lunch', 'dinner', 'snack'].includes(input.slot)) {
+      throw new Error('Pick breakfast, lunch, dinner or a snack.');
+    }
+    const today = dayKey(new Date());
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date) || input.date < addDays(today, -31) || input.date > addDays(today, 366)) {
+      throw new Error('Pick a day within the next year.');
+    }
+    if (!input.postId && !title) throw new Error('Pick a meal to add.');
+    if (input.postId) {
+      const post = db.posts.find((p) => p.id === input.postId);
+      if (!post || this.blockedPair(db, me.id, post.user_id)) throw new Error('That post isn\'t available.');
+    }
+    const fam = this.myFamily(db, me.id);
+    const same = t.items.filter(
+      (i) => (fam ? i.family_id === fam.id : i.user_id === me.id) && i.plan_date === input.date && i.meal_slot === input.slot,
+    );
+    if (same.length >= 8) throw new Error('That meal is full. Remove something first.');
+    t.items.push({
+      id: uid('plan-'),
+      user_id: fam ? null : me.id,
+      family_id: fam ? fam.id : null,
+      plan_date: input.date,
+      meal_slot: input.slot,
+      post_id: input.postId ?? null,
+      title,
+      added_by: me.id,
+      status: !fam || fam.admin_id === me.id ? 'in' : 'pending',
+      created_at: new Date().toISOString(),
+    });
+    await this.save();
+  }
+
+  async removePlanItem(itemId: string): Promise<void> {
+    const db = await this.load();
+    const me = await this.me();
+    const t = this.planTables(db);
+    const it = t.items.find((i) => i.id === itemId);
+    const fam = this.myFamily(db, me.id);
+    const ok =
+      it &&
+      ((it.user_id === me.id) ||
+        (fam && it.family_id === fam.id &&
+          (fam.admin_id === me.id || (it.added_by === me.id && it.status === 'pending'))));
+    if (!ok) throw new Error('You can\'t remove that meal.');
+    db.planItems = t.items.filter((i) => i.id !== itemId);
+    db.planVotes = t.votes.filter((v) => v.item_id !== itemId);
+    await this.save();
+  }
+
+  async decidePlanItem(itemId: string, keep: boolean): Promise<void> {
+    const db = await this.load();
+    const me = await this.me();
+    const t = this.planTables(db);
+    const fam = this.myFamily(db, me.id);
+    const it = t.items.find((i) => i.id === itemId && fam && i.family_id === fam.id);
+    if (!it || !fam || fam.admin_id !== me.id) throw new Error('Only the family admin can decide.');
+    if (keep) it.status = 'in';
+    else db.planItems = t.items.filter((i) => i.id !== itemId);
+    db.planVotes = t.votes.filter((v) => v.item_id !== itemId);
+    await this.save();
+  }
+
+  async votePlanItem(itemId: string, approve: boolean | null): Promise<void> {
+    const db = await this.load();
+    const me = await this.me();
+    const t = this.planTables(db);
+    const fam = this.myFamily(db, me.id);
+    if (!fam || !t.items.some((i) => i.id === itemId && i.family_id === fam.id)) {
+      throw new Error('That meal isn\'t on your family\'s plan.');
+    }
+    if (fam.admin_id === me.id) throw new Error('You\'re the admin: keep it or drop it instead.');
+    db.planVotes = t.votes.filter((v) => !(v.item_id === itemId && v.user_id === me.id));
+    if (approve !== null) db.planVotes.push({ item_id: itemId, user_id: me.id, approve });
+    await this.save();
+  }
+
+  async getFamily(): Promise<FamilyState> {
+    const db = await this.load();
+    const me = await this.me();
+    const t = this.planTables(db);
+    const fam = this.myFamily(db, me.id);
+    const user = (id: string | null) => db.users.find((u) => u.id === id) ?? null;
+    // Admin first, then everyone in, then people still invited.
+    const rank = (m: { user_id: string; status: string }) =>
+      fam && m.user_id === fam.admin_id ? 0 : m.status === 'active' ? 1 : 2;
+    return {
+      family: fam,
+      am_admin: Boolean(fam && fam.admin_id === me.id),
+      members: fam
+        ? t.members
+            .filter((m) => m.family_id === fam.id && user(m.user_id))
+            .sort((a, b) => rank(a) - rank(b))
+            .map((m) => ({ user: user(m.user_id)!, status: m.status, is_admin: fam.admin_id === m.user_id }))
+        : [],
+      invites: t.members
+        .filter((m) => m.user_id === me.id && m.status === 'invited')
+        .map((m) => ({ family: t.families.find((f) => f.id === m.family_id)!, invited_by: user(m.invited_by) }))
+        .filter((i) => i.family),
+    };
+  }
+
+  async createFamily(name: string): Promise<void> {
+    const db = await this.load();
+    const me = await this.me();
+    const t = this.planTables(db);
+    const clean = name.trim().slice(0, 40);
+    if (!clean) throw new Error('Give your family a name.');
+    if (this.myFamily(db, me.id)) throw new Error('You\'re already in a family. Leave it first.');
+    if (t.families.filter((f) => f.admin_id === me.id).length >= 3) throw new Error('Too many families. Delete one first.');
+    const at = new Date().toISOString();
+    const id = uid('fam-');
+    t.families.push({ id, name: clean, admin_id: me.id, created_at: at });
+    t.members.push({ family_id: id, user_id: me.id, status: 'active', invited_by: null, created_at: at });
+    await this.save();
+  }
+
+  async inviteToFamily(handle: string): Promise<FamilyInviteResult> {
+    const db = await this.load();
+    const me = await this.me();
+    const t = this.planTables(db);
+    const fam = this.adminFamily(db, me.id, 'invite people');
+    const h = handle.trim().replace(/^@+/, '').toLowerCase();
+    const who = db.users.find((u) => u.handle.toLowerCase() === h);
+    if (!who || this.blockedPair(db, me.id, who.id)) return 'not_found';
+    if (who.id === me.id) return 'self';
+    if (t.members.some((m) => m.family_id === fam.id && m.user_id === who.id)) return 'already';
+    if (t.members.filter((m) => m.family_id === fam.id).length >= 12) return 'full';
+    t.members.push({ family_id: fam.id, user_id: who.id, status: 'invited', invited_by: me.id, created_at: new Date().toISOString() });
+    await this.save();
+    return 'ok';
+  }
+
+  async respondFamilyInvite(familyId: string, accept: boolean): Promise<void> {
+    const db = await this.load();
+    const me = await this.me();
+    const t = this.planTables(db);
+    const row = t.members.find((m) => m.family_id === familyId && m.user_id === me.id && m.status === 'invited');
+    if (!row) throw new Error('That invite isn\'t there anymore.');
+    if (!accept) {
+      db.familyMembers = t.members.filter((m) => m !== row);
+    } else {
+      if (this.myFamily(db, me.id)) throw new Error('Leave your family before joining another.');
+      row.status = 'active';
+    }
+    await this.save();
+  }
+
+  async leaveFamily(): Promise<void> {
+    const db = await this.load();
+    const me = await this.me();
+    const t = this.planTables(db);
+    const fam = this.myFamily(db, me.id);
+    if (!fam) return;
+    if (fam.admin_id === me.id) throw new Error('You\'re the admin. Delete the family instead.');
+    db.familyMembers = t.members.filter((m) => !(m.family_id === fam.id && m.user_id === me.id));
+    db.planVotes = t.votes.filter((v) => v.user_id !== me.id);
+    await this.save();
+  }
+
+  async removeFamilyMember(userId: string): Promise<void> {
+    const db = await this.load();
+    const me = await this.me();
+    const t = this.planTables(db);
+    const fam = this.adminFamily(db, me.id, 'remove people');
+    if (userId === me.id) throw new Error('You\'re the admin. Delete the family instead.');
+    db.familyMembers = t.members.filter((m) => !(m.family_id === fam.id && m.user_id === userId));
+    const famItems = new Set(t.items.filter((i) => i.family_id === fam.id).map((i) => i.id));
+    db.planVotes = t.votes.filter((v) => !(v.user_id === userId && famItems.has(v.item_id)));
+    await this.save();
+  }
+
+  async deleteFamily(): Promise<void> {
+    const db = await this.load();
+    const me = await this.me();
+    const t = this.planTables(db);
+    const fam = this.adminFamily(db, me.id, 'delete the family');
+    const gone = new Set(t.items.filter((i) => i.family_id === fam.id).map((i) => i.id));
+    db.families = t.families.filter((f) => f.id !== fam.id);
+    db.familyMembers = t.members.filter((m) => m.family_id !== fam.id);
+    db.planItems = t.items.filter((i) => !gone.has(i.id));
+    db.planVotes = t.votes.filter((v) => !gone.has(v.item_id));
+    await this.save();
   }
 
   async getNotificationPrefs(): Promise<NotificationPrefs> {

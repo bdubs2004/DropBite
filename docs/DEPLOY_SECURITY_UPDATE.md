@@ -31,7 +31,7 @@ expects the functions. Database first, then functions, then the app.
 ## 1. Database (SQL Editor)
 
 Paste **`supabase/upgrade_all.sql`** into the SQL Editor and run it, once. That
-one file is every migration from 0002 to 0042 in order. It brings a database of
+one file is every migration from 0002 to 0043 in order. It brings a database of
 any age up to date, including steps from long before the security work that
 may never have been run (like `0011_feedback.sql`): the ones you already have
 do nothing, the ones you missed are applied. It runs as one transaction, so if
@@ -69,6 +69,7 @@ and so on), and then the security work:
 | `0040_price_level.sql` | $ / $$ / $$$ on posts (a feature): what a dish cost to make, filtered on in Search |
 | `0041_analytics.sql` | Usage analytics for the KPIs in Power BI (a feature): a private `analytics` schema the app can only add to through checked functions, reporting views, and a read-only role for Power BI. See docs/ANALYTICS.md |
 | `0042_post_preview.sql` | A fuller card behind a shared post link (a feature): still one post by its exact id, signed out, no email |
+| `0043_meal_plans.sql` | Meal plans and families (a feature, hidden in the app until `MEAL_PLANS_ENABLED` is on): the app can only read them, every change goes through a checked function, and only the family's admin can invite, remove, approve or overrule |
 
 It may print a **warning** or a notice rather than an error; these are fine:
 - 0033: "Session check NOT switched on". This means Supabase didn't let it

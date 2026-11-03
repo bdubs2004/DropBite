@@ -89,6 +89,16 @@ export const PASSWORD_RESET_URL = `${APP_LINK_BASE}/auth/reset`;
 export const LOCATION_TAGGING_ENABLED: boolean = false;
 
 /**
+ * Meal plans and families (migration 0043). Built and tested, but hidden until
+ * the owner turns it on. With it off nothing in the app mentions it: the
+ * menu rows, the post menu's "Add to meal plan" and the share sheet's button
+ * are all gone. Turn it on for a build with EXPO_PUBLIC_MEAL_PLANS=1 (eas.json
+ * env, or the shell for the web demo), or flip the default here. The database
+ * needs migration 0043 first (supabase/upgrade_all.sql has it).
+ */
+export const MEAL_PLANS_ENABLED: boolean = process.env.EXPO_PUBLIC_MEAL_PLANS === '1';
+
+/**
  * AI recipe formatting model + prompt live here so cost/quality tuning is
  * one edit (CLAUDE.md: "Keep prompts and model choice in one config module").
  * The real call happens server-side in the Supabase Edge Function

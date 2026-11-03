@@ -52,13 +52,17 @@ import { ActivityScreen } from './src/screens/ActivityScreen';
 import { SearchScreen } from './src/screens/SearchScreen';
 import { HashtagScreen } from './src/screens/HashtagScreen';
 import { InviteScreen } from './src/screens/InviteScreen';
+import { AddToPlanScreen } from './src/screens/AddToPlanScreen';
+import { FamilyScreen } from './src/screens/FamilyScreen';
+import { MealPlanScreen } from './src/screens/MealPlanScreen';
+import { PlanPickerScreen } from './src/screens/PlanPickerScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { TagPeopleScreen } from './src/screens/TagPeopleScreen';
 import { TaggedPostsScreen } from './src/screens/TaggedPostsScreen';
 import { UserListScreen } from './src/screens/UserListScreen';
 import { AppProvider, useApp } from './src/state/AppContext';
 import { ThemeProvider } from './src/state/ThemeProvider';
-import { APP_LINK_BASE } from './src/config';
+import { APP_LINK_BASE, MEAL_PLANS_ENABLED } from './src/config';
 import { linkSessionAllowed, parseAuthParams, sessionTokens } from './src/lib/authLink';
 import { clearPendingAuth, readPendingAuth } from './src/lib/pendingAuth';
 import { clearPost, readPost, rememberPost } from './src/lib/pendingPost';
@@ -477,6 +481,18 @@ function Root() {
         component={TagPeopleScreen}
         options={{ presentation: 'transparentModal', animation: 'fade' }}
       />
+      {MEAL_PLANS_ENABLED ? (
+        <>
+          <Stack.Screen name="MealPlan" component={MealPlanScreen} />
+          <Stack.Screen name="Family" component={FamilyScreen} />
+          <Stack.Screen name="PlanPicker" component={PlanPickerScreen} options={SLIDE_UP} />
+          <Stack.Screen
+            name="AddToPlan"
+            component={AddToPlanScreen}
+            options={{ presentation: 'transparentModal', animation: 'fade' }}
+          />
+        </>
+      ) : null}
       <Stack.Screen name="Blocked" component={BlockedScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
     </Stack.Navigator>

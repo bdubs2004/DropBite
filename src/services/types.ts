@@ -4,6 +4,10 @@ import {
   Comment,
   SignUpResult,
   FeedbackKind,
+  FamilyInviteResult,
+  FamilyState,
+  MealPlanItem,
+  MealSlot,
   Conversation,
   DiscoverPerson,
   Message,
@@ -316,6 +320,28 @@ export interface DataService {
    * follow; 'everyone' is the whole app.
    */
   getLeaderboard(scope: LeaderboardScope): Promise<LeaderboardEntry[]>;
+
+  // meal plans and families (behind MEAL_PLANS_ENABLED). Your plan is your
+  // own until you join a family; then it's the family's shared plan.
+  /** Meals planned between two days (YYYY-MM-DD, inclusive), on the plan you're on. */
+  getMealPlan(from: string, to: string): Promise<MealPlanItem[]>;
+  /**
+   * Put a post or a named meal on a day. Goes straight in on a personal plan
+   * or when the family admin adds it; anyone else's waits for the admin.
+   */
+  addPlanItem(input: { date: string; slot: MealSlot; postId?: string; title?: string }): Promise<void>;
+  removePlanItem(itemId: string): Promise<void>;
+  /** Family admin only: keep a meal (even one members voted down) or drop it. */
+  decidePlanItem(itemId: string, keep: boolean): Promise<void>;
+  /** Family members (not the admin): yes, no, or null to take your vote back. */
+  votePlanItem(itemId: string, approve: boolean | null): Promise<void>;
+  getFamily(): Promise<FamilyState>;
+  createFamily(name: string): Promise<void>;
+  inviteToFamily(handle: string): Promise<FamilyInviteResult>;
+  respondFamilyInvite(familyId: string, accept: boolean): Promise<void>;
+  leaveFamily(): Promise<void>;
+  removeFamilyMember(userId: string): Promise<void>;
+  deleteFamily(): Promise<void>;
 
   // settings
   getNotificationPrefs(): Promise<NotificationPrefs>;

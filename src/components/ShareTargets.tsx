@@ -20,6 +20,7 @@ export function ShareTargets({
   copyLabel = 'Copy link',
   onShared,
   testIDPrefix = 'share',
+  extra = [],
 }: {
   title: string;
   text: string;
@@ -28,6 +29,8 @@ export function ShareTargets({
   copyLabel?: string;
   onShared?: (how: ShareHow) => void;
   testIDPrefix?: string;
+  /** More round buttons after these, like "Meal plan" on a post's share sheet. */
+  extra?: { key: string; label: string; icon: any; onPress: () => void }[];
 }) {
   const styles = useStyles();
   const colors = useColors();
@@ -72,10 +75,12 @@ export function ShareTargets({
       onPress: copy,
     },
     { key: 'more', label: 'More', icon: 'share-outline' as const, onPress: more },
+    ...extra,
   ].filter(Boolean) as { key: string; label: string; icon: any; onPress: () => void }[];
 
   return (
-    <View style={styles.row}>
+    // Four buttons still fit a small phone (iPhone SE) with a tighter gap.
+    <View style={[styles.row, targets.length > 3 && { gap: spacing.sm }]}>
       {targets.map((t) => (
         <Pressable
           key={t.key}
