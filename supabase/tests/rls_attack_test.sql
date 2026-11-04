@@ -1062,7 +1062,7 @@ select qa.check('hashtags', 'take a tag off the list', 'mallory',
 select qa.check('hashtags', 'rename a tag on the list', 'mallory',
   $q$update public.hashtags set tag = 'freecrypto' where tag = 'mexican'$q$, 'denied');
 select qa.check('hashtags', 'anyone signed in can read the list', 'bob',
-  $q$select count(*) from public.hashtags$q$, 'rows:49');
+  $q$select count(*) from public.hashtags$q$, 'rows:50');
 -- Alice tags her dinner; Bob finds it by the tag, Eve (who Alice blocked) doesn't.
 update public.posts set hashtags = '{chinese,homemade}' where id = '10000000-0000-4000-8000-0000000000a1';
 select qa.check('hashtags', 'search a tag and find the post', 'bob',

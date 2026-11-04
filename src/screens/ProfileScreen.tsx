@@ -9,9 +9,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Avatar } from '../components/Avatar';
 import { ActionSheet } from '../components/ActionSheet';
 import { ActivityDrawer } from '../components/ActivityDrawer';
+import { AvatarPeek } from '../components/AvatarPeek';
 import { PostThumb } from '../components/PostThumb';
 import { RenameGroupSheet } from '../components/RenameGroupSheet';
 import { Button, Muted } from '../components/ui';
@@ -237,18 +237,22 @@ export function ProfileScreen({ navigation, route }: any) {
       ) : null}
       <View style={styles.card}>
         {isMe ? (
-          <Pressable
-            testID="profile-menu"
-            onPress={() => setMenuOpen(true)}
-            hitSlop={10}
-            style={styles.menuBtn}
-            accessibilityLabel="Settings and activity"
-          >
-            <Ionicons name="menu" size={24} color={colors.cocoa} />
-          </Pressable>
+          // Its own row above the photo and counts, so it doesn't sit on top
+          // of "Following".
+          <View style={styles.menuBar}>
+            <Pressable
+              testID="profile-menu"
+              onPress={() => setMenuOpen(true)}
+              hitSlop={10}
+              style={styles.menuBtn}
+              accessibilityLabel="Settings and activity"
+            >
+              <Ionicons name="menu" size={24} color={colors.cocoa} />
+            </Pressable>
+          </View>
         ) : null}
         <View style={styles.topRow}>
-          <Avatar user={profile} size={72} />
+          <AvatarPeek user={profile} size={72} />
           <View style={styles.stats}>
             <Stat label="Posts" value={posts.length} onPress={scrollToPosts} />
             <Stat label="Followers" value={counts.followers} onPress={() => openList('followers')} />
@@ -817,12 +821,15 @@ const useStyles = makeStyles((colors, { shadowSoft }) => ({
     lineHeight: 18,
     color: colors.cocoa,
   },
+  menuBar: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: -spacing.sm,
+    marginBottom: spacing.md,
+  },
   menuBtn: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    zIndex: 2,
     padding: 4,
+    marginRight: -4,
   },
   topRow: {
     flexDirection: 'row',
