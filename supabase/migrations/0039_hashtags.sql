@@ -79,7 +79,8 @@ with list(tag, category, position) as (values
   ('latenight', 'vibe', 46),
   ('gameday', 'vibe', 47),
   ('familydinner', 'vibe', 48),
-  ('leftovers', 'vibe', 49)
+  ('leftovers', 'vibe', 49),
+  ('milk', 'vibe', 50)
 ),
 saved as (
   insert into public.hashtags (tag, category, position)

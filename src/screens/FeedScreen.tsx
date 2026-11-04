@@ -4,6 +4,7 @@ import {
   Animated,
   FlatList,
   NativeScrollEvent,
+  Platform,
   NativeSyntheticEvent,
   Pressable,
   RefreshControl,
@@ -64,6 +65,20 @@ export function FeedScreen({ navigation }: any) {
   } = usePostActions(navigation, refreshFeed);
 
   const listRef = useRef<FlatList<any>>(null);
+
+  // The pull-down spinner is only for a pull. It used to follow every feed
+  // reload (liking from a comment sheet, following someone, posting), and on
+  // iPhone switching a RefreshControl on without a pull shoves the list down
+  // and back while you're scrolling it, which is the jumpiness on Home.
+  const [pulling, setPulling] = useState(false);
+  const onPull = useCallback(async () => {
+    setPulling(true);
+    try {
+      await refreshFeed();
+    } finally {
+      setPulling(false);
+    }
+  }, [refreshFeed]);
   // Analytics: posts by other people that were really on screen (most of the
   // card showing), not just rendered ahead of the scroll.
   const meRef = useRef(user?.id);
@@ -103,9 +118,12 @@ export function FeedScreen({ navigation }: any) {
   const onScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       const prev = scrollState.current;
-      // Stays put until you've scrolled past the header itself.
-      const next = nextHeaderState(prev, e.nativeEvent.contentOffset.y, {
+      const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+      // Stays put until you've scrolled past the header itself, and ignores
+      // the bounce at the end of the feed.
+      const next = nextHeaderState(prev, contentOffset.y, {
         topZone: headerHeight.current - insets.top,
+        maxY: contentSize.height - layoutMeasurement.height,
       });
       scrollState.current = next;
       if (next.hidden !== prev.hidden) setHeaderHidden(next.hidden);
@@ -257,6 +275,13 @@ export function FeedScreen({ navigation }: any) {
         data={feed}
         keyExtractor={(p) => p.id}
         renderItem={renderPost}
+        // Posts are tall (a full photo each): render a few at a time instead
+        // of ten, so a fast flick doesn't stall the scroll while a whole batch
+        // of cards is built.
+        initialNumToRender={3}
+        maxToRenderPerBatch={3}
+        windowSize={9}
+        removeClippedSubviews={Platform.OS === 'android'}
         viewabilityConfig={VIEWABILITY}
         onViewableItemsChanged={onViewableItemsChanged}
         contentContainerStyle={{
@@ -266,8 +291,8 @@ export function FeedScreen({ navigation }: any) {
         progressViewOffset={insets.top + HEADER_HEIGHT}
         refreshControl={
           <RefreshControl
-            refreshing={feedLoading}
-            onRefresh={refreshFeed}
+            refreshing={pulling}
+            onRefresh={onPull}
             tintColor={colors.amber}
             colors={[colors.amber]}
           />
@@ -300,7 +325,7 @@ export function FeedScreen({ navigation }: any) {
           the logo or the Home tab — where the RefreshControl never shows. Only
           when there is already content, so it doesn't double up with the
           empty-state spinner on first load. */}
-      {feedLoading && feed.length > 0 ? (
+      {feedLoading && !pulling && feed.length > 0 ? (
         <View
           pointerEvents="none"
           style={[styles.reloadWheel, { top: insets.top + HEADER_HEIGHT + spacing.sm }]}

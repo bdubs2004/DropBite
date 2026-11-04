@@ -4,7 +4,9 @@
  * Distance is counted in the direction you're currently scrolling, so a small
  * wobble doesn't flicker it: keep scrolling down past `hideAfter` and it hides,
  * scroll back up `showAfter` and it returns. At (or above) the very top it is
- * always shown.
+ * always shown. Past the bottom (`maxY`, the furthest the list really
+ * scrolls) nothing counts: the bounce at the end of the feed used to read as
+ * scrolling up and pop the header back in, then hide it again.
  */
 
 export type HeaderScrollState = { lastY: number; travel: number; hidden: boolean };
@@ -15,10 +17,12 @@ export const SHOW_AFTER = 16;
 export function nextHeaderState(
   prev: HeaderScrollState,
   y: number,
-  { topZone = 0 }: { topZone?: number } = {},
+  { topZone = 0, maxY }: { topZone?: number; maxY?: number } = {},
 ): HeaderScrollState {
   // Pull-to-refresh overscroll and the very top: always visible.
   if (y <= topZone) return { lastY: y, travel: 0, hidden: false };
+  // The bounce past the end isn't you scrolling.
+  if (maxY !== undefined && maxY > topZone) y = Math.min(y, maxY);
   const dy = y - prev.lastY;
   if (dy === 0) return prev;
   // Reset the count whenever the direction flips.
