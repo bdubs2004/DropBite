@@ -370,8 +370,8 @@ checks(grp, item, status) as (
         or has_table_privilege('authenticated', 'public.hashtags', 'UPDATE')
         or has_table_privilege('authenticated', 'public.hashtags', 'DELETE')
         then 'USERS CAN ADD THEIR OWN TAGS TO THE LIST — run 0039_hashtags.sql'
-      else (select case when n = 49 then 'OK (49 tags)'
-                        else 'HAS ' || n || ' TAGS, EXPECTED 49 — run upgrade_all.sql (0039, 0040)' end
+      else (select case when n = 50 then 'OK (50 tags)'
+                        else 'HAS ' || n || ' TAGS, EXPECTED 50 — run upgrade_all.sql (0039, 0040)' end
             from (select (xpath('//n/text()',
                     query_to_xml('select count(*) as n from public.hashtags', false, false, '')))[1]::text::int as n) c)
     end

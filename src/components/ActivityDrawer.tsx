@@ -33,6 +33,9 @@ type Item = {
 
 type Section = { title: string; items: Item[] };
 
+/** Gap between the arrows and the panel's edge, where the scroll bar runs. */
+const ROW_INSET = 20;
+
 const PANEL_WIDTH = Math.min(Dimensions.get('window').width * 0.82, 360);
 
 /**
@@ -246,7 +249,7 @@ export function ActivityDrawer({
                 testID="drawer-content"
                 {...touchSink}
                 onLayout={(e) => setContentH(e.nativeEvent.layout.height)}
-                style={{ paddingBottom: insets.bottom + spacing.xl }}
+                style={{ paddingBottom: insets.bottom + spacing.xl, paddingRight: ROW_INSET }}
               >
             {sections.map((section) => (
               <View key={section.title} style={styles.section}>
@@ -319,10 +322,13 @@ const useStyles = makeStyles((colors, { shadow }) => ({
     borderTopLeftRadius: radius.xl,
     borderBottomLeftRadius: radius.xl,
     paddingLeft: spacing.lg + 28,
-    paddingRight: spacing.lg,
+    // The scroll bar runs down the panel's own edge; the rows keep their
+    // inset themselves (ROW_INSET) so the arrows sit clear of it.
+    paddingRight: 4,
     ...(shadow as object),
   },
   head: {
+    paddingRight: ROW_INSET,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

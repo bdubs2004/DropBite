@@ -23,6 +23,13 @@ check('direction flips reset the count', run([50, 120, 300, 280, 290, 320]).hidd
 check('back near the top it is always shown', !run([50, 120, 300, 30]).hidden);
 check('pull-to-refresh overscroll keeps it shown', !run([-60, -20, 0]).hidden);
 
+// The bounce at the bottom of the feed (list ends at 1000).
+const end = (ys: number[]) =>
+  ys.reduce((st, y) => nextHeaderState(st, y, { topZone: 40, maxY: 1000 }), { lastY: 0, travel: 0, hidden: false } as HeaderScrollState);
+check('bouncing at the bottom keeps it hidden', end([200, 600, 1000, 1060, 1020, 1000]).hidden);
+check('real scrolling up from the bottom still brings it back', !end([200, 600, 1000, 1060, 1000, 980, 960]).hidden);
+check('without a known end it works as before', run([50, 120, 300, 290, 280]).hidden === false);
+
 if (failures) {
   console.log(`\n${failures} FAILED`);
   process.exit(1);

@@ -83,6 +83,8 @@ export const HASHTAG_GROUPS: HashtagGroup[] = [
       'gameday',
       'familydinner',
       'leftovers',
+      // An easter egg for a friend of the app.
+      'milk',
     ],
   },
 ];
