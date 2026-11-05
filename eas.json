@@ -17,7 +17,8 @@
       "android": { "buildType": "apk" },
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://lmmuevnvshcqaqxjosbe.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_NT2-td5YYJXN3YHFWDORNg_NUcr55DA"
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_NT2-td5YYJXN3YHFWDORNg_NUcr55DA",
+        "EXPO_PUBLIC_MEAL_PLANS": "1"
       }
     },
     "production": {
