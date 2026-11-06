@@ -227,21 +227,20 @@ export function FeedScreen({ navigation }: any) {
         >
           <LogoLockup height={30} />
         </Pressable>
+        <View
+          style={[styles.headerRight, MEAL_PLANS_ENABLED && styles.headerButtons]}
+          pointerEvents="box-none"
+        >
         {MEAL_PLANS_ENABLED ? (
-          // Centered on the bar itself (not between the logo and the buttons),
-          // so it sits in the middle of the screen whatever is either side.
-          <View pointerEvents="box-none" style={[styles.centerSlot, { top: insets.top }]}>
-            <Pressable
-              testID="mealplan-pill"
-              onPress={() => navigation.navigate('MealPlan')}
-              style={({ pressed }) => [styles.streakPill, pressed && { opacity: 0.8 }]}
-              accessibilityLabel="Meal plan"
-            >
-              <Ionicons name="calendar" size={15} color={colors.amber} />
-            </Pressable>
-          </View>
+          <Pressable
+            testID="mealplan-pill"
+            onPress={() => navigation.navigate('MealPlan')}
+            style={({ pressed }) => [styles.streakPill, pressed && { opacity: 0.8 }]}
+            accessibilityLabel="Meal plan"
+          >
+            <Ionicons name="calendar" size={15} color={colors.amber} />
+          </Pressable>
         ) : null}
-        <View style={styles.headerRight} pointerEvents="box-none">
         <Pressable
           testID="streak-pill"
           onPress={() => navigation.navigate('Leaderboard')}
@@ -383,20 +382,17 @@ const useStyles = makeStyles((colors) => ({
     zIndex: 3,
     backgroundColor: colors.cream,
   },
-  centerSlot: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: spacing.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    // A little tighter with the meal plan button in the middle, so a
-    // three-digit streak still clears it on a small phone.
-    gap: MEAL_PLANS_ENABLED ? 6 : 8,
+    gap: 8,
+  },
+  // With meal plans on, the four buttons sit together, centered in the
+  // space to the right of the logo.
+  headerButtons: {
+    flex: 1,
+    justifyContent: 'center',
+    marginLeft: spacing.md,
   },
   unreadDot: {
     minWidth: 18,
