@@ -105,6 +105,19 @@ function storagePathFromPublicUrl(url: string | null | undefined): string | null
 }
 
 /**
+ * A meal-plan error as a sentence. A database without migration 0043 answers
+ * with PostgREST's "could not find the table ... in the schema cache" (or
+ * function), which means nothing to a person.
+ */
+function planError(error: { message?: string; code?: string } | null, fallback: string): string {
+  const msg = error?.message ?? '';
+  if (/schema cache|does not exist/i.test(msg) || error?.code === 'PGRST205' || error?.code === 'PGRST202') {
+    return 'Meal plans aren\'t switched on for this account yet';
+  }
+  return msg || fallback;
+}
+
+/**
  * Production backend. Requires the schema in supabase/schema.sql and the
  * storage bucket "photos". See SETUP_GUIDE.md for the full wiring steps.
  */
@@ -2156,7 +2169,7 @@ export class SupabaseService implements DataService {
   private async rpcOrThrow(fn: string, args: Record<string, unknown>, fallback: string): Promise<any> {
     const { data, error } = await this.sb.rpc(fn, args);
     // The functions' RAISE messages are already user-facing sentences.
-    if (error) throw new Error(error.message || fallback);
+    if (error) throw new Error(planError(error, fallback));
     return data;
   }
 
@@ -2175,7 +2188,7 @@ export class SupabaseService implements DataService {
       .order('created_at', { ascending: true });
     q = familyId ? q.eq('family_id', familyId) : q.eq('user_id', meId);
     const { data, error } = await q;
-    if (error) throw new Error(error.message || 'Could not load your plan.');
+    if (error) throw new Error(planError(error, 'Could not load your plan.'));
     const rows = data ?? [];
     const ids = rows.map((r: any) => r.id);
     const [votesRes, people] = await Promise.all([
@@ -2237,7 +2250,7 @@ export class SupabaseService implements DataService {
       .from('family_members')
       .select('family_id, user_id, status, invited_by, created_at')
       .order('created_at', { ascending: true });
-    if (error) throw new Error(error.message || 'Could not load your family.');
+    if (error) throw new Error(planError(error, 'Could not load your family.'));
     const all = rows ?? [];
     const familyId = all.find((r: any) => r.user_id === meId && r.status === 'active')?.family_id ?? null;
     const inviteRows = all.filter((r: any) => r.user_id === meId && r.status === 'invited');
