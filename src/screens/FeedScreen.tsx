@@ -235,7 +235,6 @@ export function FeedScreen({ navigation }: any) {
         >
           <Ionicons name="flame" size={15} color={colors.amber} />
           <Text style={styles.streakText}>{streak?.current_streak ?? 0}</Text>
-          <Ionicons name="chevron-forward" size={13} color={colors.cocoaFaint} />
         </Pressable>
         <Pressable
           testID="bell-pill"
@@ -388,14 +387,18 @@ const useStyles = makeStyles((colors) => ({
     fontSize: 10.5,
     color: colors.white,
   },
+  // The three buttons on the right share one size: same height, same
+  // padding, at least round, so they line up as a set.
   streakPill: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 4,
+    height: 34,
+    minWidth: 34,
     backgroundColor: colors.card,
     borderRadius: radius.pill,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 10,
     borderWidth: 1.5,
     borderColor: colors.creamDark,
   },
