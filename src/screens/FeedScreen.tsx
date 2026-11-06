@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LogoLockup } from '../components/Logo';
+import { MEAL_PLANS_ENABLED } from '../config';
 import { useZooming } from '../components/PinchZoom';
 import { PostCard } from '../components/PostCard';
 import { Button, Muted } from '../components/ui';
@@ -226,6 +227,20 @@ export function FeedScreen({ navigation }: any) {
         >
           <LogoLockup height={30} />
         </Pressable>
+        {MEAL_PLANS_ENABLED ? (
+          // Centered on the bar itself (not between the logo and the buttons),
+          // so it sits in the middle of the screen whatever is either side.
+          <View pointerEvents="box-none" style={[styles.centerSlot, { top: insets.top }]}>
+            <Pressable
+              testID="mealplan-pill"
+              onPress={() => navigation.navigate('MealPlan')}
+              style={({ pressed }) => [styles.streakPill, pressed && { opacity: 0.8 }]}
+              accessibilityLabel="Meal plan"
+            >
+              <Ionicons name="calendar" size={15} color={colors.amber} />
+            </Pressable>
+          </View>
+        ) : null}
         <View style={styles.headerRight} pointerEvents="box-none">
         <Pressable
           testID="streak-pill"
@@ -368,10 +383,20 @@ const useStyles = makeStyles((colors) => ({
     zIndex: 3,
     backgroundColor: colors.cream,
   },
+  centerSlot: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    // A little tighter with the meal plan button in the middle, so a
+    // three-digit streak still clears it on a small phone.
+    gap: MEAL_PLANS_ENABLED ? 6 : 8,
   },
   unreadDot: {
     minWidth: 18,
