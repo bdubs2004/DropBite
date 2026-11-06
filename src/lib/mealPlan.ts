@@ -75,3 +75,42 @@ export function nextSlot(hour: number): MealSlot {
   if (hour < 15) return 'lunch';
   return 'dinner';
 }
+
+/** The first of the month a day is in. */
+export function monthStart(key: string): string {
+  return key.slice(0, 8) + '01';
+}
+
+/** The same day n months away, kept inside the shorter month (Jan 31 + 1 = Feb 28). */
+export function addMonths(key: string, n: number): string {
+  const d = fromKey(key);
+  const day = d.getDate();
+  const target = new Date(d.getFullYear(), d.getMonth() + n, 1, 12);
+  const last = new Date(target.getFullYear(), target.getMonth() + 1, 0, 12).getDate();
+  target.setDate(Math.min(day, last));
+  return dayKey(target);
+}
+
+/** Whole weeks, Monday first, that cover the month a day is in (28 to 42 days). */
+export function monthGrid(key: string): string[] {
+  const first = monthStart(key);
+  const lastDay = addDays(addMonths(first, 1), -1);
+  const start = weekStart(first);
+  const end = addDays(weekStart(lastDay), 6);
+  const out: string[] = [];
+  for (let k = start; k <= end; k = addDays(k, 1)) out.push(k);
+  return out;
+}
+
+const MONTHS_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+/** "November 2026". */
+export function monthLabel(key: string): string {
+  const d = fromKey(key);
+  return `${MONTHS_LONG[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+/** "Thursday, Nov 5". */
+export function longDay(key: string): string {
+  return `${DAYS[fromKey(key).getDay()]}, ${shortDate(key)}`;
+}

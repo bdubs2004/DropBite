@@ -1,5 +1,5 @@
 // Week math for meal plans (src/lib/mealPlan.ts).
-import { addDays, dayName, nextSlot, weekDays, weekLabel, weekStart } from '../mealPlan';
+import { addDays, addMonths, dayName, longDay, monthGrid, monthLabel, nextSlot, weekDays, weekLabel, weekStart } from '../mealPlan';
 
 let failed = 0;
 const check = (name: string, ok: boolean, got?: unknown) => {
@@ -19,6 +19,15 @@ check('other days by weekday', dayName('2026-11-15', '2026-11-12') === 'Sunday',
 check('this, next and last week', weekLabel('2026-11-09', '2026-11-12') === 'This week' && weekLabel('2026-11-16', '2026-11-12') === 'Next week' && weekLabel('2026-11-02', '2026-11-12') === 'Last week');
 check('further weeks show their dates', weekLabel('2026-11-23', '2026-11-12') === 'Nov 23 to 29' && weekLabel('2026-11-30', '2026-11-12') === 'Nov 30 to Dec 6', weekLabel('2026-11-30', '2026-11-12'));
 check('the next meal by the hour', nextSlot(7) === 'breakfast' && nextSlot(12) === 'lunch' && nextSlot(19) === 'dinner');
+
+const nov = monthGrid('2026-11-17');
+check('November 2026 starts on the Monday before the 1st', nov[0] === '2026-10-26', nov[0]);
+check('and ends on the Sunday after the 30th', nov[nov.length - 1] === '2026-12-06', nov[nov.length - 1]);
+check('whole weeks only', nov.length % 7 === 0 && nov.length >= 28 && nov.length <= 42, nov.length);
+check('a month starting on Monday has no days before it', monthGrid('2027-02-10')[0] === '2027-02-01', monthGrid('2027-02-10')[0]);
+check('next month from the 31st lands on the last day', addMonths('2027-01-31', 1) === '2027-02-28', addMonths('2027-01-31', 1));
+check('across a year', addMonths('2026-12-15', 1) === '2027-01-15' && addMonths('2026-01-15', -1) === '2025-12-15');
+check('month and day names', monthLabel('2026-11-05') === 'November 2026' && longDay('2026-11-05') === 'Thursday, Nov 5', longDay('2026-11-05'));
 
 console.log(failed ? `\n${failed} meal plan check(s) failed` : '\nAll meal plan checks passed');
 if (failed) process.exit(1);
