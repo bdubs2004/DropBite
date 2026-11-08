@@ -17,6 +17,7 @@ check('notes in brackets are dropped', itemKey('onion (diced)') === 'onion');
 check('aisles', aisleOf('ground beef') === 'Meat and seafood' && aisleOf('egg') === 'Dairy and eggs' && aisleOf('tortilla') === 'Bakery' && aisleOf('onion') === 'Produce' && aisleOf('flour') === 'Pantry', [aisleOf('ground beef'), aisleOf('egg')]);
 check('tricky aisles', aisleOf('cornstarch') === 'Pantry' && aisleOf('frozen pea') === 'Frozen' && aisleOf('black pepper') === 'Pantry' && aisleOf('cream cheese') === 'Dairy and eggs' && aisleOf('bell pepper') === 'Produce', [aisleOf('cornstarch'), aisleOf('black pepper'), aisleOf('bell pepper')]);
 check('unknown things go in Other', aisleOf('paper towel') === 'Other');
+check('dough is bakery', aisleOf('pizza dough') === 'Bakery');
 
 const list = buildGroceryList([
   { meal: 'Tacos', ingredients: [

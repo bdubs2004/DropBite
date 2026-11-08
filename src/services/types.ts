@@ -340,6 +340,11 @@ export interface DataService {
     /** One of your own recipes to go with it. */
     recipeId?: string;
   }): Promise<void>;
+  /**
+   * Give a planned meal one of your recipes (or take it off with null). Your
+   * own plan, or on a family plan the admin or whoever added the meal.
+   */
+  setPlanItemRecipe(itemId: string, recipeId: string | null): Promise<void>;
   /** Your saved recipes, most recently changed first. */
   getMyRecipes(): Promise<MyRecipe[]>;
   /** Save a new recipe (no id) or change one of yours. */

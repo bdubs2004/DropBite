@@ -378,7 +378,7 @@ select qa.fact('schema', 'signed in, only the functions the app needs are callab
      join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'public' and p.prokind = 'f' and p.prorettype <> 'trigger'::regtype
        and has_function_privilege('authenticated', p.oid, 'execute')$q$,
-  'add_grocery_item,add_plan_item,can_reply_under,check_request,claim_referral,conversation_has_block,create_family,decide_plan_item,delete_family,follow_counts,get_post_preview,invite_to_family,is_blocked_pair,is_conversation_member,leave_conversation,leave_family,log_event,log_post_views,my_family_id,plain_text_ok,recipe_ingredients_ok,recipe_nutrition_ok,recipe_steps_ok,remove_family_member,remove_grocery_item,remove_plan_item,respond_family_invite,set_grocery_item,start_conversation,start_group_conversation,vote_plan_item');
+  'add_grocery_item,add_plan_item,can_reply_under,check_request,claim_referral,conversation_has_block,create_family,decide_plan_item,delete_family,follow_counts,get_post_preview,invite_to_family,is_blocked_pair,is_conversation_member,leave_conversation,leave_family,log_event,log_post_views,my_family_id,plain_text_ok,recipe_ingredients_ok,recipe_nutrition_ok,recipe_steps_ok,remove_family_member,remove_grocery_item,remove_plan_item,respond_family_invite,set_grocery_item,set_plan_item_recipe,start_conversation,start_group_conversation,vote_plan_item');
 
 -- =======================================================================
 -- 2. Profiles
@@ -1383,6 +1383,26 @@ select qa.check('groceries', 'an item can''t hide direction-flipping characters'
   $q$select public.add_grocery_item(current_date, E'milk\u202Eevil')$q$, 'error');
 select qa.check('groceries', 'a week years away', 'mallory',
   $q$select public.add_grocery_item(current_date + 2000, 'milk')$q$, 'error:Pick a week');
+-- 0047: a recipe for a meal that's already planned. Bob's nuggets (I2) and
+-- Alice's pot roast (I1) are on the Smiths' plan; Mallory's tacos (I3) are hers.
+create function qa.item_recipe(item uuid) returns uuid language sql security definer set search_path = '' as $$
+  select i.recipe_id from public.meal_plan_items i where i.id = item;
+$$;
+create function qa.then_item_recipe_is(action text, item uuid, want uuid) returns bigint language plpgsql as $$
+begin execute action; return case when qa.item_recipe(item) is not distinct from want then 1 else 0 end; end $$;
+grant execute on function qa.item_recipe(uuid), qa.then_item_recipe_is(text, uuid, uuid) to anon, authenticated;
+select qa.check('meal recipes', 'give your own meal one of your recipes', 'mallory',
+  $q$select qa.then_item_recipe_is($a$select public.set_plan_item_recipe('fb000000-0000-4000-8000-000000000003', 'fc000000-0000-4000-8000-000000000002')$a$, 'fb000000-0000-4000-8000-000000000003', 'fc000000-0000-4000-8000-000000000002')$q$, 'rows:1');
+select qa.check('meal recipes', 'the admin gives a family meal a recipe', 'alice',
+  $q$select qa.then_item_recipe_is($a$select public.set_plan_item_recipe('fb000000-0000-4000-8000-000000000002', 'fc000000-0000-4000-8000-000000000001')$a$, 'fb000000-0000-4000-8000-000000000002', 'fc000000-0000-4000-8000-000000000001')$q$, 'rows:1');
+select qa.check('meal recipes', 'a member changes the recipe on someone else''s meal', 'bob',
+  $q$select public.set_plan_item_recipe('fb000000-0000-4000-8000-000000000001', null)$q$, 'error:You can''t change that meal');
+select qa.check('meal recipes', 'change a meal on someone else''s own plan', 'alice',
+  $q$select public.set_plan_item_recipe('fb000000-0000-4000-8000-000000000003', null)$q$, 'error:You can''t change that meal');
+select qa.check('meal recipes', 'put someone else''s recipe on your meal', 'mallory',
+  $q$select public.set_plan_item_recipe('fb000000-0000-4000-8000-000000000003', 'fc000000-0000-4000-8000-000000000001')$q$, 'error:That recipe isn');
+select qa.check('meal recipes', 'take the recipe off your own meal', 'alice',
+  $q$select qa.then_item_recipe_is($a$select public.set_plan_item_recipe('fb000000-0000-4000-8000-000000000001', null)$a$, 'fb000000-0000-4000-8000-000000000001', null)$q$, 'rows:1');
 select qa.check('families', 'a member (not the admin) invites people', 'bob',
   $q$select count(*) from (select public.invite_to_family('mallory')) x$q$, 'error:Only the family admin');
 select qa.check('families', 'invite someone who blocked you: looks like no such person', 'alice',

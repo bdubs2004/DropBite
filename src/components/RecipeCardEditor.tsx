@@ -16,6 +16,7 @@ export function RecipeCardEditor({
   onRemove,
   label = 'AI-formatted recipe. Tap any field to edit.',
   removeLabel = 'Remove',
+  hideSteps = false,
 }: {
   value: FormattedRecipe;
   onChange: (next: FormattedRecipe) => void;
@@ -23,6 +24,8 @@ export function RecipeCardEditor({
   /** The line at the top; a hand-written card says so instead of "AI". */
   label?: string;
   removeLabel?: string;
+  /** Just the ingredients (for the grocery list), no method or cook time. */
+  hideSteps?: boolean;
 }) {
   const styles = useStyles();
   const colors = useColors();
@@ -57,6 +60,7 @@ export function RecipeCardEditor({
         placeholderTextColor={colors.cocoaFaint}
       />
 
+      {hideSteps ? null : (
       <View style={styles.timeRow}>
         <Text style={styles.timeLabel}>Cook time</Text>
         <TextInput
@@ -75,6 +79,7 @@ export function RecipeCardEditor({
         />
         <Text style={styles.timeLabel}>min</Text>
       </View>
+      )}
 
       <Text style={styles.section}>Ingredients</Text>
       {value.ingredients.map((ing, i) => (
@@ -130,6 +135,8 @@ export function RecipeCardEditor({
         <Text style={styles.addRow}>+ Add ingredient</Text>
       </Pressable>
 
+      {hideSteps ? null : (
+      <>
       <Text style={styles.section}>Steps</Text>
       {value.steps.map((s, i) => (
         <View key={i} style={styles.ingRow}>
@@ -160,6 +167,8 @@ export function RecipeCardEditor({
       <Pressable onPress={() => onChange({ ...value, steps: [...value.steps, ''] })}>
         <Text style={styles.addRow}>+ Add step</Text>
       </Pressable>
+      </>
+      )}
     </BittenCard>
   );
 }

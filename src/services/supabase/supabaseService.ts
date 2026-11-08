@@ -2256,6 +2256,10 @@ export class SupabaseService implements DataService {
     this.pingActivity();
   }
 
+  async setPlanItemRecipe(itemId: string, recipeId: string | null): Promise<void> {
+    await this.rpcOrThrow('set_plan_item_recipe', { item: itemId, plan_recipe: recipeId }, 'Could not save that.');
+  }
+
   async getMyRecipes(): Promise<MyRecipe[]> {
     const meId = await this.myId();
     if (!this.caps.myRecipes) return [];

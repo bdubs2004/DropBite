@@ -58,6 +58,7 @@ import { MealPlanScreen } from './src/screens/MealPlanScreen';
 import { PlanPickerScreen } from './src/screens/PlanPickerScreen';
 import { PlanRecipeScreen } from './src/screens/PlanRecipeScreen';
 import { GroceryScreen } from './src/screens/GroceryScreen';
+import { PlanRecipeNewScreen } from './src/screens/PlanRecipeNewScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { TagPeopleScreen } from './src/screens/TagPeopleScreen';
 import { TaggedPostsScreen } from './src/screens/TaggedPostsScreen';
@@ -492,6 +493,7 @@ function Root() {
           <Stack.Screen name="PlanPicker" component={PlanPickerScreen} options={SLIDE_UP} />
           <Stack.Screen name="PlanRecipe" component={PlanRecipeScreen} />
           <Stack.Screen name="Grocery" component={GroceryScreen} />
+          <Stack.Screen name="PlanRecipeNew" component={PlanRecipeNewScreen} options={SLIDE_UP} />
           <Stack.Screen
             name="AddToPlan"
             component={AddToPlanScreen}

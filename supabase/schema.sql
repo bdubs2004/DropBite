@@ -4144,6 +4144,42 @@ drop trigger if exists grocery_items_limit_rate on public.grocery_items;
 create trigger grocery_items_limit_rate before insert on public.grocery_items
   for each row execute function public.limit_rate('grocery_item', '400', '1 hour');
 
+-- ============================================ a planned meal's recipe (0047)
+-- See migrations/0047_plan_item_recipe.sql.
+create or replace function public.set_plan_item_recipe(item uuid, plan_recipe uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  me uuid := auth.uid();
+  fid uuid := public.my_family_id();
+  it record;
+begin
+  if me is null then raise exception 'Not authenticated'; end if;
+  select i.user_id, i.family_id, i.added_by into it from public.meal_plan_items i where i.id = item;
+  -- coalesce: a family meal has no user_id, and a NULL here must mean no.
+  if not found or not coalesce(
+    it.user_id = me
+    or (it.family_id is not null and it.family_id = fid and (
+      coalesce(it.added_by = me, false)
+      or exists (select 1 from public.families f where f.id = fid and f.admin_id = me)
+    )),
+    false
+  ) then
+    raise exception 'You can''t change that meal.';
+  end if;
+  if plan_recipe is not null
+     and not exists (select 1 from public.my_recipes r where r.id = plan_recipe and r.user_id = me) then
+    raise exception 'That recipe isn''t yours.';
+  end if;
+  update public.meal_plan_items set recipe_id = plan_recipe where id = item;
+end;
+$$;
+revoke all on function public.set_plan_item_recipe(uuid, uuid) from public, anon;
+grant execute on function public.set_plan_item_recipe(uuid, uuid) to authenticated;
+
 -- ============================================== validate the rules (0038)
 -- Rules added NOT VALID above apply to new rows at once; this checks them
 -- against existing rows and marks them validated where every row fits (on a

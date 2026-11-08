@@ -44,7 +44,7 @@ Linux only (it downloads Linux builds of PostgREST and Supabase Auth, cached in
 
 ## rls_attack_test.sql: start here
 
-The main suite: 358 checks, self-asserting (it ends with an error if any fail).
+The main suite: 364 checks, self-asserting (it ends with an error if any fail).
 Six separate accounts sign in the way the API does it, with their own tokens,
 and an attacker with a normal account (Mallory, who follows the victim and has
 her own posts and a DM with her) tries to read, change or delete other people's
@@ -158,7 +158,9 @@ private except to your family when on its plan, can't be changed or used by
 anyone else, and keep the same card checks as a post's recipe. A grocery list (0046) is the
 family's when you're in one and yours otherwise, unseen by outsiders and
 people only invited, changed only through its functions, and an item can't
-carry hidden direction-flipping characters.
+carry hidden direction-flipping characters. Giving a planned meal a recipe
+(0047) works only with your own recipe, on your own meal or as the family's
+admin or the meal's adder, never on someone else's.
 
 ## analytics_test.sql
 

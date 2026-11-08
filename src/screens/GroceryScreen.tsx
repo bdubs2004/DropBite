@@ -19,7 +19,8 @@ import { addDays, dayKey, weekLabel, weekStart } from '../lib/mealPlan';
 import { systemShare } from '../lib/share';
 import { getDataService } from '../services';
 import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
-import { GroceryMark, MealPlanItem } from '../types';
+import { FamilyState, GroceryMark, MealPlanItem } from '../types';
+import { useApp } from '../state/AppContext';
 import { planItemTitle } from './MealPlanScreen';
 
 type Mode = 'home' | 'store';
@@ -44,6 +45,8 @@ export function GroceryScreen({ navigation, route }: any) {
   const [mode, setMode] = useState<Mode>('home');
   const [items, setItems] = useState<MealPlanItem[]>([]);
   const [marks, setMarks] = useState<GroceryMark[]>([]);
+  const [family, setFamily] = useState<FamilyState | null>(null);
+  const { user } = useApp();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,10 +56,15 @@ export function GroceryScreen({ navigation, route }: any) {
   const load = useCallback(async () => {
     const ticket = ++latest.current;
     try {
-      const [plan, m] = await Promise.all([svc.getMealPlan(monday, addDays(monday, 6)), svc.getGroceryMarks(monday)]);
+      const [plan, m, fam] = await Promise.all([
+        svc.getMealPlan(monday, addDays(monday, 6)),
+        svc.getGroceryMarks(monday),
+        svc.getFamily(),
+      ]);
       if (ticket !== latest.current) return;
       setItems(plan);
       setMarks(m);
+      setFamily(fam);
       setError(null);
     } catch (e: any) {
       if (ticket === latest.current) setError(e?.message ?? 'Could not load the list');
@@ -298,9 +306,31 @@ export function GroceryScreen({ navigation, route }: any) {
           ) : null}
 
           {noRecipe.length ? (
-            <Text testID="grocery-no-recipe" style={styles.noRecipe}>
-              No recipe for {noRecipe.map(planItemTitle).join(', ')}. Add what they need below
-            </Text>
+            <View testID="grocery-no-recipe" style={styles.noRecipeBox}>
+              <Text style={styles.noRecipe}>No recipe yet for</Text>
+              {noRecipe.map((it) => {
+                // Yours to change: give it its ingredients right here.
+                const mine = !it.in_family || family?.am_admin || it.added_by?.id === user?.id;
+                return mine ? (
+                  <Pressable
+                    key={it.id}
+                    testID={`grocery-add-recipe-${it.id}`}
+                    onPress={() => navigation.navigate('PlanRecipeNew', { itemId: it.id, mealTitle: planItemTitle(it) })}
+                    style={styles.noRecipeRow}
+                    hitSlop={4}
+                  >
+                    <Text style={styles.noRecipeName} numberOfLines={1}>
+                      {planItemTitle(it)}
+                    </Text>
+                    <Text style={styles.noRecipeAdd}>Add ingredients</Text>
+                  </Pressable>
+                ) : (
+                  <Text key={it.id} style={[styles.noRecipeName, styles.noRecipeRow]} numberOfLines={1}>
+                    {planItemTitle(it)}
+                  </Text>
+                );
+              })}
+            </View>
           ) : null}
 
           {byAisle(toGet).map(([aisle, ls]) => (
@@ -399,14 +429,11 @@ const useStyles = makeStyles((colors) => ({
   summaryText: { fontFamily: fonts.semi, fontSize: 13.5, color: colors.cocoaSoft },
   bar: { height: 6, borderRadius: 3, backgroundColor: colors.creamDark, overflow: 'hidden' },
   barFill: { height: 6, borderRadius: 3, backgroundColor: colors.amber },
-  noRecipe: {
-    fontFamily: fonts.semi,
-    fontSize: 13,
-    lineHeight: 18,
-    color: colors.cocoaFaint,
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.sm,
-  },
+  noRecipeBox: { marginHorizontal: spacing.lg, marginBottom: spacing.sm },
+  noRecipe: { fontFamily: fonts.semi, fontSize: 13, color: colors.cocoaFaint, marginBottom: 2 },
+  noRecipeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 6 },
+  noRecipeName: { flex: 1, fontFamily: fonts.bold, fontSize: 14.5, color: colors.cocoaSoft },
+  noRecipeAdd: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.amberDark },
   section: {
     marginHorizontal: spacing.lg,
     paddingTop: spacing.md,

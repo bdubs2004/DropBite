@@ -31,7 +31,7 @@ expects the functions. Database first, then functions, then the app.
 ## 1. Database (SQL Editor)
 
 Paste **`supabase/upgrade_all.sql`** into the SQL Editor and run it, once. That
-one file is every migration from 0002 to 0046 in order. It brings a database of
+one file is every migration from 0002 to 0047 in order. It brings a database of
 any age up to date, including steps from long before the security work that
 may never have been run (like `0011_feedback.sql`): the ones you already have
 do nothing, the ones you missed are applied. It runs as one transaction, so if
@@ -73,6 +73,7 @@ and so on), and then the security work:
 | `0044_meal_plan_notifications.sql` | Activity (and pushes) for family meal plans: someone added a meal, asked for one, or had theirs okayed. Written by the database, never by the app. Redeploy `notify-activity` with it |
 | `0045_my_recipes.sql` | Recipes of your own for the meal plan (a feature): yours alone, readable by your family only when on the family plan; same card checks as a post's recipe |
 | `0046_grocery_list.sql` | The week's grocery list (a feature): what's ticked "have it" or "got it" and anything added by hand, shared within a family; read-only to the app, changed only through checked functions |
+| `0047_plan_item_recipe.sql` | Give a planned meal a recipe afterwards (a feature): only your own recipe, on your own meal, or on a family meal you added or as its admin |
 
 It may print a **warning** or a notice rather than an error; these are fine:
 - 0033: "Session check NOT switched on". This means Supabase didn't let it

@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
@@ -15,12 +15,11 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PostPhoto } from '../components/PostPhoto';
 import { PostThumb } from '../components/PostThumb';
-import { RecipeCardEditor } from '../components/RecipeCardEditor';
+import { BuiltCard, RecipeBuilder, saveBuiltCard } from '../components/RecipeBuilder';
 import { Button, Muted } from '../components/ui';
 import { dayKey, dayName } from '../lib/mealPlan';
-import { recipeSummary, tidyRecipe } from '../lib/myRecipe';
+import { recipeSummary } from '../lib/myRecipe';
 import { getDataService } from '../services';
-import { FormattedRecipe, formatRecipe, titleFromBlurb } from '../services/ai';
 import { useApp } from '../state/AppContext';
 import { fonts, photoGrid, radius, spacing, makeStyles, useColors } from '../theme';
 import { Collection, MealSlot, MyRecipe, Post } from '../types';
@@ -37,15 +36,6 @@ const TILE = Math.floor(
   (Dimensions.get('window').width - photoGrid.side * 2 - photoGrid.gap * (photoGrid.columns - 1)) /
     photoGrid.columns,
 );
-
-/** A card to fill in by hand: one empty ingredient and step to start from. */
-const blankCard = (title: string): FormattedRecipe => ({
-  is_recipe: true,
-  title,
-  ingredients: [{ item: '', quantity: '', unit: '' }],
-  steps: [''],
-  cook_time_minutes: null,
-});
 
 /**
  * Fill one meal on the plan: a saved post, a post from one of your
@@ -73,12 +63,7 @@ export function PlanPickerScreen({ navigation, route }: any) {
 
   // New
   const [name, setName] = useState('');
-  const [card, setCard] = useState<FormattedRecipe | null>(null);
-  const [aiMade, setAiMade] = useState(false);
-  const aiOriginal = useRef('');
-  const [describing, setDescribing] = useState(false);
-  const [description, setDescription] = useState('');
-  const [formatting, setFormatting] = useState(false);
+  const [built, setBuilt] = useState<BuiltCard | null>(null);
 
   useEffect(() => {
     if (tab === 'saved' && !saved) svc.getSavedPosts().then(setSaved, () => setSaved([]));
@@ -109,67 +94,22 @@ export function PlanPickerScreen({ navigation, route }: any) {
   /** New: save the card to your recipes (if there is one), then plan it. */
   const addNew = async () => {
     if (busy) return;
-    if (!card) {
+    if (!built) {
       if (name.trim()) add({ title: name });
       return;
     }
     setBusy(true);
     setError(null);
     try {
-      const tidy = tidyRecipe(card, name);
-      const saved = await svc.saveMyRecipe({
-        ...tidy,
-        ai_generated: aiMade,
-        user_edited: aiMade && JSON.stringify(card) !== aiOriginal.current,
-      });
+      const saved = await saveBuiltCard(svc, built, name);
       // Shows up under Recipes next time, even if adding to the plan fails.
       setRecipes(null);
-      await svc.addPlanItem({ date, slot, title: name.trim() || tidy.title, recipeId: saved.id });
+      await svc.addPlanItem({ date, slot, title: name.trim() || saved.title, recipeId: saved.id });
       navigation.goBack();
     } catch (e: any) {
       setError(e?.message ?? 'Could not add that meal');
       setBusy(false);
     }
-  };
-
-  const writeIt = () => {
-    setDescribing(false);
-    setAiMade(false);
-    setCard(blankCard(name.trim()));
-  };
-
-  const startAi = () => {
-    setDescription((d) => d || name);
-    setDescribing(true);
-  };
-
-  const runAi = async () => {
-    const text = description.trim();
-    if (!text || formatting) return;
-    setFormatting(true);
-    setError(null);
-    const result = await formatRecipe(text);
-    setFormatting(false);
-    if (!result || result === 'limited') {
-      setError(
-        result === 'limited'
-          ? "You've used the recipe formatter a lot today. Try again later, or write it yourself"
-          : "Couldn't format that one. Try again, or write it yourself",
-      );
-      return;
-    }
-    // Tapping Format always gives a card: if there was nothing to work from,
-    // a blank one named from your words.
-    const formatted = result.is_recipe
-      ? result
-      : { ...result, is_recipe: true, title: titleFromBlurb(text), ingredients: [], steps: [] };
-    // The name you gave the meal wins over whatever the AI calls it.
-    const next = name.trim() ? { ...formatted, title: name.trim() } : formatted;
-    if (!name.trim()) setName(next.title);
-    aiOriginal.current = JSON.stringify(next);
-    setAiMade(true);
-    setCard(next);
-    setDescribing(false);
   };
 
   const grid = (posts: Post[] | null, empty: string) =>
@@ -334,61 +274,12 @@ export function PlanPickerScreen({ navigation, route }: any) {
             placeholderTextColor={colors.cocoaFaint}
             style={styles.input}
             maxLength={80}
-            autoFocus={!card}
+            autoFocus={!built}
             returnKeyType="done"
           />
 
-          <Text style={styles.section}>Recipe card</Text>
-          {card ? (
-            <RecipeCardEditor
-              value={card}
-              onChange={setCard}
-              onRemove={() => {
-                setCard(null);
-                setAiMade(false);
-              }}
-              label={aiMade ? 'AI-formatted recipe. Tap any field to edit.' : 'Your recipe. Tap any field to edit.'}
-            />
-          ) : describing ? (
-            <View style={{ gap: spacing.sm }}>
-              <TextInput
-                testID="picker-describe"
-                keyboardAppearance={colors.dark ? 'dark' : 'light'}
-                value={description}
-                onChangeText={setDescription}
-                placeholder="Describe it however you like: what goes in, how you make it"
-                placeholderTextColor={colors.cocoaFaint}
-                style={[styles.input, styles.describe]}
-                multiline
-                scrollEnabled={false}
-                maxLength={2000}
-                autoFocus
-              />
-              <View style={styles.choiceRow}>
-                <Button
-                  testID="picker-format"
-                  title={formatting ? 'Formatting' : 'Format recipe'}
-                  onPress={runAi}
-                  loading={formatting}
-                  disabled={!description.trim()}
-                  small
-                  style={{ flex: 1 }}
-                />
-                <Button title="Cancel" variant="secondary" small onPress={() => setDescribing(false)} style={{ flex: 1 }} />
-              </View>
-            </View>
-          ) : (
-            <View style={styles.choiceRow}>
-              <Pressable testID="picker-write" onPress={writeIt} style={({ pressed }) => [styles.choice, pressed && { opacity: 0.7 }]}>
-                <Ionicons name="create-outline" size={20} color={colors.cocoa} />
-                <Text style={styles.choiceText}>Write it</Text>
-              </Pressable>
-              <Pressable testID="picker-ai" onPress={startAi} style={({ pressed }) => [styles.choice, pressed && { opacity: 0.7 }]}>
-                <Ionicons name="sparkles-outline" size={20} color={colors.cocoa} />
-                <Text style={styles.choiceText}>Format with AI</Text>
-              </Pressable>
-            </View>
-          )}
+          <Text style={styles.section}>Recipe card or ingredients (optional)</Text>
+          <RecipeBuilder name={name} value={built} onChange={setBuilt} onError={setError} />
 
           {error ? (
             <Text testID="picker-error" style={[styles.error, { marginHorizontal: 0 }]}>
@@ -398,9 +289,9 @@ export function PlanPickerScreen({ navigation, route }: any) {
 
           <Button
             testID="picker-add"
-            title={card ? 'Save recipe and add' : 'Add'}
+            title={built ? (built.ingredientsOnly ? 'Save and add' : 'Save recipe and add') : 'Add'}
             onPress={addNew}
-            disabled={(!name.trim() && !card) || formatting}
+            disabled={!name.trim() && !built}
             loading={busy}
             style={{ marginTop: spacing.sm }}
           />
@@ -484,18 +375,5 @@ const useStyles = makeStyles((colors) => ({
     fontSize: 15.5,
     color: colors.cocoa,
   },
-  describe: { minHeight: 110, textAlignVertical: 'top' },
-  section: { fontFamily: fonts.bold, fontSize: 14, color: colors.cocoaSoft, marginTop: spacing.xs },
-  choiceRow: { flexDirection: 'row', gap: spacing.sm },
-  choice: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 14,
-    borderRadius: radius.md,
-    backgroundColor: colors.creamDark,
-  },
-  choiceText: { fontFamily: fonts.bold, fontSize: 14.5, color: colors.cocoa },
+  section: { fontFamily: fonts.bold, fontSize: 14, color: colors.cocoaSoft, marginTop: spacing.xs, marginBottom: -spacing.xs },
 }));

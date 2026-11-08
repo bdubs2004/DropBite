@@ -2028,6 +2028,24 @@ export class MockService implements DataService {
     await this.save();
   }
 
+  async setPlanItemRecipe(itemId: string, recipeId: string | null): Promise<void> {
+    const db = await this.load();
+    const me = await this.me();
+    const t = this.planTables(db);
+    const fam = this.myFamily(db, me.id);
+    const it = t.items.find((i) => i.id === itemId);
+    const ok =
+      !!it &&
+      (it.user_id === me.id ||
+        (!!fam && it.family_id === fam.id && (it.added_by === me.id || fam.admin_id === me.id)));
+    if (!ok) throw new Error('You can\'t change that meal.');
+    if (recipeId && !(db.myRecipes ?? []).some((r) => r.id === recipeId && r.user_id === me.id)) {
+      throw new Error('That recipe isn\'t yours.');
+    }
+    it!.recipe_id = recipeId;
+    await this.save();
+  }
+
   async getMyRecipes(): Promise<MyRecipe[]> {
     const db = await this.load();
     const me = await this.me();

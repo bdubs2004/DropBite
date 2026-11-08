@@ -190,12 +190,20 @@ export function MealPlanScreen({ navigation }: any) {
     if (it.no) sub.push(`${it.no} no`);
     if (!sub.length && it.post?.recipe?.cook_time_minutes) sub.push(`${it.post.recipe.cook_time_minutes} min`);
     if (!sub.length && it.recipe && recipeSummary(it.recipe)) sub.push(recipeSummary(it.recipe));
+    // Just a name so far, and yours to change (mirrors set_plan_item_recipe):
+    // it can get a recipe card or the ingredients it needs.
+    const canGiveRecipe =
+      !it.post && !it.recipe && (!it.in_family || amAdmin || it.added_by?.id === user?.id);
+    const giveRecipe = () =>
+      navigation.navigate('PlanRecipeNew', { itemId: it.id, mealTitle: planItemTitle(it) });
     // A post opens the post; a meal with a recipe of its own opens the recipe.
     const open = it.post
       ? () => navigation.navigate('PostDetail', { postId: it.post!.id })
       : it.recipe
         ? () => navigation.navigate('PlanRecipe', { recipe: it.recipe })
-        : null;
+        : canGiveRecipe
+          ? giveRecipe
+          : null;
     return (
       <View key={it.id} testID={`plan-item-${it.id}`} style={styles.item}>
         <Pressable
@@ -219,6 +227,11 @@ export function MealPlanScreen({ navigation }: any) {
                 numberOfLines={1}
               >
                 {sub.join(' · ')}
+              </Text>
+            ) : null}
+            {canGiveRecipe ? (
+              <Text testID={`plan-add-recipe-${it.id}`} style={styles.addRecipe}>
+                + Recipe or ingredients
               </Text>
             ) : null}
           </View>
@@ -697,6 +710,7 @@ const useStyles = makeStyles((colors) => ({
   itemMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   thumbBlank: { alignItems: 'center', justifyContent: 'center' },
   itemTitle: { fontFamily: fonts.bold, fontSize: 16, lineHeight: 21, color: colors.cocoa },
+  addRecipe: { fontFamily: fonts.bold, fontSize: 13, color: colors.amberDark, marginTop: 3 },
   itemSub: { fontFamily: fonts.semi, fontSize: 13, color: colors.cocoaFaint, marginTop: 2 },
   actions: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginLeft: spacing.sm },
   keep: {
