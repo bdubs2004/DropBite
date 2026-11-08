@@ -7,6 +7,8 @@ import {
   FamilyInviteResult,
   FamilyState,
   MealPlanItem,
+  MyRecipe,
+  MyRecipeInput,
   MealSlot,
   Conversation,
   DiscoverPerson,
@@ -329,7 +331,19 @@ export interface DataService {
    * Put a post or a named meal on a day. Goes straight in on a personal plan
    * or when the family admin adds it; anyone else's waits for the admin.
    */
-  addPlanItem(input: { date: string; slot: MealSlot; postId?: string; title?: string }): Promise<void>;
+  addPlanItem(input: {
+    date: string;
+    slot: MealSlot;
+    postId?: string;
+    title?: string;
+    /** One of your own recipes to go with it. */
+    recipeId?: string;
+  }): Promise<void>;
+  /** Your saved recipes, most recently changed first. */
+  getMyRecipes(): Promise<MyRecipe[]>;
+  /** Save a new recipe (no id) or change one of yours. */
+  saveMyRecipe(input: MyRecipeInput): Promise<MyRecipe>;
+  deleteMyRecipe(id: string): Promise<void>;
   removePlanItem(itemId: string): Promise<void>;
   /** Family admin only: keep a meal (even one members voted down) or drop it. */
   decidePlanItem(itemId: string, keep: boolean): Promise<void>;

@@ -14,10 +14,15 @@ export function RecipeCardEditor({
   value,
   onChange,
   onRemove,
+  label = 'AI-formatted recipe. Tap any field to edit.',
+  removeLabel = 'Remove',
 }: {
   value: FormattedRecipe;
   onChange: (next: FormattedRecipe) => void;
   onRemove: () => void;
+  /** The line at the top; a hand-written card says so instead of "AI". */
+  label?: string;
+  removeLabel?: string;
 }) {
   const styles = useStyles();
   const colors = useColors();
@@ -36,9 +41,9 @@ export function RecipeCardEditor({
   return (
     <BittenCard>
       <View style={styles.topRow}>
-        <Text style={styles.aiTag}>AI-formatted recipe. Tap any field to edit.</Text>
+        <Text style={styles.aiTag}>{label}</Text>
         <Pressable onPress={onRemove} hitSlop={8}>
-          <Text style={styles.remove}>Remove</Text>
+          <Text style={styles.remove}>{removeLabel}</Text>
         </Pressable>
       </View>
 

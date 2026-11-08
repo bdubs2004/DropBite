@@ -28,6 +28,8 @@ import {
   FamilyInviteResult,
   FamilyState,
   MealPlanItem,
+  MyRecipe,
+  MyRecipeInput,
   MealSlot,
   Recipe,
   Report,
@@ -115,11 +117,13 @@ interface Db {
     meal_slot: MealSlot;
     post_id: string | null;
     title: string | null;
+    recipe_id?: string | null;
     added_by: string | null;
     status: 'in' | 'pending';
     created_at: string;
   }[];
   planVotes?: { item_id: string; user_id: string; approve: boolean }[];
+  myRecipes?: MyRecipe[];
   blocks: { blocker_id: string; blocked_id: string }[];
   reports: Report[];
   feedback: Feedback[];
@@ -362,6 +366,7 @@ export class MockService implements DataService {
         .map((i) => (i.added_by === meId ? { ...i, added_by: null } : i));
       const left = new Set(db.planItems.map((i) => i.id));
       db.planVotes = t.votes.filter((v) => v.user_id !== meId && left.has(v.item_id));
+      db.myRecipes = (db.myRecipes ?? []).filter((r) => r.user_id !== meId);
     }
     db.streaks = db.streaks.filter((s) => s.user_id !== meId);
     db.credentials = db.credentials.filter((c) => c.userId !== meId);
@@ -1958,6 +1963,8 @@ export class MockService implements DataService {
           post_id: i.post_id,
           post: post ? this.hydrate(db, post, me.id) : null,
           title: i.title,
+          // Mirrors RLS: yours, or on your family's plan.
+          recipe: (db.myRecipes ?? []).find((r) => r.id === i.recipe_id) ?? null,
           added_by: db.users.find((u) => u.id === i.added_by) ?? null,
           status: i.status,
           yes: votes.filter((v) => v.approve).length,
@@ -1968,11 +1975,22 @@ export class MockService implements DataService {
       });
   }
 
-  async addPlanItem(input: { date: string; slot: MealSlot; postId?: string; title?: string }): Promise<void> {
+  async addPlanItem(input: {
+    date: string;
+    slot: MealSlot;
+    postId?: string;
+    title?: string;
+    recipeId?: string;
+  }): Promise<void> {
     const db = await this.load();
     const me = await this.me();
     const t = this.planTables(db);
-    const title = input.title?.trim().slice(0, 80) || null;
+    let title = input.title?.trim().slice(0, 80) || null;
+    if (input.recipeId) {
+      const r = (db.myRecipes ?? []).find((x) => x.id === input.recipeId && x.user_id === me.id);
+      if (!r) throw new Error('That recipe isn\'t yours.');
+      title = title ?? r.title.slice(0, 80);
+    }
     if (!['breakfast', 'lunch', 'dinner', 'snack'].includes(input.slot)) {
       throw new Error('Pick breakfast, lunch, dinner or a snack.');
     }
@@ -1998,10 +2016,68 @@ export class MockService implements DataService {
       meal_slot: input.slot,
       post_id: input.postId ?? null,
       title,
+      recipe_id: input.recipeId ?? null,
       added_by: me.id,
       status: !fam || fam.admin_id === me.id ? 'in' : 'pending',
       created_at: new Date().toISOString(),
     });
+    await this.save();
+  }
+
+  async getMyRecipes(): Promise<MyRecipe[]> {
+    const db = await this.load();
+    const me = await this.me();
+    return (db.myRecipes ?? [])
+      .filter((r) => r.user_id === me.id)
+      .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+  }
+
+  async saveMyRecipe(input: MyRecipeInput): Promise<MyRecipe> {
+    const db = await this.load();
+    const me = await this.me();
+    db.myRecipes ??= [];
+    const now = new Date().toISOString();
+    if (!input.title.trim()) throw new Error('Give the recipe a name.');
+    if (input.id) {
+      const r = db.myRecipes.find((x) => x.id === input.id && x.user_id === me.id);
+      if (!r) throw new Error('You can only change your own recipes.');
+      Object.assign(r, {
+        title: input.title,
+        ingredients: input.ingredients,
+        steps: input.steps,
+        cook_time_minutes: input.cook_time_minutes,
+        user_edited: input.user_edited,
+        updated_at: now,
+      });
+      await this.save();
+      return { ...r };
+    }
+    if (db.myRecipes.filter((x) => x.user_id === me.id).length >= 300) {
+      throw new Error('You have 300 recipes saved. Delete one first.');
+    }
+    const r: MyRecipe = {
+      id: uid('rec-'),
+      user_id: me.id,
+      title: input.title,
+      ingredients: input.ingredients,
+      steps: input.steps,
+      cook_time_minutes: input.cook_time_minutes,
+      ai_generated: input.ai_generated,
+      user_edited: input.user_edited,
+      created_at: now,
+      updated_at: now,
+    };
+    db.myRecipes.push(r);
+    await this.save();
+    return { ...r };
+  }
+
+  async deleteMyRecipe(id: string): Promise<void> {
+    const db = await this.load();
+    const me = await this.me();
+    db.myRecipes = (db.myRecipes ?? []).filter((r) => !(r.id === id && r.user_id === me.id));
+    // The meals keep their names; they just lose the card (on delete set null).
+    for (const i of db.planItems ?? []) if (i.recipe_id === id) i.recipe_id = null;
     await this.save();
   }
 

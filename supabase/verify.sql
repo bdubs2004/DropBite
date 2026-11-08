@@ -45,7 +45,8 @@ expected_columns(tbl, col, fixed_by) as (
     ('posts',        'hashtags',              '0039_hashtags.sql'),
     ('posts',        'price_level',           '0040_price_level.sql'),
     ('notifications','detail',                '0044_meal_plan_notifications.sql'),
-    ('notifications','plan_item_id',          '0044_meal_plan_notifications.sql')
+    ('notifications','plan_item_id',          '0044_meal_plan_notifications.sql'),
+    ('meal_plan_items','recipe_id',           '0045_my_recipes.sql')
 ),
 
 -- Functions the policies call. A missing one breaks every policy that uses it.
@@ -424,7 +425,9 @@ checks(grp, item, status) as (
   select 20, 'meal plans and families',
     case
       when to_regclass('public.meal_plan_items') is null or to_regclass('public.families') is null
-        or to_regprocedure('public.add_plan_item(date, text, uuid, text)') is null
+        -- 0045 adds a fifth argument (a recipe of your own); either shape is there.
+        or (to_regprocedure('public.add_plan_item(date, text, uuid, text)') is null
+            and to_regprocedure('public.add_plan_item(date, text, uuid, text, uuid)') is null)
         then 'MISSING — run upgrade_all.sql (0043)'
       when has_table_privilege('authenticated', 'public.meal_plan_items', 'INSERT')
         or has_table_privilege('authenticated', 'public.meal_plan_items', 'UPDATE')

@@ -928,7 +928,7 @@ select qa.check('spam', 'one person''s limit doesn''t touch anyone else''s', 'al
 select qa.fact('spam', 'everything people can create is rate limited',
   $q$select string_agg(c.relname || ':' || t.tgname, ',' order by c.relname) from pg_trigger t join pg_class c on c.oid = t.tgrelid
      where t.tgfoid = 'public.limit_rate()'::regprocedure and not t.tgisinternal$q$,
-  'collections:collections_limit_rate,comment_reactions:comment_reactions_limit_rate,comments:comments_limit_rate,conversations:conversations_limit_rate,families:families_limit_rate,family_members:family_members_limit_rate,feedback:feedback_limit_rate,follows:follows_limit_rate,meal_plan_items:meal_plan_items_limit_rate,meal_plan_votes:meal_plan_votes_limit_rate,message_reactions:message_reactions_limit_rate,messages:messages_limit_rate,post_tags:post_tags_limit_rate,posts:posts_limit_rate,reactions:reactions_limit_rate,reports:reports_limit_rate,reposts:reposts_limit_rate,shares:shares_limit_rate');
+  'collections:collections_limit_rate,comment_reactions:comment_reactions_limit_rate,comments:comments_limit_rate,conversations:conversations_limit_rate,families:families_limit_rate,family_members:family_members_limit_rate,feedback:feedback_limit_rate,follows:follows_limit_rate,meal_plan_items:meal_plan_items_limit_rate,meal_plan_votes:meal_plan_votes_limit_rate,message_reactions:message_reactions_limit_rate,messages:messages_limit_rate,my_recipes:my_recipes_limit_rate,post_tags:post_tags_limit_rate,posts:posts_limit_rate,reactions:reactions_limit_rate,reports:reports_limit_rate,reposts:reposts_limit_rate,shares:shares_limit_rate');
 select qa.check('spam', 'read or reset anyone''s rate-limit counters', 'mallory',
   $q$select count(*) from public.action_usage$q$, 'denied');
 
@@ -996,6 +996,9 @@ insert into public.meal_plan_items (id, family_id, plan_date, meal_slot, title, 
 insert into public.meal_plan_items (user_id, plan_date, meal_slot, title, added_by) values
   ('2e2e2e2e-0000-4000-8000-000000000021', current_date, 'lunch', 'zed soup', '2e2e2e2e-0000-4000-8000-000000000021');
 insert into public.meal_plan_votes (item_id, user_id, approve) values ('fb000000-0000-4000-8000-0000000000e1', '2e2e2e2e-0000-4000-8000-000000000021', true);
+-- And a recipe of his own on his plan (0045).
+insert into public.my_recipes (id, user_id, title) values ('fc000000-0000-4000-8000-0000000000e1', '2e2e2e2e-0000-4000-8000-000000000021', 'zed soup');
+update public.meal_plan_items set recipe_id = 'fc000000-0000-4000-8000-0000000000e1' where title = 'zed soup';
 insert into public.reports (reporter_id, post_id, reported_user_id, reason) values
   ('2e2e2e2e-0000-4000-8000-000000000021', '10000000-0000-4000-8000-0000000000b2', 'bbbbbbbb-0000-4000-8000-000000000002', 'spam');
 insert into public.reports (id, reporter_id, comment_id, reported_user_id, reason, comment_text_snapshot) values
@@ -1211,6 +1214,12 @@ insert into public.meal_plan_items (id, family_id, user_id, plan_date, meal_slot
   ('fb000000-0000-4000-8000-000000000002', 'fa000000-0000-4000-8000-000000000001', null, current_date, 'dinner', 'nuggets', 'bbbbbbbb-0000-4000-8000-000000000002', 'pending'),
   ('fb000000-0000-4000-8000-000000000003', null, 'dddddddd-0000-4000-8000-000000000004', current_date, 'dinner', 'tacos', 'dddddddd-0000-4000-8000-000000000004', 'in');
 insert into public.meal_plan_votes (item_id, user_id, approve) values ('fb000000-0000-4000-8000-000000000001', 'bbbbbbbb-0000-4000-8000-000000000002', false);
+-- Recipes of their own (0045): Alice's pot roast card is on the family plan;
+-- Mallory's tacos card is hers alone.
+insert into public.my_recipes (id, user_id, title, ingredients, steps) values
+  ('fc000000-0000-4000-8000-000000000001', 'aaaaaaaa-0000-4000-8000-000000000001', 'Pot roast', '[{"item":"chuck roast","quantity":"3","unit":"lb"}]', '["Sear it","Braise 3 hours"]'),
+  ('fc000000-0000-4000-8000-000000000002', 'dddddddd-0000-4000-8000-000000000004', 'Tacos', '[]', '[]');
+update public.meal_plan_items set recipe_id = 'fc000000-0000-4000-8000-000000000001' where id = 'fb000000-0000-4000-8000-000000000001';
 
 -- Where a meal stands after an action: 0 gone, 1 waiting, 2 on the plan.
 create function qa.plan_state(item uuid) returns bigint language sql security definer set search_path = '' as $$
@@ -1315,6 +1324,24 @@ select qa.check('meal plan activity', 'write a meal plan notification yourself',
   $q$insert into public.notifications (user_id, actor_id, type, detail) values ('aaaaaaaa-0000-4000-8000-000000000001', 'bbbbbbbb-0000-4000-8000-000000000002', 'plan_approved', 'free pizza')$q$, 'denied');
 select qa.check('meal plan activity', 'read someone else''s meal plan notifications', 'mallory',
   $q$select count(*) from public.notifications where type like 'plan%' and user_id <> 'dddddddd-0000-4000-8000-000000000004'$q$, 'rows:0');
+select qa.check('my recipes', 'the family can read the recipe on its plan', 'bob',
+  $q$select count(*) from public.my_recipes where id = 'fc000000-0000-4000-8000-000000000001'$q$, 'rows:1');
+select qa.check('my recipes', 'nobody outside the family can', 'mallory',
+  $q$select count(*) from public.my_recipes where id = 'fc000000-0000-4000-8000-000000000001'$q$, 'rows:0');
+select qa.check('my recipes', 'read someone''s own recipe', 'alice',
+  $q$select count(*) from public.my_recipes where id = 'fc000000-0000-4000-8000-000000000002'$q$, 'rows:0');
+select qa.check('my recipes', 'change someone else''s recipe', 'bob',
+  $q$update public.my_recipes set title = 'ruined' where id = 'fc000000-0000-4000-8000-000000000001'$q$, 'denied');
+select qa.check('my recipes', 'delete someone else''s recipe', 'bob',
+  $q$delete from public.my_recipes where id = 'fc000000-0000-4000-8000-000000000001'$q$, 'denied');
+select qa.check('my recipes', 'save a recipe as someone else', 'bob',
+  $q$insert into public.my_recipes (user_id, title) values ('aaaaaaaa-0000-4000-8000-000000000001', 'not mine')$q$, 'denied');
+select qa.check('my recipes', 'a broken card is refused', 'mallory',
+  $q$insert into public.my_recipes (title, steps) values ('soup', '[1, 2]')$q$, 'error');
+select qa.check('my recipes', 'put someone else''s recipe on your plan', 'bob',
+  $q$select public.add_plan_item(current_date, 'lunch', null, null, 'fc000000-0000-4000-8000-000000000001')$q$, 'error:That recipe isn');
+select qa.check('my recipes', 'your own recipe goes on your plan', 'mallory',
+  $q$select qa.add_state($a$select public.add_plan_item(current_date, 'lunch', null, null, 'fc000000-0000-4000-8000-000000000002')$a$)$q$, 'rows:2');
 select qa.check('families', 'a member (not the admin) invites people', 'bob',
   $q$select count(*) from (select public.invite_to_family('mallory')) x$q$, 'error:Only the family admin');
 select qa.check('families', 'invite someone who blocked you: looks like no such person', 'alice',

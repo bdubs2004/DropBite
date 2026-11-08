@@ -16,6 +16,8 @@ import {
   FamilyInviteResult,
   FamilyState,
   MealPlanItem,
+  MyRecipe,
+  MyRecipeInput,
   MealSlot,
   ReportReason,
   Streak,
@@ -26,6 +28,7 @@ import { appVersion, platformName } from '../../lib/appInfo';
 import { cleanHandle, unreservedBase } from '../../lib/handle';
 import { clamp, clampOrNull, LIMITS } from '../../lib/limits';
 import { cleanRecipe } from '../../lib/recipeData';
+import { cleanMyRecipe } from '../../lib/myRecipe';
 import { collectionNameProblem, tidyCollectionName } from '../../lib/collectionName';
 import { cleanHashtags } from '../../lib/hashtags';
 import { cleanPriceLevel } from '../../lib/price';
@@ -153,12 +156,13 @@ export class SupabaseService implements DataService {
     activity: false,
     hashtags: false,
     priceLevel: false,
+    myRecipes: false,
   };
   private capsLoaded: Promise<void> | null = null;
   private loadCaps(): Promise<void> {
     if (!this.capsLoaded) {
       this.capsLoaded = (async () => {
-        const [tags, shares, reactions, leave, photoSize, activity, hashtags, priceLevel] =
+        const [tags, shares, reactions, leave, photoSize, activity, hashtags, priceLevel, myRecipes] =
           await Promise.all([
             this.sb.from('post_tags').select('post_id').limit(1),
             this.sb.from('messages').select('shared_user_id').limit(1),
@@ -168,6 +172,8 @@ export class SupabaseService implements DataService {
             this.sb.from('notifications').select('pushed_at').limit(1),
             this.sb.from('posts').select('hashtags').limit(1),
             this.sb.from('posts').select('price_level').limit(1),
+            // Saved recipes on the meal plan (0045).
+            this.sb.from('my_recipes').select('id').limit(1),
           ]);
         // All of them failing is a network problem, not a schema answer:
         // try again on the next call rather than switching everything off.
@@ -193,6 +199,7 @@ export class SupabaseService implements DataService {
           activity: !activity.error,
           hashtags: !hashtags.error,
           priceLevel: !priceLevel.error,
+          myRecipes: !myRecipes.error,
         };
       })().catch(() => {
         this.capsLoaded = null;
@@ -2182,7 +2189,13 @@ export class SupabaseService implements DataService {
       .from('meal_plan_items')
       // One FK to posts, so this embed is unambiguous. Three FKs to users
       // (owner, added_by, decided_by), so people are fetched separately.
-      .select('id, plan_date, meal_slot, post_id, title, added_by, status, created_at, posts(' + this.POST_SELECT + ')')
+      .select(
+        'id, plan_date, meal_slot, post_id, title, added_by, status, created_at, posts(' +
+          this.POST_SELECT +
+          ')' +
+          // One FK to my_recipes, so this embed is unambiguous (0045).
+          (this.caps.myRecipes ? ', my_recipes(*)' : ''),
+      )
       .gte('plan_date', from)
       .lte('plan_date', to)
       .order('created_at', { ascending: true });
@@ -2208,6 +2221,7 @@ export class SupabaseService implements DataService {
         // A post that's gone (or hidden from me) leaves the slot with no post.
         post: r.posts ? this.hydrateRow(r.posts, meId) : null,
         title: r.title,
+        recipe: r.my_recipes ? cleanMyRecipe(r.my_recipes) : null,
         added_by: r.added_by ? people.get(r.added_by) ?? null : null,
         status: r.status === 'pending' ? 'pending' : 'in',
         yes: votes.filter((v: any) => v.item_id === r.id && v.approve).length,
@@ -2218,7 +2232,13 @@ export class SupabaseService implements DataService {
     });
   }
 
-  async addPlanItem(input: { date: string; slot: MealSlot; postId?: string; title?: string }): Promise<void> {
+  async addPlanItem(input: {
+    date: string;
+    slot: MealSlot;
+    postId?: string;
+    title?: string;
+    recipeId?: string;
+  }): Promise<void> {
     await this.rpcOrThrow(
       'add_plan_item',
       {
@@ -2226,11 +2246,57 @@ export class SupabaseService implements DataService {
         slot: input.slot,
         plan_post: input.postId ?? null,
         meal_title: input.title?.trim() || null,
+        // Only when there is one: a database before 0045 has no such argument.
+        ...(input.recipeId ? { plan_recipe: input.recipeId } : {}),
       },
       'Could not add that meal.',
     );
     // On a family plan the rest of the family hears about it (0044).
     this.pingActivity();
+  }
+
+  async getMyRecipes(): Promise<MyRecipe[]> {
+    const meId = await this.myId();
+    if (!this.caps.myRecipes) return [];
+    const { data, error } = await this.sb
+      .from('my_recipes')
+      .select('*')
+      .eq('user_id', meId)
+      .order('updated_at', { ascending: false });
+    if (error) throw new Error(planError(error, 'Could not load your recipes.'));
+    return (data ?? []).map(cleanMyRecipe).filter((r): r is MyRecipe => r !== null);
+  }
+
+  async saveMyRecipe(input: MyRecipeInput): Promise<MyRecipe> {
+    await this.myId();
+    const fields = {
+      title: input.title,
+      ingredients: input.ingredients,
+      steps: input.steps,
+      cook_time_minutes: input.cook_time_minutes,
+      user_edited: input.user_edited,
+    };
+    const { data, error } = input.id
+      ? await this.sb
+          .from('my_recipes')
+          .update({ ...fields, updated_at: new Date().toISOString() })
+          .eq('id', input.id)
+          .select('*')
+          .single()
+      : await this.sb
+          .from('my_recipes')
+          .insert({ ...fields, ai_generated: input.ai_generated })
+          .select('*')
+          .single();
+    if (error) throw new Error(planError(error, 'Could not save that recipe.'));
+    const saved = cleanMyRecipe(data);
+    if (!saved) throw new Error('Could not save that recipe.');
+    return saved;
+  }
+
+  async deleteMyRecipe(id: string): Promise<void> {
+    const { error } = await this.sb.from('my_recipes').delete().eq('id', id);
+    if (error) throw new Error(planError(error, 'Could not delete that recipe.'));
   }
 
   async removePlanItem(itemId: string): Promise<void> {

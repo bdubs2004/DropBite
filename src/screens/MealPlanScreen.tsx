@@ -18,6 +18,7 @@ import {
   weekLabel,
   weekStart,
 } from '../lib/mealPlan';
+import { recipeSummary } from '../lib/myRecipe';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
 import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
@@ -188,11 +189,19 @@ export function MealPlanScreen({ navigation }: any) {
     if (it.yes) sub.push(`${it.yes} yes`);
     if (it.no) sub.push(`${it.no} no`);
     if (!sub.length && it.post?.recipe?.cook_time_minutes) sub.push(`${it.post.recipe.cook_time_minutes} min`);
+    if (!sub.length && it.recipe && recipeSummary(it.recipe)) sub.push(recipeSummary(it.recipe));
+    // A post opens the post; a meal with a recipe of its own opens the recipe.
+    const open = it.post
+      ? () => navigation.navigate('PostDetail', { postId: it.post!.id })
+      : it.recipe
+        ? () => navigation.navigate('PlanRecipe', { recipe: it.recipe })
+        : null;
     return (
       <View key={it.id} testID={`plan-item-${it.id}`} style={styles.item}>
         <Pressable
-          onPress={() => it.post && navigation.navigate('PostDetail', { postId: it.post.id })}
-          disabled={!it.post}
+          testID={`plan-open-${it.id}`}
+          onPress={() => open?.()}
+          disabled={!open}
           style={styles.itemMain}
         >
           <MealThumb item={it} size={52} />
@@ -404,7 +413,7 @@ function MealThumb({ item, size }: { item: MealPlanItem; size: number }) {
     <PostThumb post={item.post} style={{ ...box, overflow: 'hidden' }} radius={radius.sm} showRecipeBadge={false} />
   ) : (
     <View style={[styles.thumbBlank, box, { backgroundColor: meta.bg }]}>
-      <Ionicons name="restaurant" size={Math.round(size * 0.38)} color={meta.color} />
+      <Ionicons name={item.recipe ? 'book' : 'restaurant'} size={Math.round(size * 0.38)} color={meta.color} />
     </View>
   );
 }

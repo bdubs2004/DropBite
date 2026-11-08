@@ -29,5 +29,19 @@ check('next month from the 31st lands on the last day', addMonths('2027-01-31', 
 check('across a year', addMonths('2026-12-15', 1) === '2027-01-15' && addMonths('2026-01-15', -1) === '2025-12-15');
 check('month and day names', monthLabel('2026-11-05') === 'November 2026' && longDay('2026-11-05') === 'Thursday, Nov 5', longDay('2026-11-05'));
 
+// Saved recipes (src/lib/myRecipe.ts)
+import { cleanMyRecipe, recipeSummary, tidyRecipe } from '../myRecipe';
+const tidy = tidyRecipe(
+  { title: '  ', ingredients: [{ item: ' beef ', quantity: '2', unit: 'lb' }, { item: '', quantity: '1', unit: '' }], steps: ['', ' Brown it '], cook_time_minutes: 99999 },
+  'Taco night',
+);
+check('an empty title falls back to the meal name', tidy.title === 'Taco night', tidy.title);
+check('empty rows are dropped and text trimmed', tidy.ingredients.length === 1 && tidy.ingredients[0].item === 'beef' && tidy.steps.length === 1 && tidy.steps[0] === 'Brown it', tidy);
+check('cook time kept within the database limit', tidy.cook_time_minutes === 6000, tidy.cook_time_minutes);
+const clean = cleanMyRecipe({ id: 'r1', user_id: 'u1', title: 'Soup', ingredients: [{ item: 'leek', quantity: 2 }, 'junk', { quantity: '1' }], steps: ['Boil', 7, ''], cook_time_minutes: -5 });
+check('a saved recipe from the server is cleaned', !!clean && clean.ingredients.length === 1 && clean.ingredients[0].quantity === '2' && clean.steps.length === 2 && clean.cook_time_minutes === null, clean);
+check('nonsense is nothing', cleanMyRecipe('nope') === null && cleanMyRecipe(null) === null);
+check('summary', recipeSummary({ ingredients: [1, 2, 3], cook_time_minutes: 30 }) === '3 ingredients · 30 min' && recipeSummary({ ingredients: [], cook_time_minutes: null }) === '');
+
 console.log(failed ? `\n${failed} meal plan check(s) failed` : '\nAll meal plan checks passed');
 if (failed) process.exit(1);

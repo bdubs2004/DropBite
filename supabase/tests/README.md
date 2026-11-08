@@ -44,7 +44,7 @@ Linux only (it downloads Linux builds of PostgREST and Supabase Auth, cached in
 
 ## rls_attack_test.sql: start here
 
-The main suite: 325 checks, self-asserting (it ends with an error if any fail).
+The main suite: 344 checks, self-asserting (it ends with an error if any fail).
 Six separate accounts sign in the way the API does it, with their own tokens,
 and an attacker with a normal account (Mallory, who follows the victim and has
 her own posts and a DM with her) tries to read, change or delete other people's
@@ -151,7 +151,11 @@ a stranger's personal one, only the admin invites, removes, approves, drops or
 deletes, a member's pick waits while the admin's goes straight on, a member
 can take back only their own waiting pick, the admin can't vote and members
 can't decide, you can't join a second family or invite across a block, and
-deleting a family takes its plan and votes with it.
+deleting a family takes its plan and votes with it. Meal plan Activity (0044)
+goes to the rest of the family only, never to someone just invited or an
+outsider, and can't be written by the app. Recipes of your own (0045) are
+private except to your family when on its plan, can't be changed or used by
+anyone else, and keep the same card checks as a post's recipe.
 
 ## analytics_test.sql
 

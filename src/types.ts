@@ -407,7 +407,35 @@ export interface FamilyState {
   invites: { family: Family; invited_by: User | null }[];
 }
 
-/** A meal on a plan: a post (usually with a recipe) or just a name. */
+/**
+ * A recipe card of your own, made on the meal plan (written by hand or
+ * formatted by the AI) and saved so you can plan it again.
+ */
+export interface MyRecipe {
+  id: string;
+  user_id: string;
+  title: string;
+  ingredients: Ingredient[];
+  steps: string[];
+  cook_time_minutes: number | null;
+  ai_generated: boolean;
+  user_edited: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/** What it takes to save one (a new one has no id). */
+export interface MyRecipeInput {
+  id?: string;
+  title: string;
+  ingredients: Ingredient[];
+  steps: string[];
+  cook_time_minutes: number | null;
+  ai_generated: boolean;
+  user_edited: boolean;
+}
+
+/** A meal on a plan: a post (usually with a recipe), a name, or a name with a recipe of your own. */
 export interface MealPlanItem {
   id: string;
   /** YYYY-MM-DD, the plan's own day (not a moment in time). */
@@ -416,6 +444,8 @@ export interface MealPlanItem {
   post: Post | null;
   post_id: string | null;
   title: string | null;
+  /** A recipe of your own (or a family member's) that this meal carries. */
+  recipe: MyRecipe | null;
   added_by: User | null;
   /** 'pending' waits for the family admin. Personal plans are always 'in'. */
   status: 'in' | 'pending';
