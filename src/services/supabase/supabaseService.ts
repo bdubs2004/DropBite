@@ -2229,6 +2229,8 @@ export class SupabaseService implements DataService {
       },
       'Could not add that meal.',
     );
+    // On a family plan the rest of the family hears about it (0044).
+    this.pingActivity();
   }
 
   async removePlanItem(itemId: string): Promise<void> {
@@ -2237,6 +2239,8 @@ export class SupabaseService implements DataService {
 
   async decidePlanItem(itemId: string, keep: boolean): Promise<void> {
     await this.rpcOrThrow('decide_plan_item', { item: itemId, keep }, 'Could not save that.');
+    // Approving tells whoever asked for it (0044).
+    if (keep) this.pingActivity();
   }
 
   async votePlanItem(itemId: string, approve: boolean | null): Promise<void> {

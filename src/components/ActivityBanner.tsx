@@ -3,7 +3,7 @@ import { NavigationContainerRefWithCurrent } from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, PanResponder, Platform, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ACTIVITY_KIND, BANNER_KINDS, IS_FOLLOW, SHOWS_COMMENT } from '../lib/activityKinds';
+import { ACTIVITY_KIND, BANNER_KINDS, IS_FOLLOW, IS_PLAN, SHOWS_COMMENT, activityExtra } from '../lib/activityKinds';
 import { relativeTime } from '../lib/time';
 import { getDataService } from '../services';
 import { onActivityPushWhileOpen, setActivityBannersInApp } from '../services/notifications';
@@ -211,12 +211,13 @@ export function ActivityBanner({
   const n = current;
   const kind = ACTIVITY_KIND[n.type];
   const name = n.actor?.display_name ?? 'Someone';
-  const said = SHOWS_COMMENT.has(n.type) && n.comment_text ? `: ${n.comment_text}` : '';
+  const said = activityExtra(n);
 
   // Same places a tap on the Activity line goes.
   const open = () => {
     hide(() => {
       if (IS_FOLLOW.has(n.type)) navigationRef.navigate('UserProfile', { userId: n.actor_id });
+      else if (IS_PLAN.has(n.type)) navigationRef.navigate('MealPlan');
       else if (!n.post_id) return;
       else if (SHOWS_COMMENT.has(n.type)) navigationRef.navigate('Comments', { postId: n.post_id });
       else navigationRef.navigate('PostDetail', { postId: n.post_id });

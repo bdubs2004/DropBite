@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '../components/Avatar';
 import { PostThumb } from '../components/PostThumb';
 import { Muted } from '../components/ui';
-import { ACTIVITY_KIND, IS_FOLLOW, SHOWS_COMMENT } from '../lib/activityKinds';
+import { ACTIVITY_KIND, IS_FOLLOW, IS_PLAN, SHOWS_COMMENT, activityExtra } from '../lib/activityKinds';
 import { relativeTime } from '../lib/time';
 import { getDataService } from '../services';
 import { fonts, makeStyles, radius, spacing, useColors } from '../theme';
@@ -115,6 +115,10 @@ export function NotificationsScreen({ navigation }: any) {
   const open = (n: AppNotification) => {
     if (IS_FOLLOW.has(n.type)) {
       openProfile(n.actor_id);
+      return;
+    }
+    if (IS_PLAN.has(n.type)) {
+      navigation.navigate('MealPlan');
       return;
     }
     if (!n.post_id) return;
@@ -233,9 +237,7 @@ export function NotificationsScreen({ navigation }: any) {
                     <Text style={styles.text}>
                       <Text style={styles.name}>{item.actor?.display_name ?? 'Someone'}</Text>{' '}
                       {kind.verb}
-                      {SHOWS_COMMENT.has(item.type) && item.comment_text
-                        ? `: ${item.comment_text}`
-                        : ''}
+                      {activityExtra(item)}
                     </Text>
                     <Muted style={styles.time}>{relativeTime(item.created_at)}</Muted>
                   </View>

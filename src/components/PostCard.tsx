@@ -166,7 +166,8 @@ function PostCardView({
           },
         ]
       : []),
-    ...(MEAL_PLANS_ENABLED
+    // Only a post with a recipe: that's something you can cook.
+    ...(MEAL_PLANS_ENABLED && post.recipe
       ? [
           {
             key: 'meal-plan',

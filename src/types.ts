@@ -222,7 +222,13 @@ export type NotificationType =
   /** Liked one of your comments (comment_id is the comment). */
   | 'comment_like'
   /** Replied to your comment (comment_id is the reply). */
-  | 'reply';
+  | 'reply'
+  /** Someone in your family put a meal straight on the plan (detail says what and when). */
+  | 'plan_add'
+  /** Someone in your family asked for a meal; it waits for the admin. */
+  | 'plan_request'
+  /** The family admin approved a meal you asked for. */
+  | 'plan_approved';
 
 /**
  * "Marge liked your post." Written by database triggers, never by the client,
@@ -244,6 +250,8 @@ export interface AppNotification {
   post?: Post | null;
   /** The comment's text, for a comment, reply or comment-like notification. */
   comment_text?: string | null;
+  /** Meal plan kinds: "Pot roast for Thursday dinner". */
+  detail?: string | null;
 }
 
 /** A person shown on the Discover page, with a taste of what they post. */

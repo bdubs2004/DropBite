@@ -365,6 +365,8 @@ function Root() {
           if (data?.kind === 'activity') {
             if (data.type === 'follow' || data.type === 'follow_back') {
               if (data.actorId) navigationRef.navigate('UserProfile', { userId: data.actorId });
+            } else if (String(data.type).startsWith('plan_')) {
+              if (MEAL_PLANS_ENABLED) navigationRef.navigate('MealPlan');
             } else if (data.postId) {
               navigationRef.navigate('PostDetail', {
                 postId: data.postId,

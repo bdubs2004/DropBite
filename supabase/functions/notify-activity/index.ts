@@ -22,7 +22,11 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 const EXPO_PUSH = 'https://exp.host/--/api/v2/push/send';
 
 /** Which Activity kinds also go to your phone. */
-const PUSHED = ['like', 'comment', 'reply', 'comment_like', 'follow', 'follow_back'];
+const PUSHED = [
+  'like', 'comment', 'reply', 'comment_like', 'follow', 'follow_back',
+  // Meal plans (migration 0044).
+  'plan_add', 'plan_request', 'plan_approved',
+];
 
 /** Only rows this fresh: an old row is never pushed late. */
 const WINDOW_MS = 5 * 60 * 1000;
@@ -38,8 +42,14 @@ function clip(s: string, n = 120): string {
 }
 
 /** "Dan liked your post", "Dan commented: looks so good", … */
-export function activityText(type: string, name: string, commentText?: string | null): string {
+export function activityText(
+  type: string,
+  name: string,
+  commentText?: string | null,
+  detail?: string | null,
+): string {
   const said = commentText ? `: ${clip(commentText)}` : '';
+  const meal = detail ? clip(detail, 100) : 'a meal';
   switch (type) {
     case 'like':
       return `${name} liked your post`;
@@ -53,6 +63,12 @@ export function activityText(type: string, name: string, commentText?: string | 
       return `${name} started following you`;
     case 'follow_back':
       return `${name} followed you back`;
+    case 'plan_add':
+      return `${name} added ${meal} to the meal plan`;
+    case 'plan_request':
+      return `${name} asked for ${meal}`;
+    case 'plan_approved':
+      return `${name} okayed ${meal}`;
     default:
       return `${name} interacted with you`;
   }
@@ -87,7 +103,9 @@ Deno.serve(async (req) => {
       .is('pushed_at', null)
       .gte('created_at', since)
       .in('type', PUSHED)
-      .select('id, user_id, type, post_id, comment_id');
+      // '*' rather than a column list: a database without migration 0044 has
+      // no `detail`, and naming it would stop every push, not just these.
+      .select('*');
     if (error) {
       console.error('notify-activity claim failed', error);
       return json({ error: 'server_error' }, 500);
@@ -124,7 +142,7 @@ Deno.serve(async (req) => {
     const messages = rows.flatMap((r) =>
       [...new Set(tokensOf.get(r.user_id) ?? [])].map((to) => ({
         to,
-        body: activityText(r.type, name, r.comment_id ? texts.get(r.comment_id) : null),
+        body: activityText(r.type, name, r.comment_id ? texts.get(r.comment_id) : null, r.detail),
         sound: 'default',
         data: {
           kind: 'activity',

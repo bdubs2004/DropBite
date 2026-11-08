@@ -250,7 +250,8 @@ export function ShareSheetScreen({ navigation, route }: any) {
                 onShared={sharedOutside}
                 testIDPrefix="share-external"
                 extra={
-                  MEAL_PLANS_ENABLED
+                  // Only a post with a recipe: that's something you can cook.
+                  MEAL_PLANS_ENABLED && post.recipe
                     ? [
                         {
                           key: 'meal-plan',

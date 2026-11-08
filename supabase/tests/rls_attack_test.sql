@@ -1235,6 +1235,17 @@ create function qa.family_meals(family uuid) returns bigint language sql securit
 $$;
 create function qa.then_family_meals(action text, family uuid) returns bigint language plpgsql as $$
 begin execute action; return qa.family_meals(family); end $$;
+-- Activity rows of one kind someone has, after an action (0044).
+create function qa.notes(who uuid, kind text) returns bigint language sql security definer set search_path = '' as $$
+  select count(*) from public.notifications n where n.user_id = who and n.type = kind;
+$$;
+create function qa.then_notes(action text, who uuid, kind text) returns bigint language plpgsql as $$
+begin execute action; return qa.notes(who, kind); end $$;
+create function qa.note_says(who uuid, kind text, words text) returns bigint language sql security definer set search_path = '' as $$
+  select count(*) from public.notifications n where n.user_id = who and n.type = kind and n.detail = words;
+$$;
+create function qa.then_note_says(action text, who uuid, kind text, words text) returns bigint language plpgsql as $$
+begin execute action; return qa.note_says(who, kind, words); end $$;
 grant execute on all functions in schema qa to anon, authenticated;
 
 select qa.check('meal plans', 'a family member sees the family plan', 'bob',
@@ -1283,6 +1294,27 @@ select qa.check('meal plans', 'a member takes back their own waiting meal', 'bob
   $q$select qa.then_state($a$select public.remove_plan_item('fb000000-0000-4000-8000-000000000002')$a$, 'fb000000-0000-4000-8000-000000000002')$q$, 'rows:0');
 select qa.check('meal plans', 'remove a meal from someone else''s own plan', 'alice',
   $q$select qa.then_state($a$select public.remove_plan_item('fb000000-0000-4000-8000-000000000003')$a$, 'fb000000-0000-4000-8000-000000000003')$q$, 'error');
+select qa.check('meal plan activity', 'a member asks for a meal: the admin hears it needs an OK', 'bob',
+  $q$select qa.then_note_says($a$select public.add_plan_item(current_date, 'lunch', null, 'cake')$a$, 'aaaaaaaa-0000-4000-8000-000000000001', 'plan_request', 'cake for ' || to_char(current_date, 'FMDay') || ' lunch')$q$, 'rows:1');
+-- (Bob already has one plan_add, for the pot roast set up above.)
+select qa.check('meal plan activity', 'the admin adds a meal: the family hears', 'alice',
+  $q$select qa.then_notes($a$select public.add_plan_item(current_date, 'lunch', null, 'lasagna')$a$, 'bbbbbbbb-0000-4000-8000-000000000002', 'plan_add')$q$, 'rows:2');
+select qa.check('meal plan activity', 'it names the meal and the day', 'alice',
+  $q$select qa.then_note_says($a$select public.add_plan_item(current_date, 'lunch', null, 'lasagna')$a$, 'bbbbbbbb-0000-4000-8000-000000000002', 'plan_add', 'lasagna for ' || to_char(current_date, 'FMDay') || ' lunch')$q$, 'rows:1');
+select qa.check('meal plan activity', 'someone only invited hears nothing', 'alice',
+  $q$select qa.then_notes($a$select public.add_plan_item(current_date, 'lunch', null, 'lasagna')$a$, 'ffffffff-0000-4000-8000-000000000006', 'plan_add')$q$, 'rows:0');
+select qa.check('meal plan activity', 'nobody outside the family hears', 'alice',
+  $q$select qa.then_notes($a$select public.add_plan_item(current_date, 'lunch', null, 'lasagna')$a$, 'dddddddd-0000-4000-8000-000000000004', 'plan_add')$q$, 'rows:0');
+select qa.check('meal plan activity', 'the admin approves: the member who asked hears', 'alice',
+  $q$select qa.then_notes($a$select public.decide_plan_item('fb000000-0000-4000-8000-000000000002', true)$a$, 'bbbbbbbb-0000-4000-8000-000000000002', 'plan_approved')$q$, 'rows:1');
+select qa.check('meal plan activity', 'the admin drops it: no approval goes out', 'alice',
+  $q$select qa.then_notes($a$select public.decide_plan_item('fb000000-0000-4000-8000-000000000002', false)$a$, 'bbbbbbbb-0000-4000-8000-000000000002', 'plan_approved')$q$, 'rows:0');
+select qa.check('meal plan activity', 'a personal plan tells nobody', 'mallory',
+  $q$select count(*) from (select public.add_plan_item(current_date, 'snack', null, 'chips')) x, public.notifications n where n.actor_id = 'dddddddd-0000-4000-8000-000000000004' and n.type like 'plan%'$q$, 'rows:0');
+select qa.check('meal plan activity', 'write a meal plan notification yourself', 'bob',
+  $q$insert into public.notifications (user_id, actor_id, type, detail) values ('aaaaaaaa-0000-4000-8000-000000000001', 'bbbbbbbb-0000-4000-8000-000000000002', 'plan_approved', 'free pizza')$q$, 'denied');
+select qa.check('meal plan activity', 'read someone else''s meal plan notifications', 'mallory',
+  $q$select count(*) from public.notifications where type like 'plan%' and user_id <> 'dddddddd-0000-4000-8000-000000000004'$q$, 'rows:0');
 select qa.check('families', 'a member (not the admin) invites people', 'bob',
   $q$select count(*) from (select public.invite_to_family('mallory')) x$q$, 'error:Only the family admin');
 select qa.check('families', 'invite someone who blocked you: looks like no such person', 'alice',

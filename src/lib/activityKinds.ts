@@ -18,7 +18,20 @@ export const ACTIVITY_KIND: Record<
   follow_back: { icon: 'people', tone: 'amber', verb: 'followed you back' },
   comment_like: { icon: 'heart', tone: 'danger', verb: 'liked your comment' },
   reply: { icon: 'arrow-undo', tone: 'amberDark', verb: 'replied to your comment' },
+  plan_add: { icon: 'calendar', tone: 'amber', verb: 'added to the meal plan' },
+  plan_request: { icon: 'calendar', tone: 'amberDark', verb: 'asked to add to the meal plan' },
+  plan_approved: { icon: 'checkmark', tone: 'amber', verb: 'okayed your meal plan pick' },
 };
+
+/** Meal plan kinds: they open the plan, and show what and when after the verb. */
+export const IS_PLAN = new Set<NotificationType>(['plan_add', 'plan_request', 'plan_approved']);
+
+/** What follows the verb: the comment's words, or the meal and its day. */
+export function activityExtra(n: { type: NotificationType; comment_text?: string | null; detail?: string | null }): string {
+  if (SHOWS_COMMENT.has(n.type) && n.comment_text) return `: ${n.comment_text}`;
+  if (IS_PLAN.has(n.type) && n.detail) return `: ${n.detail}`;
+  return '';
+}
 
 /** Kinds that carry a comment's words (shown after the verb). */
 export const SHOWS_COMMENT = new Set<NotificationType>(['comment', 'reply', 'comment_like']);
@@ -36,4 +49,7 @@ export const BANNER_KINDS = new Set<NotificationType>([
   'comment_like',
   'follow',
   'follow_back',
+  'plan_add',
+  'plan_request',
+  'plan_approved',
 ]);

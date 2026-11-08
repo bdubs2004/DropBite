@@ -17,7 +17,10 @@ alter table public.notifications drop constraint if exists notifications_type_al
 alter table public.notifications
   add constraint notifications_type_allowed check (
     type in ('like', 'comment', 'repost', 'share', 'tag',
-             'follow', 'follow_back', 'comment_like', 'reply')
+             'follow', 'follow_back', 'comment_like', 'reply',
+             -- Meal plan kinds (0044), listed here too so running this file
+             -- again never trips over them.
+             'plan_add', 'plan_request', 'plan_approved')
   ) not valid;
 
 alter table public.notifications add column if not exists pushed_at timestamptz;
