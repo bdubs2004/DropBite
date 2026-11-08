@@ -97,8 +97,10 @@ export function GroceryScreen({ navigation, route }: any) {
     );
     const byKey = new Map(marks.map((m) => [m.item_key, m]));
     const keys = new Set(fromPlan.map((l) => l.key));
+    // A hand-added "Buttermilk (2 cups)" is the same thing as a recipe's
+    // buttermilk: show the recipe's line only once.
     const custom: GroceryLine[] = marks
-      .filter((m) => m.custom && !keys.has(m.item_key))
+      .filter((m) => m.custom && !keys.has(m.item_key) && !keys.has(itemKey(m.label ?? m.item_key)))
       .map((m) => ({
         key: m.item_key,
         name: m.label ?? m.item_key,

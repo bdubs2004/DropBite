@@ -5,7 +5,7 @@ import { Button } from '../components/ui';
 import { addDays, dayKey, dayName, fromKey, nextSlot, PLAN_SLOTS } from '../lib/mealPlan';
 import { getDataService } from '../services';
 import { fonts, radius, spacing, makeStyles, useColors } from '../theme';
-import { FamilyState, MealSlot } from '../types';
+import { FamilyState, MealSlot, Post } from '../types';
 
 const DAYS_AHEAD = 14;
 
@@ -38,9 +38,11 @@ export function AddToPlanScreen({ navigation, route }: any) {
   const [done, setDone] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const [post, setPost] = useState<Post | null>(null);
   useEffect(() => {
     svc.getFamily().then(setFamily, () => {});
-  }, [svc]);
+    svc.getPost(postId).then(setPost, () => {});
+  }, [svc, postId]);
 
   const add = async () => {
     setBusy(true);
@@ -49,11 +51,24 @@ export function AddToPlanScreen({ navigation, route }: any) {
       await svc.addPlanItem({ date: day, slot, postId });
       const admin = family?.members.find((m) => m.is_admin)?.user.display_name?.split(' ')[0];
       const where = `${dayName(day, today)} ${colors.meal[slot].label.toLowerCase()}`;
-      setDone(
+      const note =
         family?.family && !family.am_admin
           ? `Sent to ${admin ?? 'the admin'} for ${where}`
-          : `Added to ${where}`,
-      );
+          : `Added to ${where}`;
+      // A recipe: ask about the grocery list next, so you can cross off what
+      // you already have.
+      const ingredients = post?.recipe?.ingredients ?? [];
+      if (ingredients.length) {
+        navigation.replace('GroceryAdd', {
+          mode: 'plan',
+          week: day,
+          meal: post?.recipe?.title ?? 'This meal',
+          ingredients,
+          addedNote: note,
+        });
+        return;
+      }
+      setDone(note);
     } catch (e: any) {
       setError(e?.message ?? 'Could not add that meal');
     } finally {

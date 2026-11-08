@@ -490,7 +490,19 @@ function PostCardView({
         ) : null}
         {showRecipe && post.recipe ? (
           <View style={{ marginTop: spacing.md }}>
-            <RecipeCardView recipe={post.recipe} />
+            <RecipeCardView
+              recipe={post.recipe}
+              onAddToGrocery={
+                MEAL_PLANS_ENABLED
+                  ? () =>
+                      navigation.navigate('GroceryAdd', {
+                        mode: 'extra',
+                        meal: post.recipe!.title,
+                        ingredients: post.recipe!.ingredients,
+                      })
+                  : undefined
+              }
+            />
           </View>
         ) : null}
       </View>

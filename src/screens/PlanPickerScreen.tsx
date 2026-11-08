@@ -22,7 +22,7 @@ import { recipeSummary } from '../lib/myRecipe';
 import { getDataService } from '../services';
 import { useApp } from '../state/AppContext';
 import { fonts, photoGrid, radius, spacing, makeStyles, useColors } from '../theme';
-import { Collection, MealSlot, MyRecipe, Post } from '../types';
+import { Collection, Ingredient, MealSlot, MyRecipe, Post } from '../types';
 
 type Tab = 'saved' | 'collections' | 'recipes' | 'new';
 const TABS: { key: Tab; label: string }[] = [
@@ -78,13 +78,25 @@ export function PlanPickerScreen({ navigation, route }: any) {
     if (openCol) svc.getCollectionPosts(openCol.id).then(setColPosts, () => setColPosts([]));
   }, [svc, openCol]);
 
-  const add = async (input: { postId?: string; title?: string; recipeId?: string }) => {
+  /** Planned: if it brings ingredients, ask about the grocery list next. */
+  const done = (meal: string, ingredients: Ingredient[] | undefined) => {
+    if (ingredients?.length) {
+      navigation.replace('GroceryAdd', { mode: 'plan', week: date, meal, ingredients, addedNote: `Added to ${label}` });
+    } else {
+      navigation.goBack();
+    }
+  };
+
+  const add = async (
+    input: { postId?: string; title?: string; recipeId?: string },
+    then?: { meal: string; ingredients?: Ingredient[] },
+  ) => {
     if (busy) return;
     setBusy(true);
     setError(null);
     try {
       await svc.addPlanItem({ date, slot, ...input });
-      navigation.goBack();
+      done(then?.meal ?? input.title ?? 'This meal', then?.ingredients);
     } catch (e: any) {
       setError(e?.message ?? 'Could not add that meal');
       setBusy(false);
@@ -105,7 +117,7 @@ export function PlanPickerScreen({ navigation, route }: any) {
       // Shows up under Recipes next time, even if adding to the plan fails.
       setRecipes(null);
       await svc.addPlanItem({ date, slot, title: name.trim() || saved.title, recipeId: saved.id });
-      navigation.goBack();
+      done(name.trim() || saved.title, saved.ingredients);
     } catch (e: any) {
       setError(e?.message ?? 'Could not add that meal');
       setBusy(false);
@@ -125,7 +137,9 @@ export function PlanPickerScreen({ navigation, route }: any) {
         renderItem={({ item }) => (
           <PostThumb
             post={item}
-            onPress={() => add({ postId: item.id })}
+            onPress={() =>
+              add({ postId: item.id }, { meal: item.recipe?.title ?? 'This meal', ingredients: item.recipe?.ingredients })
+            }
             style={{ width: TILE, height: TILE }}
             radius={photoGrid.radius}
           />
@@ -233,7 +247,7 @@ export function PlanPickerScreen({ navigation, route }: any) {
             renderItem={({ item }) => (
               <Pressable
                 testID={`picker-recipe-${item.id}`}
-                onPress={() => add({ recipeId: item.id, title: item.title })}
+                onPress={() => add({ recipeId: item.id, title: item.title }, { meal: item.title, ingredients: item.ingredients })}
                 style={({ pressed }) => [styles.row, pressed && { opacity: 0.6 }]}
               >
                 <View style={[styles.cover, { backgroundColor: colors.meal[slot].bg }]}>

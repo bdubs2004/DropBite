@@ -200,7 +200,7 @@ export function MealPlanScreen({ navigation }: any) {
     const open = it.post
       ? () => navigation.navigate('PostDetail', { postId: it.post!.id })
       : it.recipe
-        ? () => navigation.navigate('PlanRecipe', { recipe: it.recipe })
+        ? () => navigation.navigate('PlanRecipe', { recipe: it.recipe, planDate: it.plan_date })
         : canGiveRecipe
           ? giveRecipe
           : null;

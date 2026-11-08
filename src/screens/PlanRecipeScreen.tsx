@@ -123,7 +123,18 @@ export function PlanRecipeScreen({ navigation, route }: any) {
           </View>
         ) : (
           <View testID="recipe-view">
-            <RecipeCardView recipe={asCard} />
+            <RecipeCardView
+              recipe={asCard}
+              onAddToGrocery={() =>
+                navigation.navigate('GroceryAdd', {
+                  // From the plan: its ingredients are on that week's list already.
+                  mode: route.params.planDate ? 'plan' : 'extra',
+                  week: route.params.planDate,
+                  meal: recipe.title,
+                  ingredients: recipe.ingredients,
+                })
+              }
+            />
           </View>
         )}
 

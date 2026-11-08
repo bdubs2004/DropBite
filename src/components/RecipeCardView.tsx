@@ -1,6 +1,7 @@
+import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { Text, View } from 'react-native';
-import { fonts, spacing, makeStyles } from '../theme';
+import { Pressable, Text, View } from 'react-native';
+import { fonts, spacing, makeStyles, useColors } from '../theme';
 import { Recipe } from '../types';
 import { NutritionPanel } from './NutritionPanel';
 
@@ -10,8 +11,16 @@ import { NutritionPanel } from './NutritionPanel';
  * above and below, so it reads as part of the post but clearly its own part,
  * like the recipe block in a cooking magazine.
  */
-export function RecipeCardView({ recipe }: { recipe: Recipe }) {
+export function RecipeCardView({
+  recipe,
+  onAddToGrocery,
+}: {
+  recipe: Recipe;
+  /** Offer "Add ingredients to grocery list" at the bottom (meal plans on). */
+  onAddToGrocery?: () => void;
+}) {
   const styles = useStyles();
+  const colors = useColors();
   const meta = [
     recipe.cook_time_minutes ? formatTime(recipe.cook_time_minutes) : null,
     recipe.ingredients.length ? `${recipe.ingredients.length} ingredients` : null,
@@ -61,6 +70,18 @@ export function RecipeCardView({ recipe }: { recipe: Recipe }) {
             source={recipe.nutrition_source ?? null}
           />
         </View>
+      ) : null}
+
+      {onAddToGrocery && recipe.ingredients.length ? (
+        <Pressable
+          testID="recipe-to-grocery"
+          onPress={onAddToGrocery}
+          style={({ pressed }) => [styles.grocery, pressed && { opacity: 0.6 }]}
+          accessibilityRole="button"
+        >
+          <Ionicons name="cart-outline" size={18} color={colors.amberDark} />
+          <Text style={styles.groceryText}>Add ingredients to grocery list</Text>
+        </Pressable>
       ) : null}
     </View>
   );
@@ -142,6 +163,16 @@ const useStyles = makeStyles((colors) => ({
     color: colors.amberDark,
     minWidth: 20,
   },
+  grocery: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderColor: colors.hairline,
+  },
+  groceryText: { fontFamily: fonts.bold, fontSize: 14.5, color: colors.amberDark },
   ingText: {
     fontFamily: fonts.semi,
     fontSize: 14.5,
