@@ -675,6 +675,12 @@ export function ProfileScreen({ navigation, route }: any) {
                       onPress: () => navigation.navigate('MealPlan'),
                     },
                     {
+                      key: 'grocery',
+                      label: 'Grocery list',
+                      icon: 'cart-outline',
+                      onPress: () => navigation.navigate('Grocery'),
+                    },
+                    {
                       key: 'family',
                       label: 'Family',
                       icon: 'home-outline',

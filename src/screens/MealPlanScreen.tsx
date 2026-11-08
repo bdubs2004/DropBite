@@ -279,16 +279,25 @@ export function MealPlanScreen({ navigation }: any) {
         <Text style={styles.title} numberOfLines={1}>
           {family?.family?.name ?? 'Meal plan'}
         </Text>
-        <Pressable
-          testID="plan-family"
-          onPress={() => navigation.navigate('Family')}
-          hitSlop={10}
-          style={[styles.side, { justifyContent: 'flex-end' }]}
-          accessibilityLabel="Family"
-        >
-          <Ionicons name="people-outline" size={22} color={colors.cocoa} />
-          {family?.invites.length ? <View style={styles.badge} /> : null}
-        </Pressable>
+        <View style={[styles.side, { justifyContent: 'flex-end', gap: spacing.md }]}>
+          <Pressable
+            testID="plan-grocery"
+            onPress={() => navigation.navigate('Grocery', { week: weekStart(selected) })}
+            hitSlop={8}
+            accessibilityLabel="Grocery list"
+          >
+            <Ionicons name="cart-outline" size={23} color={colors.cocoa} />
+          </Pressable>
+          <Pressable
+            testID="plan-family"
+            onPress={() => navigation.navigate('Family')}
+            hitSlop={8}
+            accessibilityLabel="Family"
+          >
+            <Ionicons name="people-outline" size={22} color={colors.cocoa} />
+            {family?.invites.length ? <View style={styles.badge} /> : null}
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.tabs}>

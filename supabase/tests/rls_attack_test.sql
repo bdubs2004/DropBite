@@ -378,7 +378,7 @@ select qa.fact('schema', 'signed in, only the functions the app needs are callab
      join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'public' and p.prokind = 'f' and p.prorettype <> 'trigger'::regtype
        and has_function_privilege('authenticated', p.oid, 'execute')$q$,
-  'add_plan_item,can_reply_under,check_request,claim_referral,conversation_has_block,create_family,decide_plan_item,delete_family,follow_counts,get_post_preview,invite_to_family,is_blocked_pair,is_conversation_member,leave_conversation,leave_family,log_event,log_post_views,my_family_id,plain_text_ok,recipe_ingredients_ok,recipe_nutrition_ok,recipe_steps_ok,remove_family_member,remove_plan_item,respond_family_invite,start_conversation,start_group_conversation,vote_plan_item');
+  'add_grocery_item,add_plan_item,can_reply_under,check_request,claim_referral,conversation_has_block,create_family,decide_plan_item,delete_family,follow_counts,get_post_preview,invite_to_family,is_blocked_pair,is_conversation_member,leave_conversation,leave_family,log_event,log_post_views,my_family_id,plain_text_ok,recipe_ingredients_ok,recipe_nutrition_ok,recipe_steps_ok,remove_family_member,remove_grocery_item,remove_plan_item,respond_family_invite,set_grocery_item,start_conversation,start_group_conversation,vote_plan_item');
 
 -- =======================================================================
 -- 2. Profiles
@@ -928,7 +928,7 @@ select qa.check('spam', 'one person''s limit doesn''t touch anyone else''s', 'al
 select qa.fact('spam', 'everything people can create is rate limited',
   $q$select string_agg(c.relname || ':' || t.tgname, ',' order by c.relname) from pg_trigger t join pg_class c on c.oid = t.tgrelid
      where t.tgfoid = 'public.limit_rate()'::regprocedure and not t.tgisinternal$q$,
-  'collections:collections_limit_rate,comment_reactions:comment_reactions_limit_rate,comments:comments_limit_rate,conversations:conversations_limit_rate,families:families_limit_rate,family_members:family_members_limit_rate,feedback:feedback_limit_rate,follows:follows_limit_rate,meal_plan_items:meal_plan_items_limit_rate,meal_plan_votes:meal_plan_votes_limit_rate,message_reactions:message_reactions_limit_rate,messages:messages_limit_rate,my_recipes:my_recipes_limit_rate,post_tags:post_tags_limit_rate,posts:posts_limit_rate,reactions:reactions_limit_rate,reports:reports_limit_rate,reposts:reposts_limit_rate,shares:shares_limit_rate');
+  'collections:collections_limit_rate,comment_reactions:comment_reactions_limit_rate,comments:comments_limit_rate,conversations:conversations_limit_rate,families:families_limit_rate,family_members:family_members_limit_rate,feedback:feedback_limit_rate,follows:follows_limit_rate,grocery_items:grocery_items_limit_rate,meal_plan_items:meal_plan_items_limit_rate,meal_plan_votes:meal_plan_votes_limit_rate,message_reactions:message_reactions_limit_rate,messages:messages_limit_rate,my_recipes:my_recipes_limit_rate,post_tags:post_tags_limit_rate,posts:posts_limit_rate,reactions:reactions_limit_rate,reports:reports_limit_rate,reposts:reposts_limit_rate,shares:shares_limit_rate');
 select qa.check('spam', 'read or reset anyone''s rate-limit counters', 'mallory',
   $q$select count(*) from public.action_usage$q$, 'denied');
 
@@ -1220,6 +1220,9 @@ insert into public.my_recipes (id, user_id, title, ingredients, steps) values
   ('fc000000-0000-4000-8000-000000000001', 'aaaaaaaa-0000-4000-8000-000000000001', 'Pot roast', '[{"item":"chuck roast","quantity":"3","unit":"lb"}]', '["Sear it","Braise 3 hours"]'),
   ('fc000000-0000-4000-8000-000000000002', 'dddddddd-0000-4000-8000-000000000004', 'Tacos', '[]', '[]');
 update public.meal_plan_items set recipe_id = 'fc000000-0000-4000-8000-000000000001' where id = 'fb000000-0000-4000-8000-000000000001';
+-- Grocery lists (0046): the Smiths already have eggs; Mallory's own list has chips.
+insert into public.grocery_items (family_id, week_start, item_key, have) values ('fa000000-0000-4000-8000-000000000001', date_trunc('week', current_date)::date, 'eggs', true);
+insert into public.grocery_items (user_id, week_start, item_key, custom, label) values ('dddddddd-0000-4000-8000-000000000004', date_trunc('week', current_date)::date, 'chips', true, 'Chips');
 
 -- Where a meal stands after an action: 0 gone, 1 waiting, 2 on the plan.
 create function qa.plan_state(item uuid) returns bigint language sql security definer set search_path = '' as $$
@@ -1253,6 +1256,16 @@ begin execute action; return qa.notes(who, kind); end $$;
 create function qa.note_says(who uuid, kind text, words text) returns bigint language sql security definer set search_path = '' as $$
   select count(*) from public.notifications n where n.user_id = who and n.type = kind and n.detail = words;
 $$;
+-- How many rows a list has (a family's or a person's own), after an action.
+create function qa.list_rows(owner uuid) returns bigint language sql security definer set search_path = '' as $$
+  select count(*) from public.grocery_items g where coalesce(g.family_id, g.user_id) = owner;
+$$;
+create function qa.then_list_rows(action text, owner uuid) returns bigint language plpgsql as $$
+begin execute action; return qa.list_rows(owner); end $$;
+create function qa.then_has(action text, owner uuid, k text) returns bigint language plpgsql as $$
+begin execute action;
+  return (select count(*) from public.grocery_items g where coalesce(g.family_id, g.user_id) = owner and g.item_key = k and g.have);
+end $$;
 create function qa.then_note_says(action text, who uuid, kind text, words text) returns bigint language plpgsql as $$
 begin execute action; return qa.note_says(who, kind, words); end $$;
 grant execute on all functions in schema qa to anon, authenticated;
@@ -1342,6 +1355,34 @@ select qa.check('my recipes', 'put someone else''s recipe on your plan', 'bob',
   $q$select public.add_plan_item(current_date, 'lunch', null, null, 'fc000000-0000-4000-8000-000000000001')$q$, 'error:That recipe isn');
 select qa.check('my recipes', 'your own recipe goes on your plan', 'mallory',
   $q$select qa.add_state($a$select public.add_plan_item(current_date, 'lunch', null, null, 'fc000000-0000-4000-8000-000000000002')$a$)$q$, 'rows:2');
+select qa.check('groceries', 'the family shares one list', 'bob',
+  $q$select count(*) from public.grocery_items where family_id = 'fa000000-0000-4000-8000-000000000001'$q$, 'rows:1');
+select qa.check('groceries', 'an outsider can''t see it', 'mallory',
+  $q$select count(*) from public.grocery_items where family_id = 'fa000000-0000-4000-8000-000000000001'$q$, 'rows:0');
+select qa.check('groceries', 'someone only invited can''t see it yet', 'dave',
+  $q$select count(*) from public.grocery_items where family_id = 'fa000000-0000-4000-8000-000000000001'$q$, 'rows:0');
+select qa.check('groceries', 'read someone''s own list', 'alice',
+  $q$select count(*) from public.grocery_items where user_id = 'dddddddd-0000-4000-8000-000000000004'$q$, 'rows:0');
+select qa.check('groceries', 'write to a list directly, skipping the rules', 'bob',
+  $q$insert into public.grocery_items (family_id, week_start, item_key) values ('fa000000-0000-4000-8000-000000000001', current_date, 'cake')$q$, 'denied');
+select qa.check('groceries', 'a member ticks something: it''s on the family list', 'bob',
+  $q$select qa.then_list_rows($a$select public.set_grocery_item(current_date, 'Milk', true, false)$a$, 'fa000000-0000-4000-8000-000000000001')$q$, 'rows:2');
+select qa.check('groceries', 'not on their own list', 'bob',
+  $q$select qa.then_list_rows($a$select public.set_grocery_item(current_date, 'Milk', true, false)$a$, 'bbbbbbbb-0000-4000-8000-000000000002')$q$, 'rows:0');
+select qa.check('groceries', 'ticking the same thing again is still one row', 'alice',
+  $q$select qa.then_list_rows($a$select public.set_grocery_item(current_date, 'EGGS', false, true)$a$, 'fa000000-0000-4000-8000-000000000001')$q$, 'rows:1');
+select qa.check('groceries', 'unticking "have it" sticks', 'alice',
+  $q$select qa.then_has($a$select public.set_grocery_item(current_date, 'eggs', false, false)$a$, 'fa000000-0000-4000-8000-000000000001', 'eggs')$q$, 'rows:0');
+select qa.check('groceries', 'no family: your own list', 'mallory',
+  $q$select qa.then_list_rows($a$select public.add_grocery_item(current_date, 'Paper towels')$a$, 'dddddddd-0000-4000-8000-000000000004')$q$, 'rows:2');
+select qa.check('groceries', 'take something off', 'alice',
+  $q$select qa.then_list_rows($a$select public.remove_grocery_item(current_date, 'eggs')$a$, 'fa000000-0000-4000-8000-000000000001')$q$, 'rows:0');
+select qa.check('groceries', 'an outsider can''t take things off a family list', 'mallory',
+  $q$select qa.then_list_rows($a$select public.remove_grocery_item(current_date, 'eggs')$a$, 'fa000000-0000-4000-8000-000000000001')$q$, 'rows:1');
+select qa.check('groceries', 'an item can''t hide direction-flipping characters', 'mallory',
+  $q$select public.add_grocery_item(current_date, E'milk\u202Eevil')$q$, 'error');
+select qa.check('groceries', 'a week years away', 'mallory',
+  $q$select public.add_grocery_item(current_date + 2000, 'milk')$q$, 'error:Pick a week');
 select qa.check('families', 'a member (not the admin) invites people', 'bob',
   $q$select count(*) from (select public.invite_to_family('mallory')) x$q$, 'error:Only the family admin');
 select qa.check('families', 'invite someone who blocked you: looks like no such person', 'alice',

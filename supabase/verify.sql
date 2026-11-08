@@ -46,7 +46,8 @@ expected_columns(tbl, col, fixed_by) as (
     ('posts',        'price_level',           '0040_price_level.sql'),
     ('notifications','detail',                '0044_meal_plan_notifications.sql'),
     ('notifications','plan_item_id',          '0044_meal_plan_notifications.sql'),
-    ('meal_plan_items','recipe_id',           '0045_my_recipes.sql')
+    ('meal_plan_items','recipe_id',           '0045_my_recipes.sql'),
+    ('grocery_items','item_key',              '0046_grocery_list.sql')
 ),
 
 -- Functions the policies call. A missing one breaks every policy that uses it.

@@ -27,6 +27,7 @@ import {
   Family,
   FamilyInviteResult,
   FamilyState,
+  GroceryMark,
   MealPlanItem,
   MyRecipe,
   MyRecipeInput,
@@ -124,6 +125,8 @@ interface Db {
   }[];
   planVotes?: { item_id: string; user_id: string; approve: boolean }[];
   myRecipes?: MyRecipe[];
+  /** Grocery ticks per list (family id, or your user id) and week. */
+  groceryMarks?: (GroceryMark & { owner: string; week_start: string })[];
   blocks: { blocker_id: string; blocked_id: string }[];
   reports: Report[];
   feedback: Feedback[];
@@ -367,6 +370,7 @@ export class MockService implements DataService {
       const left = new Set(db.planItems.map((i) => i.id));
       db.planVotes = t.votes.filter((v) => v.user_id !== meId && left.has(v.item_id));
       db.myRecipes = (db.myRecipes ?? []).filter((r) => r.user_id !== meId);
+      db.groceryMarks = (db.groceryMarks ?? []).filter((m) => m.owner !== meId && !mine.has(m.owner));
     }
     db.streaks = db.streaks.filter((s) => s.user_id !== meId);
     db.credentials = db.credentials.filter((c) => c.userId !== meId);
@@ -2125,6 +2129,57 @@ export class MockService implements DataService {
     await this.save();
   }
 
+  /** Whose list you're on: your family's, else your own (mirrors 0046). */
+  private groceryOwner(db: Db, meId: string): string {
+    return this.myFamily(db, meId)?.id ?? meId;
+  }
+
+  async getGroceryMarks(weekStart: string): Promise<GroceryMark[]> {
+    const db = await this.load();
+    const me = await this.me();
+    const owner = this.groceryOwner(db, me.id);
+    return (db.groceryMarks ?? [])
+      .filter((m) => m.owner === owner && m.week_start === weekStart)
+      .map(({ owner: _o, week_start: _w, ...m }) => m);
+  }
+
+  async setGroceryItem(weekStart: string, key: string, have: boolean, got: boolean): Promise<void> {
+    const db = await this.load();
+    const me = await this.me();
+    const owner = this.groceryOwner(db, me.id);
+    const k = key.trim().toLowerCase();
+    db.groceryMarks ??= [];
+    const m = db.groceryMarks.find((x) => x.owner === owner && x.week_start === weekStart && x.item_key === k);
+    if (m) Object.assign(m, { have, got });
+    else db.groceryMarks.push({ owner, week_start: weekStart, item_key: k, custom: false, label: null, have, got });
+    await this.save();
+  }
+
+  async addGroceryItem(weekStart: string, label: string): Promise<string> {
+    const db = await this.load();
+    const me = await this.me();
+    const owner = this.groceryOwner(db, me.id);
+    const l = label.trim().slice(0, 80);
+    if (!l) throw new Error('Type what to add.');
+    const k = l.toLowerCase();
+    db.groceryMarks ??= [];
+    const m = db.groceryMarks.find((x) => x.owner === owner && x.week_start === weekStart && x.item_key === k);
+    if (m) Object.assign(m, { custom: true, label: l });
+    else db.groceryMarks.push({ owner, week_start: weekStart, item_key: k, custom: true, label: l, have: false, got: false });
+    await this.save();
+    return k;
+  }
+
+  async removeGroceryItem(weekStart: string, key: string): Promise<void> {
+    const db = await this.load();
+    const me = await this.me();
+    const owner = this.groceryOwner(db, me.id);
+    db.groceryMarks = (db.groceryMarks ?? []).filter(
+      (x) => !(x.owner === owner && x.week_start === weekStart && x.item_key === key),
+    );
+    await this.save();
+  }
+
   async getFamily(): Promise<FamilyState> {
     const db = await this.load();
     const me = await this.me();
@@ -2230,6 +2285,7 @@ export class MockService implements DataService {
     db.familyMembers = t.members.filter((m) => m.family_id !== fam.id);
     db.planItems = t.items.filter((i) => !gone.has(i.id));
     db.planVotes = t.votes.filter((v) => !gone.has(v.item_id));
+    db.groceryMarks = (db.groceryMarks ?? []).filter((m) => m.owner !== fam.id);
     await this.save();
   }
 

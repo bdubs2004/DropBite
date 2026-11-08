@@ -190,6 +190,7 @@ rebuild it after adding a migration. For reference, what each one adds:
 | `0043_meal_plans.sql` | Meal plans and families: a week of meals from saved posts, collections or a typed name, on your own plan or a family's shared one. The family admin's picks go straight on, everyone else's wait for the admin, members vote and the admin has the last word. Hidden in the app until `EXPO_PUBLIC_MEAL_PLANS=1` (see `src/config.ts`), so it can run any time before that |
 | `0044_meal_plan_notifications.sql` | Meal plan Activity and pushes: the family hears when someone adds or asks for a meal, and you hear when the admin okays yours. Redeploy `notify-activity` after it |
 | `0045_my_recipes.sql` | Recipe cards on meals you type into the plan (written by hand or formatted by the AI), saved to your Recipes to plan again |
+| `0046_grocery_list.sql` | The grocery list built from the week's meal plan: ticks for "have it" and "got it" and items added by hand, shared with your family |
 
 They are all safe to run twice, and so is `schema.sql` itself. What re-running
 `schema.sql` will **not** do is add a column to a table that already exists —

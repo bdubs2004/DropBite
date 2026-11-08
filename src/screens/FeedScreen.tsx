@@ -11,11 +11,12 @@ import {
   Text,
   View,
   ViewToken,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LogoLockup } from '../components/Logo';
+import { LogoLockup, LogoMark } from '../components/Logo';
 import { MEAL_PLANS_ENABLED } from '../config';
 import { useZooming } from '../components/PinchZoom';
 import { PostCard } from '../components/PostCard';
@@ -33,6 +34,8 @@ export function FeedScreen({ navigation }: any) {
   const colors = useColors();
   const { feed, feedLoading, refreshFeed, streak, user } = useApp();
   const insets = useSafeAreaInsets();
+  const { width: screenW } = useWindowDimensions();
+  const compact = MEAL_PLANS_ENABLED && screenW < 360;
   // Hold the list still while a photo in it is being pinched.
   const zooming = useZooming();
   const svc = getDataService();
@@ -225,7 +228,9 @@ export function FeedScreen({ navigation }: any) {
           accessibilityLabel="Refresh feed"
           style={({ pressed }) => (pressed ? { opacity: 0.7 } : null)}
         >
-          <LogoLockup height={30} />
+          {/* Five buttons on a small phone (or one set to Display Zoom): just
+              the mark, so they all fit without squeezing. */}
+          {compact ? <LogoMark size={30} /> : <LogoLockup height={30} />}
         </Pressable>
         <View
           style={[styles.headerRight, MEAL_PLANS_ENABLED && styles.headerButtons]}
@@ -235,16 +240,26 @@ export function FeedScreen({ navigation }: any) {
           <Pressable
             testID="mealplan-pill"
             onPress={() => navigation.navigate('MealPlan')}
-            style={({ pressed }) => [styles.streakPill, pressed && { opacity: 0.8 }]}
+            style={({ pressed }) => [styles.streakPill, MEAL_PLANS_ENABLED && styles.pillTight, pressed && { opacity: 0.8 }]}
             accessibilityLabel="Meal plan"
           >
             <Ionicons name="calendar" size={15} color={colors.amber} />
           </Pressable>
         ) : null}
+        {MEAL_PLANS_ENABLED ? (
+          <Pressable
+            testID="grocery-pill"
+            onPress={() => navigation.navigate('Grocery')}
+            style={({ pressed }) => [styles.streakPill, styles.pillTight, pressed && { opacity: 0.8 }]}
+            accessibilityLabel="Grocery list"
+          >
+            <Ionicons name="cart" size={16} color={colors.amber} />
+          </Pressable>
+        ) : null}
         <Pressable
           testID="streak-pill"
           onPress={() => navigation.navigate('Leaderboard')}
-          style={({ pressed }) => [styles.streakPill, pressed && { opacity: 0.8 }]}
+          style={({ pressed }) => [styles.streakPill, MEAL_PLANS_ENABLED && styles.pillTight, pressed && { opacity: 0.8 }]}
           accessibilityLabel="Streak leaderboard"
         >
           <Ionicons name="flame" size={15} color={colors.amber} />
@@ -253,7 +268,7 @@ export function FeedScreen({ navigation }: any) {
         <Pressable
           testID="bell-pill"
           onPress={() => navigation.navigate('Notifications')}
-          style={({ pressed }) => [styles.streakPill, pressed && { opacity: 0.8 }]}
+          style={({ pressed }) => [styles.streakPill, MEAL_PLANS_ENABLED && styles.pillTight, pressed && { opacity: 0.8 }]}
           accessibilityLabel="Activity"
         >
           <Ionicons name="notifications" size={15} color={colors.amber} />
@@ -266,7 +281,7 @@ export function FeedScreen({ navigation }: any) {
         <Pressable
           testID="inbox-pill"
           onPress={() => navigation.navigate('Inbox')}
-          style={({ pressed }) => [styles.streakPill, pressed && { opacity: 0.8 }]}
+          style={({ pressed }) => [styles.streakPill, MEAL_PLANS_ENABLED && styles.pillTight, pressed && { opacity: 0.8 }]}
           accessibilityLabel="Messages"
         >
           <Ionicons name="paper-plane" size={15} color={colors.amber} />
@@ -393,7 +408,10 @@ const useStyles = makeStyles((colors) => ({
     flex: 1,
     justifyContent: 'center',
     marginLeft: spacing.md,
+    gap: 6,
   },
+  // Five across: a touch smaller so they fit every phone.
+  pillTight: { height: 32, minWidth: 32, paddingHorizontal: 8 },
   unreadDot: {
     minWidth: 18,
     height: 18,

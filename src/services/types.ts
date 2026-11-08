@@ -6,6 +6,7 @@ import {
   FeedbackKind,
   FamilyInviteResult,
   FamilyState,
+  GroceryMark,
   MealPlanItem,
   MyRecipe,
   MyRecipeInput,
@@ -349,6 +350,15 @@ export interface DataService {
   decidePlanItem(itemId: string, keep: boolean): Promise<void>;
   /** Family members (not the admin): yes, no, or null to take your vote back. */
   votePlanItem(itemId: string, approve: boolean | null): Promise<void>;
+  // grocery list: worked out from the week's plan; this is what's been ticked
+  /** What's ticked or added on the list for the week starting on this Monday. */
+  getGroceryMarks(weekStart: string): Promise<GroceryMark[]>;
+  /** Tick or untick an item: already have it, or got it at the store. */
+  setGroceryItem(weekStart: string, key: string, have: boolean, got: boolean): Promise<void>;
+  /** Add something the recipes don't cover. Returns its key. */
+  addGroceryItem(weekStart: string, label: string): Promise<string>;
+  /** Take an item off (or reset a recipe item's ticks). */
+  removeGroceryItem(weekStart: string, key: string): Promise<void>;
   getFamily(): Promise<FamilyState>;
   createFamily(name: string): Promise<void>;
   inviteToFamily(handle: string): Promise<FamilyInviteResult>;

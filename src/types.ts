@@ -456,4 +456,17 @@ export interface MealPlanItem {
   in_family: boolean;
 }
 
+/** What's been done with one grocery list item this week (0046). */
+export interface GroceryMark {
+  /** The ingredient, lower case and singular ("ground beef"). */
+  item_key: string;
+  /** Added by hand rather than from a recipe; label is how it was written. */
+  custom: boolean;
+  label: string | null;
+  /** Already at home. */
+  have: boolean;
+  /** In the cart. */
+  got: boolean;
+}
+
 export type FamilyInviteResult = 'ok' | 'not_found' | 'self' | 'already' | 'full';

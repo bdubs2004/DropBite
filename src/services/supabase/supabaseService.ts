@@ -15,6 +15,7 @@ import {
   Family,
   FamilyInviteResult,
   FamilyState,
+  GroceryMark,
   MealPlanItem,
   MyRecipe,
   MyRecipeInput,
@@ -2311,6 +2312,35 @@ export class SupabaseService implements DataService {
 
   async votePlanItem(itemId: string, approve: boolean | null): Promise<void> {
     await this.rpcOrThrow('vote_plan_item', { item: itemId, approve }, 'Could not save your vote.');
+  }
+
+  async getGroceryMarks(weekStart: string): Promise<GroceryMark[]> {
+    await this.myId();
+    // RLS returns only the list you're on: your family's, or your own.
+    const { data, error } = await this.sb
+      .from('grocery_items')
+      .select('item_key, custom, label, have, got')
+      .eq('week_start', weekStart);
+    if (error) throw new Error(planError(error, 'Could not load the grocery list.'));
+    return (data ?? []).map((r: any) => ({
+      item_key: String(r.item_key ?? ''),
+      custom: Boolean(r.custom),
+      label: typeof r.label === 'string' ? r.label : null,
+      have: Boolean(r.have),
+      got: Boolean(r.got),
+    }));
+  }
+
+  async setGroceryItem(weekStart: string, key: string, have: boolean, got: boolean): Promise<void> {
+    await this.rpcOrThrow('set_grocery_item', { week: weekStart, item: key, has_it: have, got_it: got }, 'Could not save that.');
+  }
+
+  async addGroceryItem(weekStart: string, label: string): Promise<string> {
+    return String(await this.rpcOrThrow('add_grocery_item', { week: weekStart, item_label: label.trim() }, 'Could not add that.'));
+  }
+
+  async removeGroceryItem(weekStart: string, key: string): Promise<void> {
+    await this.rpcOrThrow('remove_grocery_item', { week: weekStart, item: key }, 'Could not remove that.');
   }
 
   async getFamily(): Promise<FamilyState> {
